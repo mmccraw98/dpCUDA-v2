@@ -1,40 +1,49 @@
-# makefile
-CUDA_PATH ?= /usr/local/cuda
-NVCC := $(CUDA_PATH)/bin/nvcc
-CXX := g++
+# Makefile
 
-INCLUDES := -Iinclude
-CXXFLAGS := -std=c++17
-NVCCFLAGS := -arch=sm_50
-LDFLAGS := -L$(CUDA_PATH)/lib64 -lcudart
+# Compiler and flags
+CXX = g++
+NVCC = nvcc
+CXXFLAGS = -Iinclude -std=c++11
+NVCCFLAGS = -Iinclude -std=c++11
 
-SRCS := main.cpp src/particles/Particle.cu src/kernels/UtilityKernels.cu
-OBJS := bin/main.o bin/particles/Particle.o bin/kernels/UtilityKernels.o
+# Directories
+INCLUDE_DIR = include
+SRC_DIR = src
+OBJ_DIR = obj
+BIN_DIR = bin
 
-all: main
+# Source files
+CPP_SOURCES = main.cpp
+CUDA_SOURCES = $(wildcard $(SRC_DIR)/**/*.cu)
 
-main: $(OBJS)
-	$(CXX) $(CXXFLAGS) -o $@ $(OBJS) $(LDFLAGS)
+# Object files
+CPP_OBJECTS = $(OBJ_DIR)/main.o
+CUDA_OBJECTS = $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(CUDA_SOURCES))
 
-bin/main.o: main.cpp | bin
-	$(CXX) $(CXXFLAGS) $(INCLUDES) -c $< -o $@
+# Target executable
+TARGET = $(BIN_DIR)/simulation
 
-bin/particles/Particle.o: src/particles/Particle.cu | bin/particles
-	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -c $< -o $@
+# Default target
+all: $(TARGET)
 
-bin/kernels/UtilityKernels.o: src/kernels/UtilityKernels.cu | bin/kernels
-	$(NVCC) $(NVCCFLAGS) $(INCLUDES) -c $< -o $@
+# Link the executable
+$(TARGET): $(CPP_OBJECTS) $(CUDA_OBJECTS)
+	@mkdir -p $(BIN_DIR)
+	$(NVCC) $^ -o $@
 
-bin:
-	mkdir -p bin
+# Compile main.cpp
+$(OBJ_DIR)/main.o: main.cpp
+	@mkdir -p $(OBJ_DIR)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-bin/particles:
-	mkdir -p bin/particles
+# Compile CUDA source files
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
+	@mkdir -p $(dir $@)
+	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-bin/kernels:
-	mkdir -p bin/kernels
-
+# Clean up
 clean:
-	rm -f $(OBJS) main
+	rm -rf $(OBJ_DIR) $(BIN_DIR)
 
-.PHONY: clean
+# Phony targets
+.PHONY: all clean

@@ -1,7 +1,7 @@
+// main.cpp
 #include <iostream>
-#include "particles/Particle.h"
 
 int main() {
-    std::cout << "Molecular Dynamics Simulation" << std::endl;
+    std::cout << "Minimal CUDA Thrust and C++ Project" << std::endl;
     return 0;
 }

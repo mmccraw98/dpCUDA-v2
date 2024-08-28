@@ -1,10 +1,4 @@
-#include "particles/Particle.h"
+// src/particles/Particle.cu
+#include "particles/Particle.cuh"
 
-Particle::Particle(float mass)
-    : mass(mass) {}
-
-void Particle::updatePosition(float dt) {
-}
-
-void Particle::updateVelocity(float dt) {
-}
+// Implementation of Particle methods if needed

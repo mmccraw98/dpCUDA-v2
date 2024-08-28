@@ -26,7 +26,7 @@ inline __device__ double pbcDistance(const double x1, const double x2, const lon
  */
 inline __device__ double calcNormSq(const double* segment) {
 	double norm_sq = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
 	for (long dim = 0; dim < d_nDim; dim++) {
 		norm_sq += segment[dim] * segment[dim];
 	}
@@ -51,7 +51,7 @@ inline __device__ double calcNorm(const double* segment) {
  */
 inline __device__ double normalizeVector(double* segment) {
 	double norm = calcNorm(segment);
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
 	for (long dim = 0; dim < d_nDim; dim++) {
 		segment[dim] /= norm;
 	}
@@ -67,7 +67,7 @@ inline __device__ double normalizeVector(double* segment) {
  */
 inline __device__ double dotProduct(const double* segment1, const double* segment2) {
 	double dot_prod = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
 	for (long dim = 0; dim < d_nDim; dim++) {
 		dot_prod += segment1[dim] * segment2[dim];
 	}
@@ -82,8 +82,8 @@ inline __device__ double dotProduct(const double* segment1, const double* segmen
  * @param delta_vec delta_vec = segment1 - segment2 - overwrites the value of delta_vec
  */
 inline __device__ void calcDelta(const double* segment1, const double* segment2, double* delta_vec) {
-	#pragma unroll (MAXDIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+	#pragma unroll (N_DIM)
+  	for (long dim = 0; dim < N_DIM; dim++) {
     	delta_vec[dim] = segment1[dim] - segment2[dim];
   	}
 }
@@ -97,7 +97,7 @@ inline __device__ void calcDelta(const double* segment1, const double* segment2,
  */
 inline __device__ double calcDistance(const double* segment1, const double* segment2) {
 	double dist_dim, distance_sq = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
   	for (long dim = 0; dim < d_nDim; dim++) {
     	dist_dim = segment1[dim] - segment2[dim];
     	distance_sq += dist_dim * dist_dim;
@@ -115,7 +115,7 @@ inline __device__ double calcDistance(const double* segment1, const double* segm
  */
 inline __device__ double calcDeltaAndDistance(const double* segment1, const double* segment2, double* delta_vec) {
 	double dist_dim, distance_sq = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
   	for (long dim = 0; dim < d_nDim; dim++) {
     	dist_dim = segment1[dim] - segment2[dim];
         delta_vec[dim] = dist_dim;
@@ -132,7 +132,7 @@ inline __device__ double calcDeltaAndDistance(const double* segment1, const doub
  * @param delta_vec delta_vec = Vector 1 - Vector 2 in Periodic Boundary Conditions - overwrites the value of delta_vec
  */
 inline __device__ void calcDeltaPBC(const double* segment1, const double* segment2, double* delta_vec) {
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
   	for (long dim = 0; dim < d_nDim; dim++) {
     	delta_vec[dim] = pbcDistance(segment1[dim], segment2[dim], dim);
   	}
@@ -147,7 +147,7 @@ inline __device__ void calcDeltaPBC(const double* segment1, const double* segmen
  */
 inline __device__ double calcDistancePBC(const double* segment1, const double* segment2) {
   	double dist_dim, distance_sq = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
   	for (long dim = 0; dim < d_nDim; dim++) {
     	dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
     	distance_sq += dist_dim * dist_dim;
@@ -165,7 +165,7 @@ inline __device__ double calcDistancePBC(const double* segment1, const double* s
  */
 inline __device__ double calcDeltaAndDistancePBC(const double* segment1, const double* segment2, double* delta_vec) {
 	double dist_dim, distance_sq = 0.;
-	#pragma unroll (MAXDIM)
+	#pragma unroll (N_DIM)
   	for (long dim = 0; dim < d_nDim; dim++) {
     	dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
     	distance_sq += dist_dim * dist_dim;

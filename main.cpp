@@ -9,6 +9,11 @@ int main() {
     disk.updatePositions(0.1);
     disk.updateMomenta(0.1);
 
+    thrust::host_vector<double> host_positions = disk.getArray<double>("d_positions");
+    for (int i = 0; i < 10; i++) {
+        std::cout << host_positions[i] << std::endl;
+    }
+
     std::cout << "Done" << std::endl;
     return 0;
 }

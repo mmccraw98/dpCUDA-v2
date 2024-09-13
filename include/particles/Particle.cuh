@@ -121,7 +121,7 @@ public:
             throw std::runtime_error("Array not found: " + array_name);
         }
     }
-    // ------------------- Simulation Methods --------------------
+    // ------------------- Utility Methods --------------------
 
     void setBoxSize(thrust::host_vector<double> &box_size) {
         std::cout << "Particle::setBoxSize" << std::endl;
@@ -133,7 +133,7 @@ public:
         }
 
         // Copy the host vector to the device constant memory
-        cudaError_t err = cudaMemcpyToSymbol(d_box_size, box_size.data(),
+        cudaError_t err = cudaMemcpyToSymbol(d_box_size, &box_size,
                                             N_DIM * sizeof(double), 0,
                                             cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {
@@ -170,6 +170,8 @@ public:
         thrust::fill(box_size.begin(), box_size.end(), side_length);
         setBoxSize(box_size);
     }
+
+    // ------------------- Simulation Methods --------------------
 
     void updatePositions(double dt) {
         std::cout << "Particle::updatePositions" << std::endl;

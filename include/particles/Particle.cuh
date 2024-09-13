@@ -59,7 +59,6 @@ public:
         array_map["d_masses"]           = &d_masses;
         array_map["d_potential_energy"] = &d_potential_energy;
         array_map["d_kinetic_energy"]   = &d_kinetic_energy;
-        array_map["d_box_size"]         = &d_box_size;
 
         // Long arrays
         array_map["d_neighbor_list"]    = &d_neighbor_list;
@@ -132,8 +131,13 @@ public:
                     << ") does not match N_DIM (" << N_DIM << ")." << std::endl;
         }
 
+        double host_box_size[N_DIM];
+        for (long i = 0; i < N_DIM; i++) {
+            host_box_size[i] = box_size[i];
+        }
+
         // Copy the host vector to the device constant memory
-        cudaError_t err = cudaMemcpyToSymbol(d_box_size, &box_size,
+        cudaError_t err = cudaMemcpyToSymbol(d_box_size, host_box_size,
                                             N_DIM * sizeof(double), 0,
                                             cudaMemcpyHostToDevice);
         if (err != cudaSuccess) {

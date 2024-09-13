@@ -15,31 +15,32 @@ SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-# Source files
-CPP_SOURCES = main.cpp
-CUDA_SOURCES = $(wildcard $(SRC_DIR)/**/*.cu)
+# Find all .cpp files that should be treated as executables
+EXECUTABLE_SOURCES = $(shell find . -maxdepth 1 -name '*.cpp')
+EXECUTABLE_NAMES = $(patsubst ./%.cpp, $(BIN_DIR)/%, $(EXECUTABLE_SOURCES))
 
-# Object files
-CPP_OBJECTS = $(OBJ_DIR)/main.o
+# Find all .cu and other .cpp files (not main.cpp) for object generation
+CPP_SOURCES = $(shell find $(SRC_DIR) -name '*.cpp')
+CUDA_SOURCES = $(shell find $(SRC_DIR) -name '*.cu')
+
+# Object files for non-main source files
+CPP_OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(CPP_SOURCES))
 CUDA_OBJECTS = $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(CUDA_SOURCES))
 
-# Target executable
-TARGET = $(BIN_DIR)/simulation
+# Default target to build all executables
+all: $(EXECUTABLE_NAMES)
 
-# Default target
-all: $(TARGET)
-
-# Link the executable
-$(TARGET): $(CPP_OBJECTS) $(CUDA_OBJECTS)
+# Link each executable from its own main.cpp and other object files
+$(BIN_DIR)/%: %.cpp $(CPP_OBJECTS) $(CUDA_OBJECTS)
 	@mkdir -p $(BIN_DIR)
-	$(NVCC) $^ -o $@
+	$(NVCC) $(CXXFLAGS) $< $(filter-out $(OBJ_DIR)/main.o,$(CPP_OBJECTS)) $(CUDA_OBJECTS) -o $@
 
-# Compile main.cpp
-$(OBJ_DIR)/main.o: main.cpp
+# Compile all .cpp files excluding main.cpp
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Compile CUDA source files
+# Compile all .cu files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
 	@mkdir -p $(dir $@)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@

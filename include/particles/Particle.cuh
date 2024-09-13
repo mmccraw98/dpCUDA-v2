@@ -24,10 +24,12 @@ public:
     long n_dim = 2;
 
     void updatePositions(double dt) {
+        std::cout << "Particle::updatePositions" << std::endl;
         static_cast<Derived*>(this)->updatePositionsImpl(dt);
     }
 
     void updateMomenta(double dt) {
+        std::cout << "Particle::updateMomenta" << std::endl;
         static_cast<Derived*>(this)->updateMomentaImpl(dt);
     }
 

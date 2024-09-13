@@ -3,8 +3,8 @@
 # Compiler and flags
 CXX = g++
 NVCC = nvcc
-CXXFLAGS = -Iinclude -std=c++11
-NVCCFLAGS = -Iinclude -std=c++11
+CXXFLAGS = -Iinclude -std=c++17
+NVCCFLAGS = -Iinclude -std=c++17
 
 # Directories
 INCLUDE_DIR = include

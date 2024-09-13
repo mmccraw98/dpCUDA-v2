@@ -1,10 +1,13 @@
 # Makefile
 
+# CUDA root directory
+CUDA_ROOT_DIR = /usr/local/cuda-11.8
+
 # Compiler and flags
 CXX = g++
 NVCC = nvcc
-CXXFLAGS = -Iinclude -std=c++17
-NVCCFLAGS = -Iinclude -std=c++17
+CXXFLAGS = -Iinclude -I$(CUDA_ROOT_DIR)/include -std=c++17
+NVCCFLAGS = -Iinclude -I$(CUDA_ROOT_DIR)/include -std=c++17
 
 # Directories
 INCLUDE_DIR = include

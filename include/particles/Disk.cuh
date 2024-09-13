@@ -7,7 +7,7 @@
 class Disk : public Particle<Disk> {
 public:
     // Constructor
-    Disk(long N, long seed=0);
+    Disk(long n_particles, long seed=0);
 
     // Destructor
     ~Disk();
@@ -17,11 +17,6 @@ public:
      * @param dt Time step
      */
     void updatePositionsImpl(double dt);
-
-    /**
-     * @brief Update particle momenta
-     * @param dt Time step
-     */
 
     void updateMomentaImpl(double dt);
 

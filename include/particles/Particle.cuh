@@ -20,6 +20,8 @@ public:
     thrust::device_vector<long> d_neighbor_list;
     thrust::device_vector<double> d_box_size;
     double e_c;
+    long n_particles;
+    long n_dim = 2;
 
     void updatePositions(double dt) {
         static_cast<Derived*>(this)->updatePositionsImpl(dt);

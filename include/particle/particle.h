@@ -1,7 +1,7 @@
 #ifndef PARTICLE_H
 #define PARTICLE_H
 
-#include "constants.h"
+#include "../constants.h"
 #include <unordered_map>
 #include <any>
 #include <typeinfo>

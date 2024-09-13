@@ -3,9 +3,6 @@
 #ifndef CONSTANTS_H_
 #define CONSTANTS_H_
 
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-#include <thrust/random.h>
 #include <iostream>
 #include <sstream>
 #include <iomanip>

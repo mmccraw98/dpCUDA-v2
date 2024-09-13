@@ -1,7 +1,7 @@
 #ifndef DISK_H
 #define DISK_H
 
-#include "constants.h"
+#include "../constants.h"
 #include "particle.h"
 #include <vector>
 #include <string>

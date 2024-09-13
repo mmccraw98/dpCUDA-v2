@@ -1,6 +1,6 @@
-#include "../include/constants.h"
-#include "../include/particle.h"
-#include "../include/cuda_constants.cuh"
+#include "../../include/constants.h"
+#include "../../include/cuda_constants.cuh"
+#include "../../include/particle/particle.h"
 #include <iostream>
 #include <string>
 #include <vector>

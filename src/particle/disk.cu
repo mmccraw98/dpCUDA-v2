@@ -1,9 +1,9 @@
 // FUNCTION DECLARATIONS
 
-#include "../include/constants.h"
-#include "../include/particle.h"
-#include "../include/disk.h"
-#include "../include/cuda_constants.cuh"
+#include "../../include/constants.h"
+#include "../../include/particle/particle.h"
+#include "../../include/particle/disk.h"
+#include "../../include/cuda_constants.cuh"
 #include <iostream>
 #include <string>
 #include <vector>

@@ -1,4 +1,4 @@
-#include "include/disk.h"
+#include "../include/particle/disk.h"
 
 int main() {
     std::cout << "Minimal CUDA Thrust and C++ Project" << std::endl;

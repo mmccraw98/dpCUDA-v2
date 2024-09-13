@@ -1,0 +1,53 @@
+# Ignore object files and executables
+bin/*
+!bin/**/*.keep
+
+# Ignore executables in the executables folder
+bin/executables/*
+
+# CUDA files
+*.cubin
+*.ptx
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Ignore Python files, if any
+*.py[cod]
+__pycache__/
+*.so
+
+# Ignore build files
+build/
+Makefile~
+
+# Ignore macOS system files
+.DS_Store
+
+# Ignore Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Ignore IDE/editor specific files
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.iml
+
+# Ignore backup and temporary files from editors
+*~
+*.orig
+*.rej
+
+# Ignore coverage, test results, and other generated files
+coverage/
+*.gcda
+*.gcno
+*.gcov

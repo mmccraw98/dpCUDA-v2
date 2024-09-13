@@ -19,6 +19,18 @@
 // different particle types will have different updates to their dynamic variables (translation, rotation, etc.)
 // different integrators will use different combinations / orders of these updates
 
+// vertices are internal variables
+// the common variables are the particle-level variables
+
+// heirarchy of particles:
+// particle
+// |_ disk
+// |_ ellipsoid (rotational degrees of freedom)
+// |__ ga model and dimer (rotational with internal variables, but no internal dynamics)
+// |___ smooth variants
+// |_ dpm (internal variables with dynamics)
+// |___ smooth variants
+
 template <typename Derived>
 class Particle {
 public:

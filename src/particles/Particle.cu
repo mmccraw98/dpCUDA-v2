@@ -6,4 +6,4 @@
 #include <typeinfo>
 #include <thrust/device_vector.h>
 #include "particles/Particle.cuh"
-
+#include "../include/kernels/CudaConstants.cuh"

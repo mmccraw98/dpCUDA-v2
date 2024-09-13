@@ -14,7 +14,7 @@
  * @return __device__ X1 - X2 - size * round((X1 - X2) / size)
  */
 inline __device__ double pbcDistance(const double x1, const double x2, const long dim) {
-	double dist = x1 - x2, size = d_boxSizePointer[dim];
+	double dist = x1 - x2, size = d_box_size_ptr[dim];
 	return dist - size * round(dist / size); //round for distance, floor for position
 }
 
@@ -27,7 +27,7 @@ inline __device__ double pbcDistance(const double x1, const double x2, const lon
 inline __device__ double calcNormSq(const double* segment) {
 	double norm_sq = 0.;
 	#pragma unroll (N_DIM)
-	for (long dim = 0; dim < d_nDim; dim++) {
+	for (long dim = 0; dim < d_n_dim; dim++) {
 		norm_sq += segment[dim] * segment[dim];
 	}
 	return norm_sq;
@@ -52,7 +52,7 @@ inline __device__ double calcNorm(const double* segment) {
 inline __device__ double normalizeVector(double* segment) {
 	double norm = calcNorm(segment);
 	#pragma unroll (N_DIM)
-	for (long dim = 0; dim < d_nDim; dim++) {
+	for (long dim = 0; dim < d_n_dim; dim++) {
 		segment[dim] /= norm;
 	}
 	return norm;
@@ -68,7 +68,7 @@ inline __device__ double normalizeVector(double* segment) {
 inline __device__ double dotProduct(const double* segment1, const double* segment2) {
 	double dot_prod = 0.;
 	#pragma unroll (N_DIM)
-	for (long dim = 0; dim < d_nDim; dim++) {
+	for (long dim = 0; dim < d_n_dim; dim++) {
 		dot_prod += segment1[dim] * segment2[dim];
 	}
 	return dot_prod;
@@ -83,7 +83,7 @@ inline __device__ double dotProduct(const double* segment1, const double* segmen
  */
 inline __device__ void calcDelta(const double* segment1, const double* segment2, double* delta_vec) {
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < N_DIM; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	delta_vec[dim] = segment1[dim] - segment2[dim];
   	}
 }
@@ -98,7 +98,7 @@ inline __device__ void calcDelta(const double* segment1, const double* segment2,
 inline __device__ double calcDistance(const double* segment1, const double* segment2) {
 	double dist_dim, distance_sq = 0.;
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	dist_dim = segment1[dim] - segment2[dim];
     	distance_sq += dist_dim * dist_dim;
   	}
@@ -116,7 +116,7 @@ inline __device__ double calcDistance(const double* segment1, const double* segm
 inline __device__ double calcDeltaAndDistance(const double* segment1, const double* segment2, double* delta_vec) {
 	double dist_dim, distance_sq = 0.;
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	dist_dim = segment1[dim] - segment2[dim];
         delta_vec[dim] = dist_dim;
     	distance_sq += dist_dim * dist_dim;
@@ -133,7 +133,7 @@ inline __device__ double calcDeltaAndDistance(const double* segment1, const doub
  */
 inline __device__ void calcDeltaPBC(const double* segment1, const double* segment2, double* delta_vec) {
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	delta_vec[dim] = pbcDistance(segment1[dim], segment2[dim], dim);
   	}
 }
@@ -148,7 +148,7 @@ inline __device__ void calcDeltaPBC(const double* segment1, const double* segmen
 inline __device__ double calcDistancePBC(const double* segment1, const double* segment2) {
   	double dist_dim, distance_sq = 0.;
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
     	distance_sq += dist_dim * dist_dim;
   	}
@@ -166,7 +166,7 @@ inline __device__ double calcDistancePBC(const double* segment1, const double* s
 inline __device__ double calcDeltaAndDistancePBC(const double* segment1, const double* segment2, double* delta_vec) {
 	double dist_dim, distance_sq = 0.;
 	#pragma unroll (N_DIM)
-  	for (long dim = 0; dim < d_nDim; dim++) {
+  	for (long dim = 0; dim < d_n_dim; dim++) {
     	dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
     	distance_sq += dist_dim * dist_dim;
     	delta_vec[dim] = dist_dim;

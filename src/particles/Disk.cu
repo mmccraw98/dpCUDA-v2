@@ -1,10 +1,10 @@
 // src/particles/Disk.cu
 #include "particles/Disk.cuh"
+#include "../include/kernels/CudaConstants.cuh"
 
 Disk::Disk(long n_particles, long seed) {
     std::cout << "Disk::Disk" << std::endl;
     this->n_particles = n_particles;
-    this->n_dim = 2;
 
     d_positions.resize(n_particles * n_dim);
     d_momenta.resize(n_particles * n_dim);
@@ -35,8 +35,6 @@ Disk::~Disk() {
 
     d_test_array.clear();
 }
-
-
 
 void Disk::updatePositionsImpl(double dt) {
     std::cout << "Disk::updatePositionsImpl" << std::endl;

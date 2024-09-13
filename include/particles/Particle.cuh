@@ -2,45 +2,65 @@
 #ifndef PARTICLE_CUH
 #define PARTICLE_CUH
 
+#include "Constants.h"
+#include "../include/kernels/CudaConstants.cuh"
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <unordered_map>
 #include <any>
 #include <typeinfo>
 #include <unordered_map>
+#include <cmath>
+
+// design standards:
+// keep everything as flexible as possible
+// keep everything as performance oriented as possible
+// keep everything as straightforward and simple as possible (isolate functionality as much as possible)
+
+// different particle types will have different updates to their dynamic variables (translation, rotation, etc.)
+// different integrators will use different combinations / orders of these updates
 
 template <typename Derived>
 class Particle {
 public:
 
-    thrust::device_vector<double> d_positions;
-    thrust::device_vector<double> d_momenta;
-    thrust::device_vector<double> d_forces;
-    thrust::device_vector<double> d_radii;
-    thrust::device_vector<double> d_masses;
+    thrust::device_vector<double> d_positions;  // generalized position
+    thrust::device_vector<double> d_last_positions;  // for tracking displacement
+    thrust::device_vector<double> d_displacements;  // for storing displacement: positions - last_positions
+    thrust::device_vector<double> d_momenta;  // generalized momentum
+    thrust::device_vector<double> d_forces;  // generalized force
+    thrust::device_vector<double> d_radii;  // particle radii
+    thrust::device_vector<double> d_masses;  // generalized masses
     thrust::device_vector<double> d_potential_energy;
     thrust::device_vector<double> d_kinetic_energy;
-    thrust::device_vector<double> d_last_positions;
     thrust::device_vector<long> d_neighbor_list;
     thrust::device_vector<double> d_box_size;
     double e_c;
+    double neighbor_cutoff;
+    long max_neighbors;
     long n_particles;
-    long n_dim = 2;
+    long n_dim = N_DIM;
+    long n_dof;
 
     // --------------------- Utility Methods ---------------------
 
+    /**
+     * @brief Creates a key-value map of pointers to the device arrays.
+     * 
+     * @return std::unordered_map<std::string, std::any> 
+     */
     std::unordered_map<std::string, std::any> getArrayMap() {
         std::unordered_map<std::string, std::any> array_map;
 
         // Double arrays
         array_map["d_positions"]        = &d_positions;
+        array_map["d_last_positions"]   = &d_last_positions;
         array_map["d_momenta"]          = &d_momenta;
         array_map["d_forces"]           = &d_forces;
         array_map["d_radii"]            = &d_radii;
         array_map["d_masses"]           = &d_masses;
         array_map["d_potential_energy"] = &d_potential_energy;
         array_map["d_kinetic_energy"]   = &d_kinetic_energy;
-        array_map["d_last_positions"]   = &d_last_positions;
         array_map["d_box_size"]         = &d_box_size;
 
         // Long arrays
@@ -76,6 +96,13 @@ public:
         }
     }
 
+    /**
+     * @brief Sets the device array by name from a host vector.
+     * 
+     * @tparam T 
+     * @param array_name name of the array to set
+     * @param host_array host vector to set the array to
+     */
     template <typename T>
     void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array) {
         auto array_map = getArrayMap();
@@ -97,6 +124,37 @@ public:
         }
     }
     // ------------------- Simulation Methods --------------------
+
+    void setBoxSize(thrust::host_vector<double> &box_size) {
+        std::cout << "Particle::setBoxSize" << std::endl;
+        d_box_size = box_size;
+        double *box_size_ptr = thrust::raw_pointer_cast(&(d_box_size[0]));
+        cudaMemcpyToSymbol(d_box_size_ptr, &box_size_ptr, sizeof(box_size_ptr));
+    }
+
+    thrust::host_vector<double> getBoxSize() {
+        std::cout << "Particle::getBoxSize" << std::endl;
+        thrust::host_vector<double> box_size;
+        cudaMemcpyFromSymbol(&d_box_size, d_box_size_ptr, sizeof(d_box_size_ptr));
+        box_size = d_box_size;
+        return box_size;
+    }
+
+    /**
+     * @brief Initializes the simulation box dimensions in d_box_size given an area.  Works for a general n-dimensional box.
+     * 
+     * @param area area of the box
+     */
+    void initializeBox(double area) {
+        std::cout << "Particle::initializeBox" << std::endl;
+        cudaMemcpyToSymbol(d_n_dim, &n_dim, sizeof(n_dim));
+        d_box_size.resize(n_dim);
+        double side_length = std::pow(area, 1.0 / n_dim);
+        for (long dim = 0; dim < n_dim; dim++) {
+            d_box_size[dim] = side_length;
+        }
+        setBoxSize(d_box_size);
+    }
 
     void updatePositions(double dt) {
         std::cout << "Particle::updatePositions" << std::endl;

@@ -44,7 +44,7 @@ public:
     long n_particles;
     long n_dof;
 
-    // Utility methods
+    // Universal Methods
     std::unordered_map<std::string, std::any> getArrayMap();
     
     template <typename T>
@@ -57,7 +57,7 @@ public:
 
     thrust::host_vector<double> getBoxSize();
 
-    // Simulation methods using CRTP
+    // CRTP-Specific Methods
     void updatePositions(double dt);
     void updateMomenta(double dt);
     void calculateForces();

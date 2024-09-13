@@ -65,7 +65,7 @@ GENCODE = $(GENCODE_SM60)
 all: $(EXECUTABLES)
 
 # Rule to link C++ and CUDA compiled object files to each target executable:
-$(EXECUTABLES) : %: $(OBJ_DIR)/%.o $(OBJ_DIR)/DPM2D.o $(OBJ_DIR)/particle.o $(OBJ_DIR)/disk.o
+$(EXECUTABLES) : %: $(OBJ_DIR)/%.o $(OBJ_DIR)/particle.o $(OBJ_DIR)/disk.o
 	$(NVCC) $(GENCODE) $(CUDA_INC_DIR) $(CUDA_LIB_DIR) $(CUDA_LINK_LIBS) $^ -o $@ $(CC_LIBS)
 
 # Compile main .cpp files to object files for each executable:

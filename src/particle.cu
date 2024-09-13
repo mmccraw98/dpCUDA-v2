@@ -19,6 +19,12 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+// Forward declaration derived classes
+class Disk;
+
+// Explicit instantiation of the derived classes
+template class Particle<Disk>;
+
 template <typename Derived>
 Particle<Derived>::Particle() {
 }
@@ -118,9 +124,3 @@ thrust::host_vector<double> Particle<Derived>::getBoxSize() {
     }
     return box_size;
 }
-
-// Forward declaration of the derived class
-class Disk;
-
-// Explicit instantiation of the template class
-template class Particle<Disk>;

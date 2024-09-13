@@ -2,8 +2,8 @@
 #ifndef UTILITYKERNELS_CUH
 #define UTILITYKERNELS_CUH
 
-#include "CudaConstants.cuh"
 #include "../Constants.h"
+#include "CudaConstants.cuh"
 
 /**
  * @brief X1 - X2 with periodic boundary conditions in the specified dimension
@@ -14,7 +14,7 @@
  * @return __device__ X1 - X2 - size * round((X1 - X2) / size)
  */
 inline __device__ double pbcDistance(const double x1, const double x2, const long dim) {
-	double dist = x1 - x2, size = d_box_size_ptr[dim];
+	double dist = x1 - x2, size = d_box_size[dim];
 	return dist - size * round(dist / size); //round for distance, floor for position
 }
 

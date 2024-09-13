@@ -1,5 +1,3 @@
-# Makefile
-
 # CUDA root directory
 CUDA_ROOT_DIR = /usr/local/cuda-11.8
 
@@ -15,34 +13,43 @@ SRC_DIR = src
 OBJ_DIR = obj
 BIN_DIR = bin
 
-# Find all .cpp and .cu files recursively
-CPP_SOURCES = $(shell find . -name '*.cpp')
+# Find all .cpp files that should be treated as executables
+EXECUTABLE_SOURCES = $(shell find . -maxdepth 1 -name '*.cpp')
+EXECUTABLE_NAMES = $(patsubst ./%.cpp, $(BIN_DIR)/%, $(EXECUTABLE_SOURCES))
+
+# Find all .cu and other .cpp files (not main.cpp) for object generation
+CPP_SOURCES = $(shell find $(SRC_DIR) -name '*.cpp')
 CUDA_SOURCES = $(shell find $(SRC_DIR) -name '*.cu')
 
-# Object files
-CPP_OBJECTS = $(patsubst %.cpp,$(OBJ_DIR)/%.o,$(notdir $(CPP_SOURCES)))
+# Object files for non-main source files
+CPP_OBJECTS = $(patsubst $(SRC_DIR)/%.cpp,$(OBJ_DIR)/%.o,$(CPP_SOURCES))
 CUDA_OBJECTS = $(patsubst $(SRC_DIR)/%.cu,$(OBJ_DIR)/%.o,$(CUDA_SOURCES))
 
-# Target executable
-TARGET = $(BIN_DIR)/simulation
+# Special rule to compile .cpp files with nvcc if they include CUDA constructs
+CUDA_CPP_OBJECTS = $(patsubst %.cpp,$(OBJ_DIR)/%.o, $(wildcard $(SRC_DIR)/*.cpp))
 
-# Default target
-all: $(TARGET)
+# Default target to build all executables
+all: $(EXECUTABLE_NAMES)
 
-# Link the executable
-$(TARGET): $(CPP_OBJECTS) $(CUDA_OBJECTS)
+# Link each executable from its own main.cpp and other object files
+$(BIN_DIR)/%: %.cpp $(CPP_OBJECTS) $(CUDA_OBJECTS) $(CUDA_CPP_OBJECTS)
 	@mkdir -p $(BIN_DIR)
-	$(NVCC) $^ -o $@
+	$(NVCC) $(NVCCFLAGS) $< $(filter-out $(OBJ_DIR)/main.o,$(CPP_OBJECTS)) $(CUDA_OBJECTS) $(CUDA_CPP_OBJECTS) -o $@
 
-# Compile .cpp files
-$(OBJ_DIR)/%.o: %.cpp
+# Compile all .cpp files with g++, except for those including CUDA code
+$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@mkdir -p $(OBJ_DIR)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-# Compile .cu files
+# Compile all .cu files
 $(OBJ_DIR)/%.o: $(SRC_DIR)/%.cu
 	@mkdir -p $(dir $@)
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
+# Special rule: Compile .cpp files that include CUDA constructs with nvcc
+$(OBJ_DIR)/%.o: %.cpp
+	@mkdir -p $(OBJ_DIR)
+	$(NVCC) $(NVCCFLAGS) -x cu -c $< -o $@
 
 # Clean up
 clean:

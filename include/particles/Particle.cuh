@@ -34,12 +34,10 @@ public:
     thrust::device_vector<double> d_potential_energy;
     thrust::device_vector<double> d_kinetic_energy;
     thrust::device_vector<long> d_neighbor_list;
-    thrust::device_vector<double> d_box_size;
     double e_c;
     double neighbor_cutoff;
     long max_neighbors;
     long n_particles;
-    long n_dim = N_DIM;
     long n_dof;
 
     // --------------------- Utility Methods ---------------------
@@ -127,16 +125,36 @@ public:
 
     void setBoxSize(thrust::host_vector<double> &box_size) {
         std::cout << "Particle::setBoxSize" << std::endl;
-        d_box_size = box_size;
-        double *box_size_ptr = thrust::raw_pointer_cast(&(d_box_size[0]));
-        cudaMemcpyToSymbol(d_box_size_ptr, &box_size_ptr, sizeof(box_size_ptr));
+
+        // Warn if the size is incorrect
+        if (box_size.size() != N_DIM) {
+            std::cerr << "Warning: box_size size (" << box_size.size()
+                    << ") does not match N_DIM (" << N_DIM << ")." << std::endl;
+        }
+
+        // Copy the host vector to the device constant memory
+        cudaError_t err = cudaMemcpyToSymbol(d_box_size, box_size.data(),
+                                            N_DIM * sizeof(double), 0,
+                                            cudaMemcpyHostToDevice);
+        if (err != cudaSuccess) {
+            std::cerr << "Error copying box_size to device constant memory: "
+                    << cudaGetErrorString(err) << std::endl;
+        }
     }
 
     thrust::host_vector<double> getBoxSize() {
         std::cout << "Particle::getBoxSize" << std::endl;
-        thrust::host_vector<double> box_size;
-        cudaMemcpyFromSymbol(&d_box_size, d_box_size_ptr, sizeof(d_box_size_ptr));
-        box_size = d_box_size;
+        thrust::host_vector<double> box_size(N_DIM);
+
+        // Copy the device constant memory to the host vector
+        cudaError_t err = cudaMemcpyFromSymbol(box_size.data(), d_box_size,
+                                            N_DIM * sizeof(double), 0,
+                                            cudaMemcpyDeviceToHost);
+        if (err != cudaSuccess) {
+            std::cerr << "Error copying box_size from device constant memory: "
+                    << cudaGetErrorString(err) << std::endl;
+        }
+
         return box_size;
     }
 
@@ -147,13 +165,10 @@ public:
      */
     void initializeBox(double area) {
         std::cout << "Particle::initializeBox" << std::endl;
-        cudaMemcpyToSymbol(d_n_dim, &n_dim, sizeof(n_dim));
-        d_box_size.resize(n_dim);
-        double side_length = std::pow(area, 1.0 / n_dim);
-        for (long dim = 0; dim < n_dim; dim++) {
-            d_box_size[dim] = side_length;
-        }
-        setBoxSize(d_box_size);
+        thrust::host_vector<double> box_size(N_DIM);
+        double side_length = std::pow(area, 1.0 / N_DIM);
+        thrust::fill(box_size.begin(), box_size.end(), side_length);
+        setBoxSize(box_size);
     }
 
     void updatePositions(double dt) {

@@ -55,19 +55,72 @@ public:
     long max_neighbors;
     long n_particles;
     long n_dof;
+    long seed;
 
     // Universal Methods
+    /**
+     * @brief Get a key-value map for the pointers to the member device arrays (primarily used for the get/setArray methods)
+     * 
+     * @return std::unordered_map<std::string, std::any> 
+     */
     std::unordered_map<std::string, std::any> getArrayMap();
     
+    /**
+     * @brief Get a member device array as a host vector
+     * 
+     * @param array_name name of the member device array to get
+     * @return thrust::host_vector<T> 
+     */
     template <typename T>
     thrust::host_vector<T> getArray(const std::string& array_name);
     
+    /**
+     * @brief Set a member device array from a host vector
+     * 
+     * @param array_name name of the member device array to set
+     * @param host_array host vector to set the array from
+     */
     template <typename T>
     void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array);
     
+    /**
+     * @brief Set the box size from a host vector
+     * 
+     * @param box_size host vector of length N_DIM
+     */
+    void setBoxSize(const thrust::host_vector<double>& box_size);
+
+    /**
+     * @brief Get the box size as a host vector
+     * 
+     * @return thrust::host_vector<double> 
+     */
+    thrust::host_vector<double> getBoxSize();
+
+    /**
+     * @brief Set the box size as an N_DIM hypercube with side length derived from the generalized area
+     * 
+     * @param area generalized area of the simulation box (2d-area, 3d-volume)
+     */
     void initializeBox(double area);
 
-    thrust::host_vector<double> getBoxSize();
+    /**
+     * @brief Assign random uniform values to a device vector within a given range
+     * 
+     * @param values device vector to assign the random uniform values to
+     * @param min minimum value
+     * @param max maximum value
+     */
+    void setRandomUniform(thrust::device_vector<double>& values, double min, double max);
+
+    /**
+     * @brief Assign random normal values to a device vector within a given range
+     * 
+     * @param values device vector to assign the random normal values to
+     * @param mean mean of the normal distribution
+     * @param stddev standard deviation of the normal distribution
+     */
+    void setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev);
 
     // CRTP-Specific Methods
     void updatePositions(double dt);

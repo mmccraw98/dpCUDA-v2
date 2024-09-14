@@ -1,5 +1,6 @@
 #include "../../include/constants.h"
 #include "../../include/cuda_constants.cuh"
+#include "../../include/functors.h"
 #include "../../include/particle/particle.h"
 #include <iostream>
 #include <string>
@@ -41,20 +42,6 @@ Particle<Derived>::~Particle() {
     d_potential_energy.clear();
     d_kinetic_energy.clear();
     d_neighbor_list.clear();
-}
-
-template <typename Derived>
-void Particle<Derived>::initializeBox(double area) {
-    double box_size[N_DIM];
-    double side_length = std::pow(area, 1.0 / N_DIM);
-    for (int i = 0; i < N_DIM; i++) {
-        box_size[i] = side_length;
-    }
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_box_size, box_size, sizeof(double) * N_DIM);
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Error copying box size to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
 }
 
 // Method to create a map of device arrays
@@ -115,12 +102,36 @@ void Particle<Derived>::setArray(const std::string& array_name, const thrust::ho
 }
 
 template <typename Derived>
+void Particle<Derived>::setBoxSize(const thrust::host_vector<double>& box_size) {
+    if (box_size.size() != N_DIM) {
+        throw std::invalid_argument("Particle::setBoxSize: Error box_size (" + std::to_string(box_size.size()) + ")" + " != " + std::to_string(N_DIM) + " elements");
+    }
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_box_size, box_size.data(), sizeof(double) * N_DIM);
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setBoxSize: Error copying box size to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+template <typename Derived>
 thrust::host_vector<double> Particle<Derived>::getBoxSize() {
     thrust::host_vector<double> box_size(N_DIM);
     cudaError_t cuda_err = cudaMemcpyFromSymbol(&box_size[0], d_box_size, sizeof(double) * N_DIM);
     if (cuda_err != cudaSuccess) {
-        std::cerr << "Error copying box size to host: " << cudaGetErrorString(cuda_err) << std::endl;
+        std::cerr << "Particle::getBoxSize: Error copying box size to host: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
     return box_size;
+}
+
+template <typename Derived>
+void Particle<Derived>::initializeBox(double area) {
+    double side_length = std::pow(area, 1.0 / N_DIM);
+    thrust::host_vector<double> box_size(N_DIM, side_length);
+    setBoxSize(box_size);
+}
+
+template <typename Derived>
+void Particle<Derived>::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
+    thrust::transform(values.begin(), values.end(), values.begin(), RandomUniform(min, max, seed));
 }

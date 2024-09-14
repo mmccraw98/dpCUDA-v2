@@ -11,7 +11,7 @@ CUDA_ROOT_DIR=/usr/local/cuda-11.8
 
 # CC compiler options:
 CC=/usr/bin/g++
-CC_FLAGS= -O3 -std=c++17 -fdevirtualize -I$(CUDA_ROOT_DIR)/include
+CC_FLAGS= -O3 -std=c++17 -fdevirtualize -MMD -MP -I$(CUDA_ROOT_DIR)/include
 CC_LIBS= -lstdc++fs
 
 ##########################################################
@@ -20,7 +20,7 @@ CC_LIBS= -lstdc++fs
 
 # NVCC compiler options:
 NVCC=nvcc
-NVCC_FLAGS= -O3 -std=c++17 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize
+NVCC_FLAGS= -O3 -std=c++17 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize -MMD -MP
 NVCC_LIBS=
 
 LFLAGS= -lm -Wno-deprecated-gpu-targets -fstack-protector 
@@ -93,28 +93,31 @@ $(EXECUTABLES): $(EXEC_DIR)/%: $(OBJ_DIR)/scripts/%.o $(CU_OBJ_FILES) $(SRC_OBJ_
 	$(NVCC) $(GENCODE) $(NVCC_FLAGS) $(CUDA_INC_DIR) $(CUDA_LIB_DIR) $(CUDA_LINK_LIBS) $< $(CU_OBJ_FILES) $(SRC_OBJ_FILES) -o $@ $(CC_LIBS)
 
 # Rule for compiling script .cpp files to object files
-$(OBJ_DIR)/scripts/%.o: $(SCRIPT_DIR)/%.cpp
+$(OBJ_DIR)/scripts/%.o: $(SCRIPT_DIR)/%.cpp $(INC_DIR)/functors.h# *****  # Added functors.h dependency *****
 	@mkdir -p $(dir $@)
 	$(CXX) $(CC_FLAGS) -I$(INC_DIR) -c $< -o $@
 
 # Rule for compiling test .cpp files to object files
-$(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp
+$(OBJ_DIR)/tests/%.o: $(TEST_DIR)/%.cpp $(INC_DIR)/functors.h# *****  # Added functors.h dependency *****
 	@mkdir -p $(dir $@)
 	$(CXX) $(CC_FLAGS) -I$(INC_DIR) -c $< -o $@
 
 # Rule for compiling source .cpp files to object files
-$(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.cpp
+$(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.cpp $(INC_DIR)/functors.h# *****  # Added functors.h dependency *****
 	@mkdir -p $(dir $@)
 	$(CXX) $(CC_FLAGS) -I$(INC_DIR) -c $< -o $@
 
 # Rule for compiling .cu files to object files (includes kernel files)
-$(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.cu
+$(OBJ_DIR)/src/%.o: $(SRC_DIR)/%.cu $(INC_DIR)/functors.h# *****  # Added functors.h dependency *****
 	@mkdir -p $(dir $@)
 	$(NVCC) $(GENCODE) $(NVCC_FLAGS) -I$(INC_DIR) -I$(CUDA_ROOT_DIR)/include -c $< -o $@
 
 # Clean objects in object directory and executables
 clean:
 	rm -f $(OBJ_DIR)/*/*.o $(EXEC_DIR)/*
+
+# Include generated .d dependency files for automatic tracking *****  # Automatically track dependencies *****
+-include $(OBJ_FILES:.o=.d)# *****  # Load dependencies *****
 
 ##########################################################
 

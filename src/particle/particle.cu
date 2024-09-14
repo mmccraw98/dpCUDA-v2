@@ -2,6 +2,7 @@
 #include "../../include/cuda_constants.cuh"
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
+#include "../../include/kernels/dynamics.cuh"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -28,12 +29,15 @@ Particle::Particle() {
 Particle::~Particle() {
 }
 
-// Method to create a map of device arrays
+// ----------------------------------------------------------------------
+// ----------------------- Template Methods -----------------------------
+// ----------------------------------------------------------------------
+
 std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     std::unordered_map<std::string, std::any> array_map;
     array_map["d_positions"]        = &d_positions;
     array_map["d_last_positions"]   = &d_last_positions;
-    array_map["d_momenta"]          = &d_momenta;
+    array_map["d_velocities"]       = &d_velocities;
     array_map["d_forces"]           = &d_forces;
     array_map["d_radii"]            = &d_radii;
     array_map["d_masses"]           = &d_masses;
@@ -41,6 +45,106 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     array_map["d_kinetic_energy"]   = &d_kinetic_energy;
     array_map["d_neighbor_list"]    = &d_neighbor_list;
     return array_map;
+}
+
+// ----------------------------------------------------------------------
+// -------------------- Universally Defined Methods ---------------------
+// ----------------------------------------------------------------------
+
+void Particle::setSeed(long seed) {
+    if (seed == -1) {
+        seed = time(0);
+    }
+    this->seed = seed;
+    srand(seed);
+}
+
+void Particle::setKernelDimensions(long dim_block) {
+    this->dim_block = dim_block;
+    this->dim_grid = (n_particles + dim_block - 1) / dim_block;
+    this->dim_vertex_grid = (n_vertices + dim_block - 1) / dim_block;
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setKernelDimensions: Error copying dimBlock to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_dim_grid, &dim_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setKernelDimensions: Error copying dimGrid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_dim_vertex_grid, &dim_vertex_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setKernelDimensions: Error copying dimVertexGrid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::setNumParticles(long n_particles) {
+    this->n_particles = n_particles;
+    this->n_dof = n_particles * N_DIM;
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_particles, &n_particles, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setNumParticles: Error copying number of particles to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::setNumVertices(long n_vertices) {
+    this->n_vertices = n_vertices;
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_vertices, &n_vertices, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setNumVertices: Error copying number of vertices to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::initDynamicVariables() {
+    // Resize the device vectors
+    d_positions.resize(n_particles * N_DIM);
+    d_last_positions.resize(n_particles * N_DIM);
+    d_displacements.resize(n_particles * N_DIM);
+    d_velocities.resize(n_particles * N_DIM);
+    d_forces.resize(n_particles * N_DIM);
+    d_radii.resize(n_particles);
+    d_masses.resize(n_particles);
+    d_potential_energy.resize(n_particles);
+    d_kinetic_energy.resize(n_particles);
+
+    // Cast the raw pointers
+    d_positions_ptr = thrust::raw_pointer_cast(&d_positions[0]);
+    d_last_positions_ptr = thrust::raw_pointer_cast(&d_last_positions[0]);
+    d_displacements_ptr = thrust::raw_pointer_cast(&d_displacements[0]);
+    d_velocities_ptr = thrust::raw_pointer_cast(&d_velocities[0]);
+    d_forces_ptr = thrust::raw_pointer_cast(&d_forces[0]);
+    d_radii_ptr = thrust::raw_pointer_cast(&d_radii[0]);
+    d_masses_ptr = thrust::raw_pointer_cast(&d_masses[0]);
+    d_potential_energy_ptr = thrust::raw_pointer_cast(&d_potential_energy[0]);
+    d_kinetic_energy_ptr = thrust::raw_pointer_cast(&d_kinetic_energy[0]);
+}
+
+void Particle::clearDynamicVariables() {
+    // Clear the device vectors
+    d_positions.clear();
+    d_last_positions.clear();
+    d_displacements.clear();
+    d_velocities.clear();
+    d_forces.clear();
+    d_radii.clear();
+    d_masses.clear();
+    d_potential_energy.clear();
+    d_kinetic_energy.clear();
+
+    // Clear the pointers
+    d_positions_ptr = nullptr;
+    d_last_positions_ptr = nullptr;
+    d_displacements_ptr = nullptr;
+    d_velocities_ptr = nullptr;
+    d_forces_ptr = nullptr;
+    d_radii_ptr = nullptr;
+    d_masses_ptr = nullptr;
+    d_potential_energy_ptr = nullptr;
+    d_kinetic_energy_ptr = nullptr;
 }
 
 void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
@@ -71,14 +175,20 @@ void Particle::initializeBox(double area) {
 }
 
 void Particle::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
-    thrust::transform(values.begin(), values.end(), values.begin(), RandomUniform(min, max, seed));
+    thrust::counting_iterator<long> index_sequence_begin(seed);
+    thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomUniform(min, max, seed));
 }
 
 void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
-    thrust::transform(values.begin(), values.end(), values.begin(), RandomNormal(mean, stddev, seed));
+    thrust::counting_iterator<long> index_sequence_begin(seed);
+    thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomNormal(mean, stddev, seed));
 }
 
-// Implemented Functions
+void Particle::setRandomPositions() {
+    thrust::host_vector<double> box_size = getBoxSize();
+    setRandomUniform(d_positions, 0.0, box_size[0]);
+}
+
 double Particle::getDiameter(std::string which) {
     if (which == "min") {
         return 2.0 * *thrust::min_element(d_radii.begin(), d_radii.end());
@@ -144,4 +254,16 @@ double Particle::totalPotentialEnergy() const {
 
 double Particle::totalEnergy() const {
     return totalKineticEnergy() + totalPotentialEnergy();
+}
+
+void Particle::scalePositions(double scale_factor) {
+    thrust::transform(d_positions.begin(), d_positions.end(), thrust::make_constant_iterator(scale_factor), d_positions.begin(), thrust::multiplies<double>());
+}
+
+void Particle::updatePositions(double dt) {
+    kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_velocities_ptr, dt);
+}
+
+void Particle::updateVelocities(double dt) {
+    kernelUpdateVelocities<<<dim_grid, dim_block>>>(d_velocities_ptr, d_forces_ptr, d_masses_ptr, dt);
 }

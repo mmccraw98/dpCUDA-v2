@@ -16,19 +16,20 @@
  * 
  */
 struct RandomUniform {
-    float min, max;
+    double min, max;
     unsigned int seed;
 
-    RandomUniform(float min, float max, unsigned int seed) : min(min), max(max), seed(seed) {}
+    RandomUniform(double min, double max, unsigned int seed) : min(min), max(max), seed(seed) {}
 
     __host__ __device__
     float operator()(const unsigned int n) const {
-        thrust::default_random_engine rng(seed);
+        thrust::default_random_engine rng(seed + n);
+        thrust::uniform_real_distribution<double> dist(min, max);
         rng.discard(n);
-        thrust::uniform_real_distribution<float> dist(min, max);
         return dist(rng);
     }
 };
+
 
 /**
  * @brief Functor to generate a random normal number given a mean, standard deviation, and seed

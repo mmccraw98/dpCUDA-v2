@@ -19,15 +19,31 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+// if a function in the base class is non-virtual, then the derived class will not override it
+
 int main() {
     std::cout << "Minimal CUDA Thrust and C++ Project" << std::endl;
 
-    Disk disk(100, 0);
+    Disk disk;
 
+    disk.setKernelDimensions(256);  // not sure how to best motivate this
+    disk.setSeed(0);
+    disk.setNumParticles(1024);
+    disk.initDynamicVariables();
+    disk.initGeometricVariables();  // does nothing for disks
     disk.setBiDispersity(1.4, 0.5);
-    disk.initializeBox(1.0);
+    disk.initializeBox();
     disk.scaleToPackingFraction(0.5);
     disk.setRandomPositions();
+
+    for (int i = 0; i < 1e6; i++) {
+        disk.updatePositions(0.1);
+    }
+
+    thrust::host_vector<double> h_positions = disk.getArray<double>("d_positions");
+    for (int i = 0; i < disk.n_particles; i++) {
+        std::cout << "Position: " << h_positions[i * N_DIM] << " " << h_positions[i * N_DIM + 1] << std::endl;
+    }
 
     std::cout << "Packing fraction: " << disk.getPackingFraction() << std::endl;
 

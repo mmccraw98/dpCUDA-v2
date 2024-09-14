@@ -12,36 +12,41 @@
 
 class Disk : public Particle {
 public:
-    // Constructor
-    Disk(long n_particles, long seed = 0);
+    Disk();
 
-    // Destructor
     virtual ~Disk();
 
-    // New device array
-    thrust::device_vector<double> d_test_array;
-
-    // Override getArrayMap to include d_test_array
-    std::unordered_map<std::string, std::any> getArrayMap() {
-        auto array_map = Particle::getArrayMap();
-        array_map["d_test_array"] = &d_test_array;
-        return array_map;
-    }
-
-    // Override pure virtual methods from Particle base class
-    void initDynamicVariables() override;
-    void clearDynamicVariables() override;
-    void initGeometricVariables() override;
-    void clearGeometricVariables() override;
-    void setRandomPositions() override;
-
+    // ----------------------------------------------------------------------
+    // ------------- Implementation of Pure Virtual Methods -----------------
+    // ----------------------------------------------------------------------
+    
+    /**
+     * @brief Get the total area of the particles by summing the squares of the radii.
+     * 
+     * @return The total area of the particles.
+     */
     double getArea() const override;
+
+    /**
+     * @brief Get the fraction of the area involving the overlap between particles using the lense formula.
+     * 
+     * @return The overlap fraction of the particles.
+     */
     double getOverlapFraction() const override;
-    void scalePositions(double scale_factor) override;
-    void updatePositions(double dt) override;
-    void updateMomenta(double dt) override;
+    
+    /**
+     * @brief Calculate the forces on the particles.
+     */
     void calculateForces() override;
+
+    /**
+     * @brief Calculate the kinetic energy of the particles.
+     */
     void calculateKineticEnergy() override;
+    
+    /**
+     * @brief Update the neighbor list of the particles.
+     */
     void updateNeighborList() override;
 };
 

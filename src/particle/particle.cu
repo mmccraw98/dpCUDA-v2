@@ -32,16 +32,6 @@ Particle<Derived>::Particle() {
 
 template <typename Derived>
 Particle<Derived>::~Particle() {
-    d_positions.clear();
-    d_last_positions.clear();
-    d_displacements.clear();
-    d_momenta.clear();
-    d_forces.clear();
-    d_radii.clear();
-    d_masses.clear();
-    d_potential_energy.clear();
-    d_kinetic_energy.clear();
-    d_neighbor_list.clear();
 }
 
 // Method to create a map of device arrays
@@ -134,4 +124,103 @@ void Particle<Derived>::initializeBox(double area) {
 template <typename Derived>
 void Particle<Derived>::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
     thrust::transform(values.begin(), values.end(), values.begin(), RandomUniform(min, max, seed));
+}
+
+template <typename Derived>
+void Particle<Derived>::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
+    thrust::transform(values.begin(), values.end(), values.begin(), RandomNormal(mean, stddev, seed));
+}
+
+template <typename Derived>
+void Particle<Derived>::initDynamicVariables() {
+    std::cout << "Particle<Derived>::initDynamicVariables" << std::endl;
+    d_positions.resize(n_particles * N_DIM);
+    d_last_positions.resize(n_particles * N_DIM);
+    d_displacements.resize(n_particles * N_DIM);
+    d_momenta.resize(n_particles * N_DIM);
+    d_forces.resize(n_particles * N_DIM);
+    d_radii.resize(n_particles);
+    d_masses.resize(n_particles);
+    d_potential_energy.resize(n_particles);
+    d_kinetic_energy.resize(n_particles);
+}
+
+template <typename Derived>
+void Particle<Derived>::clearDynamicVariables() {
+    std::cout << "Particle<Derived>::clearDynamicVariables" << std::endl;
+    d_positions.clear();
+    d_last_positions.clear();
+    d_displacements.clear();
+    d_momenta.clear();
+    d_forces.clear();
+    d_radii.clear();
+    d_masses.clear();
+    d_potential_energy.clear();
+    d_kinetic_energy.clear();
+}
+
+template <typename Derived>
+void Particle<Derived>::setRandomPositions() {
+    thrust::host_vector<double> box_size = getBoxSize();
+    setRandomUniform(d_positions, 0.0, box_size[0]);
+}
+
+template <typename Derived>
+double Particle<Derived>::getDiameter(std::string which) {
+    if (which == "min") {
+        return 2.0 * *thrust::min_element(d_radii.begin(), d_radii.end());
+    } else if (which == "max") {
+        return 2.0 * *thrust::max_element(d_radii.begin(), d_radii.end());
+    } else if (which == "mean") {
+        return 2.0 * thrust::reduce(d_radii.begin(), d_radii.end()) / d_radii.size();
+    } else {
+        throw std::invalid_argument("Particle::getDiameter: which must be 'min', 'max', or 'mean', not " + which);
+    }
+}
+
+template <typename Derived>
+void Particle<Derived>::setBiDispersity(double size_ratio, double count_ratio) {
+    if (size_ratio < 1.0) {
+        throw std::invalid_argument("Particle::setBiDispersity: size_ratio must be > 1.0");
+    }
+    if (count_ratio < 0.0 || count_ratio > 1.0) {
+        throw std::invalid_argument("Particle::setBiDispersity: count_ratio must be < 1.0 and > 0.0");
+    }
+    thrust::host_vector<double> radii(n_particles);
+    long n_large = static_cast<long>(n_particles * count_ratio);
+    double r_large = size_ratio;
+    double r_small = 1.0;
+    for (long i = 0; i < n_large; i++) {
+        radii[i] = r_large / 2.0;
+    }
+    for (long i = n_large; i < n_particles; i++) {
+        radii[i] = r_small / 2.0;
+    }
+    setArray("d_radii", radii);
+}
+
+template <typename Derived>
+double Particle<Derived>::getBoxArea() {
+    thrust::host_vector<double> box_size = getBoxSize();
+    return thrust::reduce(box_size.begin(), box_size.end(), 1.0, thrust::multiplies<double>());
+}
+
+template <typename Derived>
+double Particle<Derived>::getPackingFraction() {
+    double box_area = getBoxArea();
+    double area = getArea();
+    return area / box_area;
+}
+
+template <typename Derived>
+double Particle<Derived>::getDensity() {
+    return getPackingFraction() - getOverlapFraction();
+}
+
+template <typename Derived>
+void Particle<Derived>::scaleToPackingFraction(double packing_fraction) {
+    double new_side_length = std::pow(getArea() / packing_fraction, 1.0 / N_DIM);
+    double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
+    scalePositions(new_side_length / side_length);
+    setBoxSize(thrust::host_vector<double>(N_DIM, new_side_length));
 }

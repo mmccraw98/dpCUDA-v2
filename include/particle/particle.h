@@ -58,6 +58,7 @@ public:
     long seed;
 
     // Universal Methods
+
     /**
      * @brief Get a key-value map for the pointers to the member device arrays (primarily used for the get/setArray methods)
      * 
@@ -123,13 +124,133 @@ public:
     void setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev);
 
     // CRTP-Specific Methods
-    void updatePositions(double dt);
-    void updateMomenta(double dt);
-    void calculateForces();
-    
-    double totalKineticEnergy() const;
-    double totalPotentialEnergy() const;
-    double totalEnergy() const;
+
+    /**
+     * @brief Initialize the dynamic variables (positions, momenta, etc. whatever is generally needed for the simulation)
+     * 
+     */
+    void initDynamicVariables();
+
+    /**
+     * @brief Clear the dynamic variables (positions, momenta, etc. whatever is generally needed for the simulation)
+     * 
+     */
+    void clearDynamicVariables();
+
+    /**
+     * @brief Initialize the geometric variables if relevant (areas, angles, lengths, etc.)
+     * 
+     */
+    void initGeometricVariables();
+
+    /**
+     * @brief Clear the geometric variables if relevant (areas, angles, lengths, etc.)
+     * 
+     */
+    void clearGeometricVariables();
+
+    /**
+     * @brief Uniformly distribute the particle positions in the simulation box
+     * 
+     */
+    void setRandomPositions();
+
+    /**
+     * @brief Get the diameter of the particles
+     * 
+     * @param which which diameter to get ("min", "max", or "mean")
+     * @return double 
+     */
+    double getDiameter(std::string which = "min");
+
+    /**
+     * @brief Set the bi-dispersity of the particles given a size ratio (large/small diameter) and a count ratio (large/small number)
+     * 
+     * @param size_ratio ratio of the large diameter to the small diameter
+     * @param count_ratio ratio of the large number to the small number
+     */
+    void setBiDispersity(double size_ratio, double count_ratio);
+
+    /**
+     * @brief Get the area of the simulation box
+     * 
+     * @return double 
+     */
+    double getBoxArea();
+
+    /**
+     * @brief Get the area of the particles
+     * 
+     */
+    double getArea() {
+        return static_cast<Derived*>(this)->getAreaImpl();
+    }
+
+    /**
+     * @brief Get the packing fraction of the system
+     * 
+     * @return double 
+     */
+    double getPackingFraction();
+
+    /**
+     * @brief Get the overlap fraction of the system
+     * 
+     * @return double 
+     */
+    double getOverlapFraction() {
+        return static_cast<Derived*>(this)->getOverlapFractionImpl();
+    }
+
+    /**
+     * @brief Get the density of the system: packing fraction - overlap fraction
+     * 
+     * @return double 
+     */
+    double getDensity();
+
+    /**
+     * @brief Scale the positions of the particles by a given factor
+     * 
+     * @param scale_factor 
+     */
+    void scalePositions(double scale_factor) {
+        static_cast<Derived*>(this)->scalePositionsImpl(scale_factor);
+    }
+
+    /**
+     * @brief Scale the system size so that the particles are at a given packing fraction
+     * 
+     * @param packing_fraction packing fraction to scale to
+     */
+    void scaleToPackingFraction(double packing_fraction);
+
+    void updatePositions(double dt) {
+        static_cast<Derived*>(this)->updatePositionsImpl(dt);
+    }
+    void updateMomenta(double dt) {
+        static_cast<Derived*>(this)->updateMomentaImpl(dt);
+    }
+    void calculateForces() {
+        static_cast<Derived*>(this)->calculateForcesImpl();
+    }
+    void calculateKineticEnergy() {
+        static_cast<Derived*>(this)->calculateKineticEnergyImpl();
+    }
+    void calculatePotentialEnergy() {
+        static_cast<Derived*>(this)->calculatePotentialEnergyImpl();
+    }
+
+
+    inline double totalKineticEnergy() const {
+        return thrust::reduce(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0, thrust::plus<double>());
+    }
+    inline double totalPotentialEnergy() const {
+        return thrust::reduce(d_potential_energy.begin(), d_potential_energy.end(), 0.0, thrust::plus<double>());
+    }
+    inline double totalEnergy() const {
+        return totalKineticEnergy() + totalPotentialEnergy();
+    }
 };
 
 #endif /* PARTICLE_H */

@@ -30,6 +30,12 @@ public:
         return array_map;
     }
 
+    double getAreaImpl();
+
+    double getOverlapFractionImpl();
+
+    void scalePositionsImpl(double scale_factor);
+
     /**
      * @brief Update particle positions
      * @param dt Time step

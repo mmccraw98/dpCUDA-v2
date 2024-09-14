@@ -4,6 +4,7 @@
 #include "../../include/particle/particle.h"
 #include "../../include/particle/disk.h"
 #include "../../include/cuda_constants.cuh"
+#include "../../include/functors.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -25,33 +26,44 @@
 Disk::Disk(long n_particles, long seed) {
     std::cout << "Disk::Disk" << std::endl;
     this->n_particles = n_particles;
-
-    d_positions.resize(n_particles * N_DIM);
-    d_momenta.resize(n_particles * N_DIM);
-    d_forces.resize(n_particles * N_DIM);
-    d_radii.resize(n_particles);
-    d_masses.resize(n_particles);
-    d_potential_energy.resize(n_particles);
-    d_kinetic_energy.resize(n_particles);
-    d_last_positions.resize(n_particles * N_DIM);
-    d_neighbor_list.resize(n_particles);
+    this->seed = seed;
+    initDynamicVariables();
 
     d_test_array.resize(n_particles);
 }
 
 Disk::~Disk() {
     std::cout << "Disk::~Disk" << std::endl;
-    d_positions.clear();
-    d_momenta.clear();
-    d_forces.clear();
-    d_radii.clear();
-    d_masses.clear();
-    d_potential_energy.clear();
-    d_kinetic_energy.clear();
-    d_last_positions.clear();
-    d_neighbor_list.clear();
+    clearDynamicVariables();
 
     d_test_array.clear();
+}
+
+double Disk::getAreaImpl() {
+    std::cout << "Disk::getAreaImpl" << std::endl;
+    return thrust::transform_reduce(d_radii.begin(), d_radii.end(), Square(), 0.0, thrust::plus<double>()) * PI;
+}
+
+double Disk::getOverlapFractionImpl() {
+    std::cout << "Disk::getOverlapFractionImpl" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    std::cout << "TODO: Implement overlap fraction" << std::endl;
+    return 0.0;
+}
+
+void Disk::scalePositionsImpl(double scale_factor) {
+    std::cout << "Disk::scalePositionsImpl" << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    std::cout << "scale_factor: " << scale_factor << std::endl;
+    thrust::transform(d_positions.begin(), d_positions.end(), d_positions.begin(), thrust::placeholders::_1 * scale_factor);
 }
 
 void Disk::updatePositionsImpl(double dt) {

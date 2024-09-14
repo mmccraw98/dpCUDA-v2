@@ -57,12 +57,6 @@ double Disk::getOverlapFractionImpl() {
 
 void Disk::scalePositionsImpl(double scale_factor) {
     std::cout << "Disk::scalePositionsImpl" << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
-    std::cout << "scale_factor: " << scale_factor << std::endl;
     thrust::transform(d_positions.begin(), d_positions.end(), d_positions.begin(), thrust::placeholders::_1 * scale_factor);
 }
 
@@ -76,4 +70,12 @@ void Disk::updateMomentaImpl(double dt) {
 
 void Disk::calculateForcesImpl() {
     std::cout << "Disk::calculateForcesImpl" << std::endl;
+}
+
+void Disk::calculateKineticEnergyImpl() {
+    std::cout << "Disk::calculateKineticEnergyImpl" << std::endl;
+}
+
+void Disk::updateNeighborListImpl() {
+    std::cout << "Disk::updateNeighborListImpl" << std::endl;
 }

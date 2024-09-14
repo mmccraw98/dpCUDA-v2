@@ -181,6 +181,7 @@ public:
     /**
      * @brief Get the area of the particles
      * 
+     * @return double 
      */
     double getArea() {
         return static_cast<Derived*>(this)->getAreaImpl();
@@ -194,7 +195,7 @@ public:
     double getPackingFraction();
 
     /**
-     * @brief Get the overlap fraction of the system
+     * @brief Get the area of overlap between the particles as a fraction of the total area
      * 
      * @return double 
      */
@@ -210,7 +211,7 @@ public:
     double getDensity();
 
     /**
-     * @brief Scale the positions of the particles by a given factor
+     * @brief Apply an affine scaling to the particle positions
      * 
      * @param scale_factor 
      */
@@ -237,10 +238,9 @@ public:
     void calculateKineticEnergy() {
         static_cast<Derived*>(this)->calculateKineticEnergyImpl();
     }
-    void calculatePotentialEnergy() {
-        static_cast<Derived*>(this)->calculatePotentialEnergyImpl();
+    void updateNeighborList() {
+        static_cast<Derived*>(this)->updateNeighborListImpl();
     }
-
 
     inline double totalKineticEnergy() const {
         return thrust::reduce(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0, thrust::plus<double>());

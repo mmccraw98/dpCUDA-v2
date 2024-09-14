@@ -2,6 +2,7 @@
 #include "../../include/cuda_constants.cuh"
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
+#include "../../include/particle/disk.h"  // I don't like this, but it makes the compiler happy
 #include <iostream>
 #include <string>
 #include <vector>

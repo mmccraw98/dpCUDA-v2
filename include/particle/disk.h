@@ -36,15 +36,15 @@ public:
 
     void scalePositionsImpl(double scale_factor);
 
-    /**
-     * @brief Update particle positions
-     * @param dt Time step
-     */
     void updatePositionsImpl(double dt);
 
     void updateMomentaImpl(double dt);
 
     void calculateForcesImpl();
+
+    void calculateKineticEnergyImpl();
+
+    void updateNeighborListImpl();
 
 };
 

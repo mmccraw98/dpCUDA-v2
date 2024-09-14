@@ -42,6 +42,7 @@ public:
 
     // Simulation parameters
     double e_c, e_a, e_b, e_l;  // energy scales for interaction, area, bending, and length
+    double n_c, n_a, n_b, n_l;  // exponents for the energy terms
     double neighbor_cutoff;  // cutoff distance for the neighbor list
     long max_neighbors;  // maximum number of neighbors for each particle
     long n_particles;  // total number of particles
@@ -170,6 +171,22 @@ public:
      */
     thrust::host_vector<double> getBoxSize();
     
+    /**
+     * @brief Set the energy scales for the particles.
+     * 
+     * @param e The energy scale.
+     * @param which The type of energy scale to set ("c", "a", "b", or "l").
+     */
+    void setEnergyScale(double e, std::string which);
+
+    /**
+     * @brief Set the exponents for the energy terms.
+     * 
+     * @param n The exponent.
+     * @param which The type of exponent to set ("c", "a", "b", or "l").
+     */
+    void setExponent(double n, std::string which);
+
     /**
      * @brief Initialize the box size given the desired area of the box.
      * 

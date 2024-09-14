@@ -168,6 +168,52 @@ thrust::host_vector<double> Particle::getBoxSize() {
     return box_size;
 }
 
+void Particle::setEnergyScale(double e, std::string which) {
+    cudaError_t cuda_err;
+    if (which == "c") {
+        e_c = e;
+        cuda_err = cudaMemcpyToSymbol(d_e_c, &e_c, sizeof(double));
+    } else if (which == "a") {
+        e_a = e;
+        cuda_err = cudaMemcpyToSymbol(d_e_a, &e_a, sizeof(double));
+    } else if (which == "b") {
+        e_b = e;
+        cuda_err = cudaMemcpyToSymbol(d_e_b, &e_b, sizeof(double));
+    } else if (which == "l") {
+        e_l = e;
+        cuda_err = cudaMemcpyToSymbol(d_e_l, &e_l, sizeof(double));
+    } else {
+        throw std::invalid_argument("Particle::setEnergyScale: which must be 'c', 'a', 'b', or 'l', not " + which);
+    }
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setEnergyScale: Error copying energy scale to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::setExponent(double n, std::string which) {
+    cudaError_t cuda_err;
+    if (which == "c") {
+        n_c = n;
+        cuda_err = cudaMemcpyToSymbol(d_n_c, &n_c, sizeof(double));
+    } else if (which == "a") {
+        n_a = n;
+        cuda_err = cudaMemcpyToSymbol(d_n_a, &n_a, sizeof(double));
+    } else if (which == "b") {
+        n_b = n;
+        cuda_err = cudaMemcpyToSymbol(d_n_b, &n_b, sizeof(double));
+    } else if (which == "l") {
+        n_l = n;
+        cuda_err = cudaMemcpyToSymbol(d_n_l, &n_l, sizeof(double));
+    } else {
+        throw std::invalid_argument("Particle::setExponent: which must be 'c', 'a', 'b', or 'l', not " + which);
+    }
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setExponent: Error copying exponent to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 void Particle::initializeBox(double area) {
     double side_length = std::pow(area, 1.0 / N_DIM);
     thrust::host_vector<double> box_size(N_DIM, side_length);

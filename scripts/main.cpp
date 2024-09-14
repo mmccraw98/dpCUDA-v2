@@ -26,6 +26,8 @@ int main() {
 
     Disk disk;
 
+    disk.setEnergyScale(1.0, "c");
+    disk.setExponent(2.0, "c");
     disk.setKernelDimensions(256);  // not sure how to best motivate this
     disk.setSeed(0);
     disk.setNumParticles(1024);
@@ -35,10 +37,6 @@ int main() {
     disk.initializeBox();
     disk.scaleToPackingFraction(0.5);
     disk.setRandomPositions();
-
-    for (int i = 0; i < 1e6; i++) {
-        disk.updatePositions(0.1);
-    }
 
     thrust::host_vector<double> h_positions = disk.getArray<double>("d_positions");
     for (int i = 0; i < disk.n_particles; i++) {

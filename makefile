@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = nvcc
-CXXFLAGS = -std=c++14 -O2  # Updated to C++14
+CXXFLAGS = -std=c++14 -O3 -Xcompiler -fdevirtualize  # Updated to O3 and devirtualization
 
 # Directories
 INCDIR = ./include

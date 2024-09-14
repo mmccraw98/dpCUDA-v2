@@ -243,7 +243,8 @@ public:
     }
 
     inline double totalKineticEnergy() const {
-        return thrust::reduce(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0, thrust::plus<double>());
+        thrust::host_vector<double> h_kinetic_energy = d_kinetic_energy;
+        return thrust::reduce(h_kinetic_energy.begin(), h_kinetic_energy.end(), 0.0, thrust::plus<double>());
     }
     inline double totalPotentialEnergy() const {
         return thrust::reduce(d_potential_energy.begin(), d_potential_energy.end(), 0.0, thrust::plus<double>());

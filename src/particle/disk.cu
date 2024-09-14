@@ -27,6 +27,7 @@ Disk::Disk(long n_particles, long seed) {
     std::cout << "Disk::Disk" << std::endl;
     this->n_particles = n_particles;
     this->seed = seed;
+    this->n_dof = n_particles * N_DIM;
     initDynamicVariables();
 
     d_test_array.resize(n_particles);
@@ -57,7 +58,7 @@ double Disk::getOverlapFractionImpl() {
 
 void Disk::scalePositionsImpl(double scale_factor) {
     std::cout << "Disk::scalePositionsImpl" << std::endl;
-    thrust::transform(d_positions.begin(), d_positions.end(), d_positions.begin(), thrust::placeholders::_1 * scale_factor);
+    thrust::transform(d_positions.begin(), d_positions.end(), thrust::make_constant_iterator(scale_factor), d_positions.begin(), thrust::multiplies<double>());
 }
 
 void Disk::updatePositionsImpl(double dt) {
@@ -74,6 +75,7 @@ void Disk::calculateForcesImpl() {
 
 void Disk::calculateKineticEnergyImpl() {
     std::cout << "Disk::calculateKineticEnergyImpl" << std::endl;
+    thrust::transform(d_momenta.begin(), d_momenta.end(), d_kinetic_energy.begin(), Square());
 }
 
 void Disk::updateNeighborListImpl() {

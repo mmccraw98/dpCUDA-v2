@@ -11,7 +11,7 @@ CUDA_ROOT_DIR=/usr/local/cuda-11.8
 
 # CC compiler options:
 CC=/usr/bin/g++
-CC_FLAGS= -O3 -std=c++17 -I$(CUDA_ROOT_DIR)/include
+CC_FLAGS= -O3 -std=c++17 -fdevirtualize -I$(CUDA_ROOT_DIR)/include
 CC_LIBS= -lstdc++fs
 
 ##########################################################
@@ -20,7 +20,7 @@ CC_LIBS= -lstdc++fs
 
 # NVCC compiler options:
 NVCC=nvcc
-NVCC_FLAGS= -O3 -std=c++17 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets
+NVCC_FLAGS= -O3 -std=c++17 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize
 NVCC_LIBS=
 
 LFLAGS= -lm -Wno-deprecated-gpu-targets -fstack-protector 

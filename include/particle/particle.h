@@ -11,32 +11,11 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-// design standards:
-// keep everything as flexible as possible
-// keep everything as performance oriented as possible
-// keep everything as straightforward and simple as possible (isolate functionality as much as possible)
-
-// different particle types will have different updates to their dynamic variables (translation, rotation, etc.)
-// different integrators will use different combinations / orders of these updates
-
-// vertices are internal variables
-// the common variables are the particle-level variables
-
-// heirarchy of particles:
-// particle
-// |_ disk
-// |_ ellipsoid (rotational degrees of freedom)
-// |__ ga model and dimer (rotational with internal variables, but no internal dynamics)
-// |___ smooth variants
-// |_ dpm (internal variables with dynamics)
-// |___ smooth variants
-
-template <typename Derived>
 class Particle {
 public:
     Particle();
-    ~Particle();
-    
+    virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
+
     // Device vectors for particle data
     thrust::device_vector<double> d_positions;
     thrust::device_vector<double> d_last_positions;
@@ -58,200 +37,77 @@ public:
     long seed;
 
     // Universal Methods
-
-    /**
-     * @brief Get a key-value map for the pointers to the member device arrays (primarily used for the get/setArray methods)
-     * 
-     * @return std::unordered_map<std::string, std::any> 
-     */
     std::unordered_map<std::string, std::any> getArrayMap();
-    
-    /**
-     * @brief Get a member device array as a host vector
-     * 
-     * @param array_name name of the member device array to get
-     * @return thrust::host_vector<T> 
-     */
+
     template <typename T>
-    thrust::host_vector<T> getArray(const std::string& array_name);
-    
-    /**
-     * @brief Set a member device array from a host vector
-     * 
-     * @param array_name name of the member device array to set
-     * @param host_array host vector to set the array from
-     */
+    thrust::host_vector<T> getArray(const std::string& array_name) {
+        auto array_map = getArrayMap();
+        auto it = array_map.find(array_name);
+        if (it != array_map.end()) {
+            if (it->second.type() == typeid(thrust::device_vector<T>*)) {
+                auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
+                thrust::host_vector<T> host_array(vec_ptr->size());
+                thrust::copy(vec_ptr->begin(), vec_ptr->end(), host_array.begin());
+                return host_array;
+            } else {
+                throw std::runtime_error("Type mismatch for array: " + array_name);
+            }
+        } else {
+            throw std::runtime_error("Array not found: " + array_name);
+        }
+    }
+
     template <typename T>
-    void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array);
+    void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array) {
+        auto array_map = getArrayMap();
+        auto it = array_map.find(array_name);
+        if (it != array_map.end()) {
+            if (it->second.type() == typeid(thrust::device_vector<T>*)) {
+                auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
+                if (host_array.size() != vec_ptr->size()) {
+                    throw std::out_of_range("Size mismatch between host and device arrays for: " + array_name);
+                }
+                thrust::copy(host_array.begin(), host_array.end(), vec_ptr->begin());
+            } else {
+                throw std::runtime_error("Type mismatch for array: " + array_name);
+            }
+        } else {
+            throw std::runtime_error("Array not found: " + array_name);
+        }
+    }
     
-    /**
-     * @brief Set the box size from a host vector
-     * 
-     * @param box_size host vector of length N_DIM
-     */
     void setBoxSize(const thrust::host_vector<double>& box_size);
-
-    /**
-     * @brief Get the box size as a host vector
-     * 
-     * @return thrust::host_vector<double> 
-     */
     thrust::host_vector<double> getBoxSize();
-
-    /**
-     * @brief Set the box size as an N_DIM hypercube with side length derived from the generalized area
-     * 
-     * @param area generalized area of the simulation box (2d-area, 3d-volume)
-     */
     void initializeBox(double area);
-
-    /**
-     * @brief Assign random uniform values to a device vector within a given range
-     * 
-     * @param values device vector to assign the random uniform values to
-     * @param min minimum value
-     * @param max maximum value
-     */
     void setRandomUniform(thrust::device_vector<double>& values, double min, double max);
-
-    /**
-     * @brief Assign random normal values to a device vector within a given range
-     * 
-     * @param values device vector to assign the random normal values to
-     * @param mean mean of the normal distribution
-     * @param stddev standard deviation of the normal distribution
-     */
     void setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev);
 
-    // CRTP-Specific Methods
+    // Pure Virtual Functions (must be implemented in derived classes)
+    virtual void initDynamicVariables() = 0;
+    virtual void clearDynamicVariables() = 0;
+    virtual void initGeometricVariables() = 0;
+    virtual void clearGeometricVariables() = 0;
+    virtual void setRandomPositions() = 0;
+    virtual double getArea() const = 0;  // Derived must implement
+    virtual double getOverlapFraction() const = 0;  // Derived must implement
+    virtual void scalePositions(double scale_factor) = 0;
+    virtual void updatePositions(double dt) = 0;
+    virtual void updateMomenta(double dt) = 0;
+    virtual void calculateForces() = 0;
+    virtual void calculateKineticEnergy() = 0;
+    virtual void updateNeighborList() = 0;
 
-    /**
-     * @brief Initialize the dynamic variables (positions, momenta, etc. whatever is generally needed for the simulation)
-     * 
-     */
-    void initDynamicVariables();
-
-    /**
-     * @brief Clear the dynamic variables (positions, momenta, etc. whatever is generally needed for the simulation)
-     * 
-     */
-    void clearDynamicVariables();
-
-    /**
-     * @brief Initialize the geometric variables if relevant (areas, angles, lengths, etc.)
-     * 
-     */
-    void initGeometricVariables();
-
-    /**
-     * @brief Clear the geometric variables if relevant (areas, angles, lengths, etc.)
-     * 
-     */
-    void clearGeometricVariables();
-
-    /**
-     * @brief Uniformly distribute the particle positions in the simulation box
-     * 
-     */
-    void setRandomPositions();
-
-    /**
-     * @brief Get the diameter of the particles
-     * 
-     * @param which which diameter to get ("min", "max", or "mean")
-     * @return double 
-     */
+    // Methods with Implemented Logic (will use virtual calls if overridden)
     double getDiameter(std::string which = "min");
-
-    /**
-     * @brief Set the bi-dispersity of the particles given a size ratio (large/small diameter) and a count ratio (large/small number)
-     * 
-     * @param size_ratio ratio of the large diameter to the small diameter
-     * @param count_ratio ratio of the large number to the small number
-     */
     void setBiDispersity(double size_ratio, double count_ratio);
-
-    /**
-     * @brief Get the area of the simulation box
-     * 
-     * @return double 
-     */
     double getBoxArea();
-
-    /**
-     * @brief Get the area of the particles
-     * 
-     * @return double 
-     */
-    double getArea() {
-        return static_cast<Derived*>(this)->getAreaImpl();
-    }
-
-    /**
-     * @brief Get the packing fraction of the system
-     * 
-     * @return double 
-     */
     double getPackingFraction();
-
-    /**
-     * @brief Get the area of overlap between the particles as a fraction of the total area
-     * 
-     * @return double 
-     */
-    double getOverlapFraction() {
-        return static_cast<Derived*>(this)->getOverlapFractionImpl();
-    }
-
-    /**
-     * @brief Get the density of the system: packing fraction - overlap fraction
-     * 
-     * @return double 
-     */
     double getDensity();
-
-    /**
-     * @brief Apply an affine scaling to the particle positions
-     * 
-     * @param scale_factor 
-     */
-    void scalePositions(double scale_factor) {
-        static_cast<Derived*>(this)->scalePositionsImpl(scale_factor);
-    }
-
-    /**
-     * @brief Scale the system size so that the particles are at a given packing fraction
-     * 
-     * @param packing_fraction packing fraction to scale to
-     */
     void scaleToPackingFraction(double packing_fraction);
 
-    void updatePositions(double dt) {
-        static_cast<Derived*>(this)->updatePositionsImpl(dt);
-    }
-    void updateMomenta(double dt) {
-        static_cast<Derived*>(this)->updateMomentaImpl(dt);
-    }
-    void calculateForces() {
-        static_cast<Derived*>(this)->calculateForcesImpl();
-    }
-    void calculateKineticEnergy() {
-        static_cast<Derived*>(this)->calculateKineticEnergyImpl();
-    }
-    void updateNeighborList() {
-        static_cast<Derived*>(this)->updateNeighborListImpl();
-    }
-
-    inline double totalKineticEnergy() const {
-        thrust::host_vector<double> h_kinetic_energy = d_kinetic_energy;
-        return thrust::reduce(h_kinetic_energy.begin(), h_kinetic_energy.end(), 0.0, thrust::plus<double>());
-    }
-    inline double totalPotentialEnergy() const {
-        return thrust::reduce(d_potential_energy.begin(), d_potential_energy.end(), 0.0, thrust::plus<double>());
-    }
-    inline double totalEnergy() const {
-        return totalKineticEnergy() + totalPotentialEnergy();
-    }
+    double totalKineticEnergy() const;
+    double totalPotentialEnergy() const;
+    double totalEnergy() const;
 };
 
 #endif /* PARTICLE_H */

@@ -1,3 +1,5 @@
+#include "../include/constants.h"
+#include "../include/particle/particle.h"
 #include "../include/particle/disk.h"
 #include <iostream>
 #include <string>
@@ -32,8 +34,10 @@ int main() {
     disk.calculateKineticEnergy();
 
     std::cout << "Kinetic energy: " << disk.totalKineticEnergy() << std::endl;
-    // double kinetic_energy = thrust::reduce(disk.d_kinetic_energy.begin(), disk.d_kinetic_energy.end(), 0.0, thrust::plus<double>());
-    // std::cout << "Kinetic energy: " << kinetic_energy << std::endl;
+
+    thrust::host_vector<double> h_kinetic_energy = disk.getArray<double>("d_kinetic_energy");
+
+    std::cout << "Kinetic energy: " << h_kinetic_energy[0] << std::endl;
 
     return 0;
 }

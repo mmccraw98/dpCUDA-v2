@@ -1,14 +1,43 @@
-#ifndef GENERAL_KERNELS_H
-#define GENERAL_KERNELS_H
+#ifndef KERNELS_CUH_
+#define KERNELS_CUH_
 
+#include <stdio.h>
+#include <cmath>
 #include "../../include/constants.h"
-#include "../../include/cuda_constants.cuh"
 
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
-#include <thrust/random.h>
-#include <thrust/transform.h>
-#include <thrust/functional.h>
+// ----------------------------------------------------------------------
+// ----------------------- Device Constants -----------------------------
+// ----------------------------------------------------------------------
+
+__constant__ long d_dim_block;  // number of threads per block
+__constant__ long d_dim_grid;  // number of blocks per grid
+__constant__ long d_dim_vertex_grid;  // number of vertices per grid
+
+__constant__ double d_box_size[N_DIM];  // box size vector
+
+__constant__ long d_n_dim;  // number of dimensions
+__constant__ long d_n_particles;  // total number of particles
+__constant__ long d_n_vertices;  // total number of vertices
+
+__constant__ double d_e_c;  // energy scale for the contact energy
+__constant__ double d_e_a;  // energy scale for the area energy
+__constant__ double d_e_b;  // energy scale for the bending energy
+__constant__ double d_e_l;  // energy scale for the length energy
+
+__constant__ double d_n_c;  // exponent for the contact energy
+__constant__ double d_n_a;  // exponent for the area energy
+__constant__ double d_n_b;  // exponent for the bending energy
+__constant__ double d_n_l;  // exponent for the length energy
+
+__constant__ long* d_num_neighbors_ptr;  // pointer to the array that stores the number of neighbors for each particle
+__constant__ long* d_neighbor_list_ptr;  // pointer to the neighbor list array
+__constant__ long d_max_neighbors;  // maximum number of neighbors
+__constant__ long d_max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
+
+
+// ----------------------------------------------------------------------
+// -------------------------- General Purpose ---------------------------
+// ----------------------------------------------------------------------
 
 /**
  * @brief X1 - X2 with periodic boundary conditions in the specified dimension
@@ -229,4 +258,44 @@ inline __device__ void getPosition(const long id, const double* positions, doubl
 	}
 }
 
-#endif // GENERAL_KERNELS_H
+// ----------------------------------------------------------------------
+// ----------------------- Dynamics and Updates -------------------------
+// ----------------------------------------------------------------------
+
+/**
+ * @brief Update the positions of the particles using an explicit Euler method.
+ * Also updates the displacements of the particles from the last neighbor list update.
+ * 
+ * @param positions The positions of the particles.
+ * @param last_positions The positions of the particles at the last time step.
+ * @param displacements The displacements of the particles.
+ * @param velocities The velocities of the particles.
+ * @param dt The time step.
+ */
+__global__ void kernelUpdatePositions(double* positions, const double* last_positions, double* displacements, double* velocities, const double dt);
+
+/**
+ * @brief Update the velocities of the particles using an explicit Euler method.
+ * 
+ * @param velocities The velocities of the particles.
+ * @param forces The forces on the particles.
+ * @param masses The masses of the particles.
+ * @param dt The time step.
+ */
+__global__ void kernelUpdateVelocities(double* velocities, double* forces, const double* masses, const double dt);
+
+
+// ----------------------------------------------------------------------
+// --------------------- Contacts and Neighbors -------------------------
+// ----------------------------------------------------------------------
+
+/**
+ * @brief Update the neighbor list for all the particles.
+ * 
+ * @param positions The positions of the particles.
+ * @param cutoff The cutoff distance for the neighbor list.
+ */
+__global__ void kernelUpdateNeighborList(const double* positions, const double cutoff);
+
+
+#endif /* KERNELS_CUH_ */

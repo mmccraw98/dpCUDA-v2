@@ -1,9 +1,7 @@
 #include "../../include/constants.h"
-#include "../../include/cuda_constants.cuh"
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
-#include "../../include/kernels/dynamics.cuh"
-#include "../../include/kernels/contacts.cuh"
+#include "../../include/kernels/kernels.cuh"
 #include <iostream>
 #include <string>
 #include <vector>

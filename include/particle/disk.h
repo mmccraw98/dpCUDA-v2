@@ -1,7 +1,9 @@
 #ifndef DISK_H
 #define DISK_H
 
-#include "../constants.h"
+#include "../../include/constants.h"
+#include "../../include/functors.h"
+#include "../../include/kernels/kernels.cuh"
 #include "particle.h"
 #include <vector>
 #include <string>

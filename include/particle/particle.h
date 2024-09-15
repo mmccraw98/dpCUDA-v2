@@ -41,13 +41,13 @@ public:
     double* d_kinetic_energy_ptr;
 
     // Simulation parameters
-    double e_c, e_a, e_b, e_l;  // energy scales for interaction, area, bending, and length
-    double n_c, n_a, n_b, n_l;  // exponents for the energy terms
+    double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
+    double n_c = -1, n_a = -1, n_b = -1, n_l = -1;  // exponents for the energy terms
     double neighbor_cutoff;  // cutoff distance for the neighbor list
     long max_neighbors;  // maximum number of neighbors
     long max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
-    long n_particles = 0;  // total number of particles
-    long n_vertices = 0;  // total number of vertices
+    long n_particles = -1;  // total number of particles
+    long n_vertices = -1;  // total number of vertices
     long n_dof;  // number of degrees of freedom
     long seed;  // random number generator seed
     long dim_grid, dim_block, dim_vertex_grid;  // dimensions for the CUDA kernels
@@ -194,6 +194,11 @@ public:
      * @param which The type of exponent to set ("c", "a", "b", or "l").
      */
     void setExponent(double n, std::string which);
+
+
+    virtual void setCudaConstants();
+
+    virtual void getCudaConstants();
 
     /**
      * @brief Initialize the box size given the desired area of the box.

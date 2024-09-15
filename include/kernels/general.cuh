@@ -220,7 +220,7 @@ inline __device__ double calcOverlapAndDeltaPBC(const double* point1, const doub
  * 
  * @param id particle id
  * @param positions positions of the particles
- * @param pos position of the extracted particle
+ * @param pos position of the particle
  */
 inline __device__ void getPosition(const long id, const double* positions, double* pos) {
 	#pragma unroll (N_DIM)

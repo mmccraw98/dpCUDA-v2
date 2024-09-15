@@ -61,6 +61,15 @@ void Particle::setSeed(long seed) {
     srand(seed);
 }
 
+void Particle::setNumParticles(long n_particles) {
+    this->n_particles = n_particles;
+    this->n_dof = n_particles * N_DIM;
+}
+
+void Particle::setNumVertices(long n_vertices) {
+    this->n_vertices = n_vertices;
+}
+
 void Particle::setKernelDimensions(long dim_block) {
     int maxThreadsPerBlock;
     cudaDeviceProp deviceProp;
@@ -79,11 +88,11 @@ void Particle::setKernelDimensions(long dim_block) {
         dim_block = n_particles;
     }
 
-    if (n_particles == 0) {
+    if (n_particles <= 0) {
         std::cout << "WARNING: Particle::setKernelDimensions: n_particles is 0.  Ignore if only using vertex-level kernels, otherwise set n_particles." << std::endl;
         n_particles = 1;
     }
-    if (n_vertices == 0) {
+    if (n_vertices <= 0) {
         std::cout << "WARNING: Particle::setKernelDimensions: n_vertices is 0.  Ignore if only using particle-level kernels, otherwise set n_vertices." << std::endl;
         n_vertices = 1;
     }
@@ -94,62 +103,6 @@ void Particle::setKernelDimensions(long dim_block) {
 
     // Set block and grid dimensions for vertices (optional)
     this->dim_vertex_grid = (n_vertices + dim_block - 1) / dim_block;
-
-    // Copy dimensions to device symbols
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setKernelDimensions: Error copying dimBlock to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    cuda_err = cudaMemcpyToSymbol(d_dim_grid, &dim_grid, sizeof(long));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setKernelDimensions: Error copying dimGrid to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    cuda_err = cudaMemcpyToSymbol(d_dim_vertex_grid, &dim_vertex_grid, sizeof(long));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setKernelDimensions: Error copying dimVertexGrid to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    std::cout << "dim_grid: " << dim_grid << std::endl;
-    std::cout << "dim_block: " << dim_block << std::endl;
-    std::cout << "dim_vertex_grid: " << dim_vertex_grid << std::endl;
-
-    std::cout << "Printing constants from kernel" << std::endl;
-    kernelPrintN<<<dim_grid, dim_block>>>();
-}
-
-
-void Particle::setNumParticles(long n_particles) {
-    this->n_particles = n_particles;
-    this->n_dof = n_particles * N_DIM;
-    std::cout << "n_particles: " << this->n_particles << std::endl;
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_particles, &this->n_particles, sizeof(this->n_particles));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setNumParticles: Error copying number of particles to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-
-    long host_n_particles;
-    cuda_err = cudaMemcpyFromSymbol(&host_n_particles, d_n_particles, sizeof(long));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setNumParticles: Error copying number of particles from device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    std::cout << "host_n_particles: " << host_n_particles << std::endl;
-
-    initDynamicVariables();
-    initGeometricVariables();
-}
-
-void Particle::setNumVertices(long n_vertices) {
-    this->n_vertices = n_vertices;
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_vertices, &n_vertices, sizeof(long));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setNumVertices: Error copying number of vertices to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
 }
 
 void Particle::initDynamicVariables() {
@@ -223,6 +176,9 @@ void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
 thrust::host_vector<double> Particle::getBoxSize() {
     thrust::host_vector<double> box_size(N_DIM);
     cudaError_t cuda_err = cudaMemcpyFromSymbol(&box_size[0], d_box_size, sizeof(double) * N_DIM);
+    for (int i = 0; i < N_DIM; i++) {
+        std::cout << "Particle::getBoxSize: d_box_size[" << i << "]: " << box_size[i] << std::endl;
+    }
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::getBoxSize: Error copying box size to host: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
@@ -256,49 +212,209 @@ void Particle::syncNeighborList() {
 }
 
 void Particle::setEnergyScale(double e, std::string which) {
-    cudaError_t cuda_err;
     if (which == "c") {
         e_c = e;
-        cuda_err = cudaMemcpyToSymbol(d_e_c, &e_c, sizeof(double));
     } else if (which == "a") {
         e_a = e;
-        cuda_err = cudaMemcpyToSymbol(d_e_a, &e_a, sizeof(double));
     } else if (which == "b") {
         e_b = e;
-        cuda_err = cudaMemcpyToSymbol(d_e_b, &e_b, sizeof(double));
     } else if (which == "l") {
         e_l = e;
-        cuda_err = cudaMemcpyToSymbol(d_e_l, &e_l, sizeof(double));
     } else {
         throw std::invalid_argument("Particle::setEnergyScale: which must be 'c', 'a', 'b', or 'l', not " + which);
-    }
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setEnergyScale: Error copying energy scale to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
     }
 }
 
 void Particle::setExponent(double n, std::string which) {
-    cudaError_t cuda_err;
     if (which == "c") {
         n_c = n;
-        cuda_err = cudaMemcpyToSymbol(d_n_c, &n_c, sizeof(double));
     } else if (which == "a") {
         n_a = n;
-        cuda_err = cudaMemcpyToSymbol(d_n_a, &n_a, sizeof(double));
     } else if (which == "b") {
         n_b = n;
-        cuda_err = cudaMemcpyToSymbol(d_n_b, &n_b, sizeof(double));
     } else if (which == "l") {
         n_l = n;
-        cuda_err = cudaMemcpyToSymbol(d_n_l, &n_l, sizeof(double));
     } else {
         throw std::invalid_argument("Particle::setExponent: which must be 'c', 'a', 'b', or 'l', not " + which);
     }
+}
+
+void Particle::setCudaConstants() {
+    cudaError_t cuda_err;
+    cuda_err = cudaMemcpyToSymbol(d_n_particles, &n_particles, sizeof(long));
     if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::setExponent: Error copying exponent to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        std::cerr << "Particle::setCudaConstants: Error copying n_particles to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
+    cuda_err = cudaMemcpyToSymbol(d_n_vertices, &n_vertices, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying n_vertices to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying dim_block to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_dim_grid, &dim_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying dim_grid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_dim_vertex_grid, &dim_vertex_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying dim_vertex_grid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_max_neighbors, &max_neighbors, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying max_neighbors to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &max_neighbors_allocated, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying max_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+
+    cuda_err = cudaMemcpyToSymbol(d_e_c, &e_c, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying e_c to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_e_a, &e_a, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying e_a to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_e_b, &e_b, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying e_b to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_e_l, &e_l, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying e_l to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_n_c, &n_c, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying n_c to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_n_a, &n_a, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying n_a to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_n_b, &n_b, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying n_b to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_n_l, &n_l, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCudaConstants: Error copying n_l to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::getCudaConstants() {
+    cudaError_t cuda_err;
+    long temp;
+    cuda_err = cudaMemcpyFromSymbol(&temp, d_n_particles, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_particles from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_particles: " << temp << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&temp, d_n_vertices, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_vertices from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_vertices: " << temp << std::endl;
+
+
+    cuda_err = cudaMemcpyFromSymbol(&dim_block, d_dim_block, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying dim_block from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "dim_block: " << dim_block << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&dim_grid, d_dim_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying dim_grid from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "dim_grid: " << dim_grid << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&dim_vertex_grid, d_dim_vertex_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying dim_vertex_grid from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "dim_vertex_grid: " << dim_vertex_grid << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&max_neighbors, d_max_neighbors, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying max_neighbors from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "max_neighbors: " << max_neighbors << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&max_neighbors_allocated, d_max_neighbors_allocated, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying max_neighbors_allocated from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "max_neighbors_allocated: " << max_neighbors_allocated << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&e_c, d_e_c, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying e_c from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "e_c: " << e_c << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&e_a, d_e_a, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying e_a from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "e_a: " << e_a << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&e_b, d_e_b, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying e_b from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "e_b: " << e_b << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&e_l, d_e_l, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying e_l from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "e_l: " << e_l << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&n_c, d_n_c, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_c from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_c: " << n_c << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&n_a, d_n_a, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_a from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_a: " << n_a << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&n_b, d_n_b, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_b from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_b: " << n_b << std::endl;
+    cuda_err = cudaMemcpyFromSymbol(&n_l, d_n_l, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::getCudaConstants: Error copying n_l from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "n_l: " << n_l << std::endl;
 }
 
 void Particle::initializeBox(double area) {
@@ -395,13 +511,6 @@ void Particle::scalePositions(double scale_factor) {
 
 void Particle::updatePositions(double dt) {
     kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_last_positions_ptr, d_displacements_ptr, d_velocities_ptr, dt);
-
-    cudaError_t err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        std::cerr << "Particle::updatePositions: Error in kernelUpdatePositions: " << cudaGetErrorString(err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    cudaDeviceSynchronize();
 }
 
 void Particle::updateVelocities(double dt) {

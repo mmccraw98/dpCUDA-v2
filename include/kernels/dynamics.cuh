@@ -9,8 +9,6 @@
 #include "../../include/cuda_constants.cuh"
 #include "../../include/kernels/general.cuh"
 
-__global__ void kernelPrintN();
-
 /**
  * @brief Update the positions of the particles using an explicit Euler method.
  * Also updates the displacements of the particles from the last neighbor list update.

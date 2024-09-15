@@ -2,7 +2,7 @@
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 
 # Project name and supported languages
-project(CudaSimulation LANGUAGES CXX CUDA)
+project(dpCUDAv2 LANGUAGES CXX CUDA)
 
 # Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)

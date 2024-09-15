@@ -45,14 +45,14 @@ public:
     // Simulation parameters
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
     double n_c = -1, n_a = -1, n_b = -1, n_l = -1;  // exponents for the energy terms
-    double neighbor_cutoff;  // cutoff distance for the neighbor list
-    long max_neighbors;  // maximum number of neighbors
-    long max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
+    double neighbor_cutoff = -1;  // cutoff distance for the neighbor list
+    long max_neighbors = -1;  // maximum number of neighbors
+    long max_neighbors_allocated = -1;  // maximum number of neighbors allocated for each particle
     long n_particles = -1;  // total number of particles
     long n_vertices = -1;  // total number of vertices
-    long n_dof;  // number of degrees of freedom
-    long seed;  // random number generator seed
-    long dim_grid, dim_block, dim_vertex_grid;  // dimensions for the CUDA kernels
+    long n_dof = -1;  // number of degrees of freedom
+    long seed = -1;  // random number generator seed
+    long dim_grid = -1, dim_block = -1, dim_vertex_grid = -1;  // dimensions for the CUDA kernels
 
     // ----------------------------------------------------------------------
     // ----------------------- Template Methods -----------------------------
@@ -85,10 +85,10 @@ public:
                 thrust::copy(vec_ptr->begin(), vec_ptr->end(), host_array.begin());
                 return host_array;
             } else {
-                throw std::runtime_error("Type mismatch for array: " + array_name);
+                throw std::runtime_error("Particle::getArray: Type mismatch for array: " + array_name);
             }
         } else {
-            throw std::runtime_error("Array not found: " + array_name);
+            throw std::runtime_error("Particle::getArray: Array not found: " + array_name);
         }
     }
 
@@ -107,14 +107,14 @@ public:
             if (it->second.type() == typeid(thrust::device_vector<T>*)) {
                 auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
                 if (host_array.size() != vec_ptr->size()) {
-                    throw std::out_of_range("Size mismatch between host and device arrays for: " + array_name);
+                    throw std::out_of_range("Particle::setArray: Size mismatch between host and device arrays for: " + array_name);
                 }
                 thrust::copy(host_array.begin(), host_array.end(), vec_ptr->begin());
             } else {
-                throw std::runtime_error("Type mismatch for array: " + array_name);
+                throw std::runtime_error("Particle::setArray: Type mismatch for array: " + array_name);
             }
         } else {
-            throw std::runtime_error("Array not found: " + array_name);
+            throw std::runtime_error("Particle::setArray: Array not found: " + array_name);
         }
     }
 
@@ -130,33 +130,60 @@ public:
     void setSeed(long seed);
 
     /**
-     * @brief Set the dimensions for the CUDA kernels.
+     * @brief Set the dimensions for the CUDA kernels and synchronize to the device constant memory.
      * 
      * @param dim_block The number of threads in the block (default is 256).
      */
-    void setKernelDimensions(long dim_block = 256);
+    virtual void setKernelDimensions(long dim_block = 256);
 
     /**
-     * @brief Virtual method to set the number of particles.
+     * @brief Synchronize the kernel dimensions to the device constant memory.
+     */
+    void syncKernelDimensions();
+
+    /**
+     * @brief Set the number of particles and synchronize to the device constant memory.
      * 
      * @param n_particles The number of particles.
      */
-    virtual void setNumParticles(long n_particles);
+    void setNumParticles(long n_particles);
 
     /**
-     * @brief Set the number of vertices for the particles.
+     * @brief Synchronize the number of particles to the device constant memory.
+     */
+    void syncNumParticles();
+
+    /**
+     * @brief Set the number of vertices for the particles and synchronize to the device constant memory.
      * 
      * @param n_vertices The number of vertices.
      */
-    virtual void setNumVertices(long n_vertices);
+    void setNumVertices(long n_vertices);
+
+    /**
+     * @brief Synchronize the number of vertices to the device constant memory.
+     */
+    void syncNumVertices();
+
+    /**
+     * @brief Set the number of particles and vertices and synchronize to the device constant memory.
+     * Initialize the arrays to the correct sizes depending on the number of particles and vertices.
+     * Depends on the derived class to define the logic.
+     * 
+     * @param n_particles The number of particles.
+     * @param n_vertices The number of vertices.
+     */
+    virtual void setParticleCounts(long n_particles, long n_vertices);
 
     /**
      * @brief Initialize the dynamic variables and their pointers given the number of particles and dimensions.
+     * Depends on the derived class to define the logic.
      */
     virtual void initDynamicVariables();
 
     /**
      * @brief Clear the dynamic variables and their pointers from the device memory.
+     * Depends on the derived class to define the logic.
      */
     virtual void clearDynamicVariables();
 
@@ -189,6 +216,17 @@ public:
     void setEnergyScale(double e, std::string which);
 
     /**
+     * @brief Set the energy scales for the particles.
+     * V = e / n (1 - r / sigma) ^ n
+     * 
+     * @param e_c The contact energy scale.
+     * @param e_a The area energy scale.
+     * @param e_b The bending energy scale.
+     * @param e_l The length energy scale.
+     */
+    void setAllEnergyScales(double e_c, double e_a, double e_b, double e_l);
+
+    /**
      * @brief Set the exponents for the energy terms.
      * V = e / n (1 - r / sigma) ^ n
      * 
@@ -197,17 +235,23 @@ public:
      */
     void setExponent(double n, std::string which);
 
-
-    virtual void setCudaConstants();
-
-    virtual void getCudaConstants();
+    /**
+     * @brief Set the exponents for the energy terms.
+     * V = e / n (1 - r / sigma) ^ n
+     * 
+     * @param n_c The contact exponent.
+     * @param n_a The area exponent.
+     * @param n_b The bending exponent.
+     * @param n_l The length exponent.
+     */
+    void setAllExponents(double n_c, double n_a, double n_b, double n_l);
 
     /**
-     * @brief Initialize the box size given the desired area of the box.
+     * @brief Initialize the box variables to a desired packing fraction.
      * 
-     * @param area The area of the box (default is 1.0).
+     * @param packing_fraction The desired packing fraction of the box.
      */
-    void initializeBox(double area = 1.0);
+    void initializeBox(double packing_fraction);
 
     /**
      * @brief Fill a device vector with random uniform values.
@@ -300,11 +344,13 @@ public:
 
     /**
      * @brief Initialize the geometric variables and their pointers for the object - default is empty.
+     * Depends on the derived class to define the logic.
      */
     virtual void initGeometricVariables() {};
 
     /**
      * @brief Clear the geometric variables and their pointers for the object - default is empty.
+     * Depends on the derived class to define the logic.
      */
     virtual void clearGeometricVariables() {};
 
@@ -346,6 +392,19 @@ public:
      * @brief Calculate the neighbor list for the particles.
      */
     virtual void updateNeighborList();
+
+    /**
+     * @brief Set the neighbor cutoff for the particles based on some multiple of a defined length scale.
+     * Length scale depends on the derived class, defaults to the minimum particle diameter.
+     * 
+     * @param neighbor_cutoff_multiplier The multiplier for the neighbor cutoff.
+     */
+    virtual void setNeighborCutoff(double neighbor_cutoff_multiplier);
+
+    /**
+     * @brief Print the neighbor list for the particles.  Useful for debugging.
+     */
+    virtual void printNeighborList();
 
     // ----------------------------------------------------------------------
     // ---------------------- Pure Virtual Methods --------------------------

@@ -13,7 +13,7 @@ __constant__ long d_dim_vertex_grid;
 
 __constant__ double d_box_size[N_DIM];
 
-__constant__ long d_n_dim;
+__constant__ long d_n_dim = N_DIM;
 __constant__ long d_n_particles;
 __constant__ long d_n_vertices;
 
@@ -38,7 +38,6 @@ __constant__ long d_max_neighbors_allocated;
 
 __global__ void kernelUpdatePositions(double* positions, const double* last_positions, double* displacements, double* velocities, const double dt) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
-    printf("particle_id: %ld d_n_particles: %ld d_n_dim: %ld d_box_size: %f %f d_e_c: %f d_e_a: %f d_e_b: %f d_e_l: %f\n", particle_id, d_n_particles, d_n_dim, d_box_size[0], d_box_size[1], d_e_c, d_e_a, d_e_b, d_e_l);
     if (particle_id < d_n_particles) {
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
@@ -61,18 +60,39 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
 
 
 // ----------------------------------------------------------------------
+// ------------------------- Force Routines -----------------------------
+// ----------------------------------------------------------------------
+
+__global__ void kernelCalcDiskForces(const double* positions, const double* radii, double* forces, double* potential_energy) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id < d_n_particles) {
+        long other_id;
+        double this_pos[N_DIM], neighbor_pos[N_DIM];
+        double this_rad, neighbor_rad;
+        potential_energy[particle_id] = 0.0;
+        getPositionAndRadius(particle_id, positions, radii, this_pos, this_rad);
+        for (long neighbor_id = 0; neighbor_id < d_num_neighbors_ptr[particle_id]; neighbor_id++) {
+            if (isParticleNeighbor(particle_id, neighbor_id, other_id)) {
+                getPositionAndRadius(other_id, positions, radii, neighbor_pos, neighbor_rad);
+                potential_energy[particle_id] += calcPointPointInteraction(this_pos, neighbor_pos, this_rad + neighbor_rad, forces);
+            }        
+        }
+    }
+}
+
+
+// ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
 // ----------------------------------------------------------------------
 
 __global__ void kernelUpdateNeighborList(const double* positions, const double cutoff) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id < d_n_particles) {
-        printf("Particle %ld\n", particle_id);
         long added_neighbors = 0;
         double this_pos[N_DIM], other_pos[N_DIM];
         getPosition(particle_id, positions, this_pos);
         for (long other_id = 0; other_id < d_n_particles; other_id++) {
-            if (particle_id != other_id) {
+            if (particle_id != other_id) {  // TODO CHECK THIS
                 getPosition(other_id, positions, other_pos);
                 double distance = calcDistancePBC(this_pos, other_pos);
                 if (distance < cutoff) {

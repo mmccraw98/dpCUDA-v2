@@ -20,37 +20,47 @@
 #include <thrust/functional.h>
 
 int main() {
+    // constructing the object
+
     Disk disk;
 
     disk.setSeed(0);
 
-    // disk.setNumVertices(0);
-    disk.setNumParticles(32);
-    disk.initDynamicVariables();
-    disk.initGeometricVariables();  // does nothing for disks, but here for generality
+    // set/sync number of vertices/particles, define the array sizes
+    disk.setParticleCounts(2, 0);
     
+    // set/sync energies
     disk.setEnergyScale(1.0, "c");
     disk.setExponent(2.0, "c");
+
+    // set/sync kernel dimensions
     disk.setKernelDimensions(256);  // not sure how to best motivate this
 
-    disk.setCudaConstants();
-    disk.getCudaConstants();
-
+    // define the particle sizes, initialize the box to a set packing fraction, and set random positions
     disk.setBiDispersity(1.4, 0.5);
-    disk.initializeBox();
-    disk.scaleToPackingFraction(0.5);
+    disk.initializeBox(0.5);
     disk.setRandomPositions();
+    // define geometry when relevant (i.e. initialize vertex configurations, calculate shape parameters, etc.)
 
-    disk.getBoxSize();
+    // define the neighbor cutoff size
+    disk.setNeighborCutoff(1.5);  // 1.5 * min_diameter
 
-    disk.getCudaConstants();
+    // update the neighbor list
+    disk.updateNeighborList();
 
-    // disk.updateNeighborList();
-    // std::cout << "max_neighbors: " << disk.max_neighbors << std::endl;
-    // std::cout << "max_neighbors_allocated: " << disk.max_neighbors_allocated << std::endl;
+    disk.calculateForces();
 
-    disk.updatePositions(0.01);
 
-    disk.getCudaConstants();
+    thrust::host_vector<double> potential_energy = disk.getArray<double>("d_potential_energy");
+    thrust::host_vector<double> forces = disk.getArray<double>("d_forces");
+
+    for (long i = 0; i < disk.n_particles; i++) {
+        std::cout << potential_energy[i] << " ";
+        std::cout << forces[i] << " ";
+        std::cout << forces[i+1] << std::endl;
+    }
+
+    // constructing the simulation:
+
     return 0;
 }

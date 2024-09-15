@@ -1,0 +1,15 @@
+- add integrators
+- add particle factory
+- add io
+- make simulation scripts
+- split the cuda kernels into separate files for each purpose
+- organize the member function definitions in particle.h/.cu
+- make tests
+- add a cell list
+- try to go back to crtp classes for the particles and integrators
+
+mkdir -p build
+cd build
+cmake ..
+make
+./main_exec

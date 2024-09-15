@@ -18,6 +18,17 @@ public:
     virtual ~Disk();
 
     // ----------------------------------------------------------------------
+    // --------------------- Overridden Methods -----------------------------
+    // ----------------------------------------------------------------------
+
+    /**
+     * @brief Set the dimensions for the CUDA kernels.
+     * 
+     * @param dim_block The number of threads in the block (default is 256).
+     */
+    void setKernelDimensions(long dim_block = 256) override;
+
+    // ----------------------------------------------------------------------
     // ------------- Implementation of Pure Virtual Methods -----------------
     // ----------------------------------------------------------------------
     
@@ -36,7 +47,9 @@ public:
     double getOverlapFraction() const override;
     
     /**
-     * @brief Calculate the forces on the particles.
+     * @brief Calculate the forces and potential energies of the particles.
+     * V = e / n * (1 - r / sigma) ^ n
+     * 
      */
     void calculateForces() override;
 

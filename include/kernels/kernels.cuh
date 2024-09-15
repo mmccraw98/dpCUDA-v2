@@ -237,11 +237,13 @@ inline __device__ double calcOverlapPBC(const double* point1, const double* poin
  * @param point1 first point
  * @param point2 second point
  * @param rad_sum sum of the radii of the two points
+ * @param distance distance between the two points
  * @param delta_vec distance vector to be modified by the function (delta_vec = point1 - point2)
  * @return __device__ overlap between the two points
  */
-inline __device__ double calcOverlapAndDeltaPBC(const double* point1, const double* point2, const double rad_sum, double* delta_vec) {
-    return (1 - calcDeltaAndDistancePBC(point1, point2, delta_vec) / rad_sum);
+inline __device__ double calcOverlapAndDeltaPBC(const double* point1, const double* point2, const double rad_sum, double* delta_vec, double& distance) {
+    distance = calcDeltaAndDistancePBC(point1, point2, delta_vec);
+    return (1 - distance / rad_sum);
 }
 
 /**
@@ -256,6 +258,20 @@ inline __device__ void getPosition(const long id, const double* positions, doubl
 	for (long dim = 0; dim < d_n_dim; dim++) {
 		pos[dim] = positions[id * d_n_dim + dim];
 	}
+}
+
+/**
+ * @brief Get the position and radius of a particle or vertex
+ * 
+ * @param id id of the particle or vertex
+ * @param positions pointer to the array of positions
+ * @param radii pointer to the array of radii
+ * @param pos position of the particle or vertex
+ * @param rad radius of the particle or vertex
+ */
+inline __device__ void getPositionAndRadius(const long id, const double* positions, const double* radii, double* pos, double& rad) {
+    getPosition(id, positions, pos);
+    rad = radii[id];
 }
 
 // ----------------------------------------------------------------------
@@ -286,8 +302,68 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
 
 
 // ----------------------------------------------------------------------
+// --------------------------- Interactions -----------------------------
+// ----------------------------------------------------------------------
+
+/**
+ * @brief Calculate the interaction between two points
+ * V = e * (1 - r / sigma) ^ n
+ * 
+ * @param point1 first point
+ * @param point2 second point
+ * @param rad_sum sum of the radii of the two points
+ * @param force force on the first point
+ * @return __device__ interaction energy between the two points
+ */
+inline __device__ double calcPointPointInteraction(const double* point1, const double* point2, const double rad_sum, double* force) {
+    double energy = 0.0;
+    double distance, delta_vec[N_DIM];
+    double overlap = calcOverlapAndDeltaPBC(point1, point2, rad_sum, delta_vec, distance);
+    if (overlap > 0) {
+        energy = d_e_c * pow(overlap, d_n_c) / d_n_c;
+        #pragma unroll (N_DIM)
+        for (long dim = 0; dim < d_n_dim; dim++) {
+            force[dim] = d_e_c * pow(overlap, d_n_c - 1) * delta_vec[dim] / (rad_sum * distance);
+        }
+    }
+    return energy;
+}
+
+
+// ----------------------------------------------------------------------
+// ------------------------- Force Routines -----------------------------
+// ----------------------------------------------------------------------
+
+/**
+ * @brief Calculate the interaction forces and energy between a particle and its neighbors.
+ * First zeros out the potential energy of the particle, then sums up the potential energies of the interactions between the particle and its neighbors.
+ * The initial zeroing may not be valid for certain particle types (i.e. DPM).
+ * V = e / n * (1 - r / sigma) ^ n
+ * 
+ * @param positions Pointer to the array of positions of the particles.
+ * @param radii Pointer to the array of radii of the particles.
+ * @param forces Pointer to the array of forces on the particles.
+ * @param potential_energy Pointer to the array of potential energies of the particles.
+ */
+__global__ void kernelCalcDiskForces(const double* positions, const double* radii, double* forces, double* potential_energy);
+
+
+// ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
 // ----------------------------------------------------------------------
+
+/**
+ * @brief Check if a neighbor is a valid neighbor and get its true id
+ * 
+ * @param particle_id id of the particle
+ * @param neighbor_id id of the neighbor
+ * @param other_id the true id of the neighbor
+ * @return __device__ true if the neighbor is a valid neighbor, false otherwise
+ */
+inline __device__ bool isParticleNeighbor(const long particle_id, const long neighbor_id, long& other_id) {
+    other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors + neighbor_id];
+    return (particle_id != other_id && other_id != -1);
+}
 
 /**
  * @brief Update the neighbor list for all the particles.

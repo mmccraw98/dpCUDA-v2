@@ -3,7 +3,6 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/kernels/kernels.cuh"
 #include "particle.h"
 #include <vector>
 #include <string>

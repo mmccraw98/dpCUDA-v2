@@ -4,6 +4,35 @@
 #include "../../include/kernels/kernels.cuh"
 
 // ----------------------------------------------------------------------
+// ----------------------- Device Constants -----------------------------
+// ----------------------------------------------------------------------
+
+__constant__ long d_dim_block;
+__constant__ long d_dim_grid;
+__constant__ long d_dim_vertex_grid;
+
+__constant__ double d_box_size[N_DIM];
+
+__constant__ long d_n_dim;
+__constant__ long d_n_particles;
+__constant__ long d_n_vertices;
+
+__constant__ double d_e_c;
+__constant__ double d_e_a;
+__constant__ double d_e_b;
+__constant__ double d_e_l;
+
+__constant__ double d_n_c;
+__constant__ double d_n_a;
+__constant__ double d_n_b;
+__constant__ double d_n_l;
+
+__constant__ long* d_num_neighbors_ptr;
+__constant__ long* d_neighbor_list_ptr;
+__constant__ long d_max_neighbors;
+__constant__ long d_max_neighbors_allocated;
+
+// ----------------------------------------------------------------------
 // ----------------------- Dynamics and Updates -------------------------
 // ----------------------------------------------------------------------
 

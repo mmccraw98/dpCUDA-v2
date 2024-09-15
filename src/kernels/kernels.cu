@@ -41,6 +41,7 @@ __global__ void kernelUpdatePositions(double* positions, const double* last_posi
     if (particle_id < d_n_particles) {
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
+            printf("particle_id: %ld, dim: %ld, position: %f, velocity: %f, displacement: %f\n", particle_id, dim, positions[particle_id * d_n_dim + dim], velocities[particle_id * d_n_dim + dim], displacements[particle_id * d_n_dim + dim]);
             positions[particle_id * d_n_dim + dim] += velocities[particle_id * d_n_dim + dim] * dt;
             displacements[particle_id * d_n_dim + dim] = positions[particle_id * d_n_dim + dim] - last_positions[particle_id * d_n_dim + dim];
         }
@@ -54,6 +55,20 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
             velocities[particle_id * d_n_dim + dim] += forces[particle_id * d_n_dim + dim] / masses[particle_id] * dt;
+        }
+    }
+}
+
+__global__ void kernelRemoveMeanVelocities(double* velocities) {
+    long dim = threadIdx.x;
+    if (dim < d_n_dim) {
+        double velocity_avg = 0.0;
+        for (long particle_id = 0; particle_id < d_n_particles; particle_id++) {
+            velocity_avg += velocities[particle_id * d_n_dim + dim];
+        }
+        velocity_avg /= d_n_particles;
+        for (long particle_id = 0; particle_id < d_n_particles; particle_id++) {
+            velocities[particle_id * d_n_dim + dim] -= velocity_avg;
         }
     }
 }

@@ -78,4 +78,17 @@ struct SquaredDifference {
     __host__ __device__ double operator()(const double x) { return (x - mean) * (x - mean); }
 };
 
+/**
+ * @brief Functor to compute the translational kinetic energy of a particle
+ * 
+ */
+struct TranslationalKineticEnergy {
+    __host__ __device__
+    double operator()(const thrust::tuple<double, double>& vel_mass_tuple) const {
+        double velocity = thrust::get<0>(vel_mass_tuple);
+        double mass = thrust::get<1>(vel_mass_tuple);
+        return 0.5 * mass * velocity * velocity;
+    }
+};
+
 #endif /* FUNCTORS_H_ */

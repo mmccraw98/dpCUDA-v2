@@ -56,7 +56,7 @@ public:
     /**
      * @brief Calculate the kinetic energy of the particles.
      */
-    void calculateKineticEnergy() override;
+    void calculateKineticEnergy();
 };
 
 #endif /* DISK_H */

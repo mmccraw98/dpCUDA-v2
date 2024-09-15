@@ -82,10 +82,10 @@ void Disk::calculateForces() {
 }
 
 void Disk::calculateKineticEnergy() {
-    std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
-    std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
-    std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
-    std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
-    std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
-    // thrust::transform(d_velocities.begin(), d_velocities.end(), d_kinetic_energy.begin(), Square());
+    thrust::transform(
+        thrust::make_zip_iterator(thrust::make_tuple(d_velocities.begin(), d_masses.begin())),  // Zip velocities and masses
+        thrust::make_zip_iterator(thrust::make_tuple(d_velocities.end(), d_masses.end())),      // End of the zip iterator
+        d_kinetic_energy.begin(),                                                              // Output iterator (d_kinetic_energy)
+        TranslationalKineticEnergy()                                                           // Functor to compute 1/2 m v^2
+    );
 }

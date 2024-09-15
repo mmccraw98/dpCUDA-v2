@@ -149,6 +149,11 @@ public:
     void setNumParticles(long n_particles);
 
     /**
+     * @brief Set the degrees of freedom.  Specific values depend on the derived class.
+     */
+    virtual void setDegreesOfFreedom();
+
+    /**
      * @brief Synchronize the number of particles to the device constant memory.
      */
     void syncNumParticles();
@@ -275,6 +280,13 @@ public:
      * @brief Set the particle positions to random uniform values within the box size.
      */
     virtual void setRandomPositions();
+
+    /**
+     * @brief Set the particle velocities to random normal values with a given temperature.
+     * 
+     * @param temperature The desired temperature of the system.
+     */
+    virtual void setRandomVelocities(double temperature);
 
     /**
      * @brief Get the diameter of the particles.
@@ -411,6 +423,24 @@ public:
      */
     virtual void zeroForceAndPotentialEnergy();
 
+    /**
+     * @brief Remove the mean velocity of the particles along each dimension.
+     */
+    virtual void removeMeanVelocities();
+
+    /**
+     * @brief Scale the velocities of the particles to a desired temperature.
+     * 
+     * @param temperature The desired temperature.
+     */
+    virtual void scaleVelocitiesToTemperature(double temperature);
+
+    /**
+     * @brief Calculate the kinetic energy of the particles.
+     * T = sum(KE) * 2 / dof
+     */
+    virtual double calculateTemperature();
+
     // ----------------------------------------------------------------------
     // ---------------------- Pure Virtual Methods --------------------------
     // ----------------------------------------------------------------------
@@ -433,11 +463,6 @@ public:
      * @brief Virtual method to calculate the forces on the particles.
      */
     virtual void calculateForces() = 0;
-
-    /**
-     * @brief Virtual method to calculate the kinetic energy of the particles.
-     */
-    virtual void calculateKineticEnergy() = 0;
 };
 
 #endif /* PARTICLE_H */

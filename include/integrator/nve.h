@@ -6,8 +6,10 @@
 
 class NVE : public Integrator {
 public:
-    NVE(Particle& particle);
+    NVE(Particle& particle, double dt);
     ~NVE();
+
+    double dt;
     
     void step() override;
 };

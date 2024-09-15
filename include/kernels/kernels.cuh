@@ -301,6 +301,13 @@ __global__ void kernelUpdatePositions(double* positions, const double* last_posi
 __global__ void kernelUpdateVelocities(double* velocities, double* forces, const double* masses, const double dt);
 
 
+/**
+ * @brief Removes the average velocity of the particles along a specified dimension.
+ * 
+ * @param velocities The velocities of the particles.
+ */
+__global__ void kernelRemoveMeanVelocities(double* velocities);
+
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
 // ----------------------------------------------------------------------

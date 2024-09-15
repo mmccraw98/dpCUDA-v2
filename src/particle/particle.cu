@@ -63,7 +63,6 @@ void Particle::setSeed(long seed) {
 
 void Particle::setNumParticles(long n_particles) {
     this->n_particles = n_particles;
-    this->n_dof = n_particles * N_DIM;
     syncNumParticles();
 }
 
@@ -75,6 +74,10 @@ void Particle::syncNumParticles() {
     }
 }
 
+void Particle::setDegreesOfFreedom() {
+    this->n_dof = n_particles * N_DIM;
+}
+    
 void Particle::setNumVertices(long n_vertices) {
     this->n_vertices = n_vertices;
     syncNumVertices();
@@ -91,6 +94,7 @@ void Particle::syncNumVertices() {
 void Particle::setParticleCounts(long n_particles, long n_vertices) {
     setNumParticles(n_particles);
     setNumVertices(n_vertices);
+    setDegreesOfFreedom();
     initDynamicVariables();
     initGeometricVariables();
 }
@@ -145,6 +149,17 @@ void Particle::initDynamicVariables() {
     d_kinetic_energy.resize(n_particles);
     d_neighbor_list.resize(n_particles);
     d_num_neighbors.resize(n_particles);
+
+    thrust::fill(d_positions.begin(), d_positions.end(), 0.0);
+    thrust::fill(d_last_positions.begin(), d_last_positions.end(), 0.0);
+    thrust::fill(d_displacements.begin(), d_displacements.end(), 0.0);
+    thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
+    thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
+    thrust::fill(d_radii.begin(), d_radii.end(), 0.0);
+    thrust::fill(d_masses.begin(), d_masses.end(), 0.0);
+    thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
+    thrust::fill(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0);
+
     // max_neighbors = 0;
     // max_neighbors_allocated = 0;
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
@@ -334,6 +349,7 @@ void Particle::setRandomUniform(thrust::device_vector<double>& values, double mi
 }
 
 void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
+    std::cout << "This does not work yet" << std::endl;
     thrust::counting_iterator<long> index_sequence_begin(seed);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomNormal(mean, stddev, seed));
 }
@@ -341,6 +357,24 @@ void Particle::setRandomNormal(thrust::device_vector<double>& values, double mea
 void Particle::setRandomPositions() {
     thrust::host_vector<double> box_size = getBoxSize();
     setRandomUniform(d_positions, 0.0, box_size[0]);
+}
+
+void Particle::removeMeanVelocities() {
+    std::cout << "This does not work yet" << std::endl;
+    kernelRemoveMeanVelocities<<<1, N_DIM>>>(d_velocities_ptr);
+    cudaDeviceSynchronize();
+}
+
+void Particle::scaleVelocitiesToTemperature(double temperature) {
+    double current_temp = calculateTemperature();
+    thrust::transform(d_velocities.begin(), d_velocities.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities.begin(), thrust::multiplies<double>());
+}
+
+void Particle::setRandomVelocities(double temperature) {
+    // setRandomUniform(d_velocities, -1.0, 1.0);
+    // setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
+    // removeMeanVelocities();
+    // scaleVelocitiesToTemperature(temperature);
 }
 
 double Particle::getDiameter(std::string which) {
@@ -398,8 +432,7 @@ void Particle::scaleToPackingFraction(double packing_fraction) {
 }
 
 double Particle::totalKineticEnergy() const {
-    thrust::host_vector<double> h_kinetic_energy = d_kinetic_energy;
-    return thrust::reduce(h_kinetic_energy.begin(), h_kinetic_energy.end(), 0.0, thrust::plus<double>());
+    return thrust::reduce(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0, thrust::plus<double>());
 }
 
 double Particle::totalPotentialEnergy() const {
@@ -471,4 +504,8 @@ void Particle::printNeighborList() {
 void Particle::zeroForceAndPotentialEnergy() {
     thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
     thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
+}
+
+double Particle::calculateTemperature() {
+    return totalKineticEnergy() * 2.0 / n_dof;
 }

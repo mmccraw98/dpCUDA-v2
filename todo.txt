@@ -1,9 +1,11 @@
 - add integrators
 - add particle factory
+- add integrator factory
 - add io (integrators will have things saved too)
 - make simulation scripts
 - split the cuda kernels into separate files for each purpose
 - organize the member function definitions in particle.h/.cu
+- figure out how best to lay out the grid, theread, and block dimensions
 - make tests
 - add a cell list
 - try to go back to crtp classes for the particles and integrators

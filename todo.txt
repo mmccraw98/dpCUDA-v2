@@ -1,6 +1,7 @@
 - add integrators
 - add particle factory
 - add integrator factory
+- test setting member functions to final to save speed
 - add io (integrators will have things saved too)
 - make simulation scripts
 - split the cuda kernels into separate files for each purpose

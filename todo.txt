@@ -1,6 +1,6 @@
 - add integrators
 - add particle factory
-- add io
+- add io (integrators will have things saved too)
 - make simulation scripts
 - split the cuda kernels into separate files for each purpose
 - organize the member function definitions in particle.h/.cu

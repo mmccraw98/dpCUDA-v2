@@ -306,7 +306,7 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
 // ----------------------------------------------------------------------
 
 /**
- * @brief Calculate the interaction between two points
+ * @brief Calculate the interaction between two points - adds the force to the force array
  * V = e * (1 - r / sigma) ^ n
  * 
  * @param point1 first point
@@ -323,7 +323,7 @@ inline __device__ double calcPointPointInteraction(const double* point1, const d
         energy = d_e_c * pow(overlap, d_n_c) / d_n_c;
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
-            force[dim] = d_e_c * pow(overlap, d_n_c - 1) * delta_vec[dim] / (rad_sum * distance);
+            force[dim] += d_e_c * pow(overlap, d_n_c - 1) * delta_vec[dim] / (rad_sum * distance);
         }
     }
     return energy;
@@ -336,8 +336,7 @@ inline __device__ double calcPointPointInteraction(const double* point1, const d
 
 /**
  * @brief Calculate the interaction forces and energy between a particle and its neighbors.
- * First zeros out the potential energy of the particle, then sums up the potential energies of the interactions between the particle and its neighbors.
- * The initial zeroing may not be valid for certain particle types (i.e. DPM).
+ * Requires that the potential energy and force arrays are pre-zeroed.
  * V = e / n * (1 - r / sigma) ^ n
  * 
  * @param positions Pointer to the array of positions of the particles.

@@ -406,6 +406,11 @@ public:
      */
     virtual void printNeighborList();
 
+    /**
+     * @brief Zero out the force and potential energy arrays.
+     */
+    virtual void zeroForceAndPotentialEnergy();
+
     // ----------------------------------------------------------------------
     // ---------------------- Pure Virtual Methods --------------------------
     // ----------------------------------------------------------------------

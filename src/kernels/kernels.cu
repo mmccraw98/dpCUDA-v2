@@ -69,12 +69,11 @@ __global__ void kernelCalcDiskForces(const double* positions, const double* radi
         long other_id;
         double this_pos[N_DIM], neighbor_pos[N_DIM];
         double this_rad, neighbor_rad;
-        potential_energy[particle_id] = 0.0;
         getPositionAndRadius(particle_id, positions, radii, this_pos, this_rad);
         for (long neighbor_id = 0; neighbor_id < d_num_neighbors_ptr[particle_id]; neighbor_id++) {
             if (isParticleNeighbor(particle_id, neighbor_id, other_id)) {
                 getPositionAndRadius(other_id, positions, radii, neighbor_pos, neighbor_rad);
-                potential_energy[particle_id] += calcPointPointInteraction(this_pos, neighbor_pos, this_rad + neighbor_rad, forces);
+                potential_energy[particle_id] += calcPointPointInteraction(this_pos, neighbor_pos, this_rad + neighbor_rad, &forces[particle_id * d_n_dim]);
             }        
         }
     }

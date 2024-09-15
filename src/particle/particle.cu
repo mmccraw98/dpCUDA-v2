@@ -467,3 +467,8 @@ void Particle::printNeighborList() {
         }
     }
 }
+
+void Particle::zeroForceAndPotentialEnergy() {
+    thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
+    thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
+}

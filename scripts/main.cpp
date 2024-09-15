@@ -27,7 +27,7 @@ int main() {
     disk.setSeed(0);
 
     // set/sync number of vertices/particles, define the array sizes
-    disk.setParticleCounts(2, 0);
+    disk.setParticleCounts(1024, 0);
     
     // set/sync energies
     disk.setEnergyScale(1.0, "c");
@@ -48,17 +48,8 @@ int main() {
     // update the neighbor list
     disk.updateNeighborList();
 
+    disk.zeroForceAndPotentialEnergy();
     disk.calculateForces();
-
-
-    thrust::host_vector<double> potential_energy = disk.getArray<double>("d_potential_energy");
-    thrust::host_vector<double> forces = disk.getArray<double>("d_forces");
-
-    for (long i = 0; i < disk.n_particles; i++) {
-        std::cout << potential_energy[i] << " ";
-        std::cout << forces[i] << " ";
-        std::cout << forces[i+1] << std::endl;
-    }
 
     // constructing the simulation:
 

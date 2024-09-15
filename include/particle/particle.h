@@ -27,6 +27,7 @@ public:
     thrust::device_vector<double> d_potential_energy;  // potential energy of the particles
     thrust::device_vector<double> d_kinetic_energy;  // kinetic energy of the particles
     thrust::device_vector<long> d_neighbor_list;  // neighbor list for the particles
+    thrust::device_vector<long> d_num_neighbors;  // number of neighbors for each particle
 
     // Pointers to the device arrays
     double* d_positions_ptr;
@@ -38,15 +39,15 @@ public:
     double* d_masses_ptr;
     double* d_potential_energy_ptr;
     double* d_kinetic_energy_ptr;
-    long* d_neighbor_list_ptr;
 
     // Simulation parameters
     double e_c, e_a, e_b, e_l;  // energy scales for interaction, area, bending, and length
     double n_c, n_a, n_b, n_l;  // exponents for the energy terms
     double neighbor_cutoff;  // cutoff distance for the neighbor list
-    long max_neighbors;  // maximum number of neighbors for each particle
-    long n_particles;  // total number of particles
-    long n_vertices;  // total number of vertices
+    long max_neighbors;  // maximum number of neighbors
+    long max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
+    long n_particles = 0;  // total number of particles
+    long n_vertices = 0;  // total number of vertices
     long n_dof;  // number of degrees of freedom
     long seed;  // random number generator seed
     long dim_grid, dim_block, dim_vertex_grid;  // dimensions for the CUDA kernels
@@ -170,9 +171,15 @@ public:
      * @return The box size vector in the host memory.
      */
     thrust::host_vector<double> getBoxSize();
+
+    /**
+     * @brief Synchronize the neighbor list on the device.
+     */
+    virtual void syncNeighborList();
     
     /**
      * @brief Set the energy scales for the particles.
+     * V = e / n (1 - r / sigma) ^ n
      * 
      * @param e The energy scale.
      * @param which The type of energy scale to set ("c", "a", "b", or "l").
@@ -181,6 +188,7 @@ public:
 
     /**
      * @brief Set the exponents for the energy terms.
+     * V = e / n (1 - r / sigma) ^ n
      * 
      * @param n The exponent.
      * @param which The type of exponent to set ("c", "a", "b", or "l").
@@ -315,6 +323,23 @@ public:
      */
     virtual void updateVelocities(double dt);
 
+    /**
+     * @brief Get the maximum displacement of the particles since the last neighbor list update.
+     * 
+     * @return The maximum displacement.
+     */
+    virtual double getMaxDisplacement();
+
+    /**
+     * @brief Check if the neighbor list of the particles needs to be updated (if maximum displacement is greater than the neighbor cutoff).
+     */
+    virtual void checkForNeighborUpdate();
+
+    /**
+     * @brief Calculate the neighbor list for the particles.
+     */
+    virtual void updateNeighborList();
+
     // ----------------------------------------------------------------------
     // ---------------------- Pure Virtual Methods --------------------------
     // ----------------------------------------------------------------------
@@ -342,11 +367,6 @@ public:
      * @brief Virtual method to calculate the kinetic energy of the particles.
      */
     virtual void calculateKineticEnergy() = 0;
-
-    /**
-     * @brief Virtual method to update the neighbor list of the particles.
-     */
-    virtual void updateNeighborList() = 0;
 };
 
 #endif /* PARTICLE_H */

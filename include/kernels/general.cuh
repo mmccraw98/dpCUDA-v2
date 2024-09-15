@@ -215,4 +215,18 @@ inline __device__ double calcOverlapAndDeltaPBC(const double* point1, const doub
     return (1 - calcDeltaAndDistancePBC(point1, point2, delta_vec) / rad_sum);
 }
 
+/**
+ * @brief Extract the position of a particle (or vertex) from the positions array and store it in pos
+ * 
+ * @param id particle id
+ * @param positions positions of the particles
+ * @param pos position of the extracted particle
+ */
+inline __device__ void getPosition(const long id, const double* positions, double* pos) {
+	#pragma unroll (N_DIM)
+	for (long dim = 0; dim < d_n_dim; dim++) {
+		pos[dim] = positions[id * d_n_dim + dim];
+	}
+}
+
 #endif // GENERAL_KERNELS_H

@@ -9,14 +9,19 @@
 #include "../../include/cuda_constants.cuh"
 #include "../../include/kernels/general.cuh"
 
+__global__ void kernelPrintN();
+
 /**
  * @brief Update the positions of the particles using an explicit Euler method.
+ * Also updates the displacements of the particles from the last neighbor list update.
  * 
  * @param positions The positions of the particles.
+ * @param last_positions The positions of the particles at the last time step.
+ * @param displacements The displacements of the particles.
  * @param velocities The velocities of the particles.
  * @param dt The time step.
  */
-__global__ void kernelUpdatePositions(double* positions, double* velocities, const double dt);
+__global__ void kernelUpdatePositions(double* positions, const double* last_positions, double* displacements, double* velocities, const double dt);
 
 /**
  * @brief Update the velocities of the particles using an explicit Euler method.

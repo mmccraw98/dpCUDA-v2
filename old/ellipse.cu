@@ -90,8 +90,3 @@ void Ellipse::calculateKineticEnergy() {
     std::cout << "Ellipse::calculateKineticEnergy" << std::endl;
     thrust::transform(d_momenta.begin(), d_momenta.end(), d_kinetic_energy.begin(), Square());
 }
-
-void Ellipse::updateNeighborList() {
-    std::cout << "Ellipse::updateNeighborList" << std::endl;
-    // Add logic to update the neighbor list.
-}

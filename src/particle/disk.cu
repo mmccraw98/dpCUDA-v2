@@ -51,7 +51,3 @@ void Disk::calculateKineticEnergy() {
     std::cout << "FIXME: Implement calculateKineticEnergy" << std::endl;
     // thrust::transform(d_velocities.begin(), d_velocities.end(), d_kinetic_energy.begin(), Square());
 }
-
-void Disk::updateNeighborList() {
-    // Add logic to update the neighbor list.
-}

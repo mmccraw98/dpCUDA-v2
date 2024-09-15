@@ -3,6 +3,7 @@
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
 #include "../../include/kernels/dynamics.cuh"
+#include "../../include/kernels/contacts.cuh"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -44,6 +45,7 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     array_map["d_potential_energy"] = &d_potential_energy;
     array_map["d_kinetic_energy"]   = &d_kinetic_energy;
     array_map["d_neighbor_list"]    = &d_neighbor_list;
+    array_map["d_num_neighbors"]  = &d_num_neighbors;
     return array_map;
 }
 
@@ -60,9 +62,40 @@ void Particle::setSeed(long seed) {
 }
 
 void Particle::setKernelDimensions(long dim_block) {
+    int maxThreadsPerBlock;
+    cudaDeviceProp deviceProp;
+    cudaGetDeviceProperties(&deviceProp, 0);
+    maxThreadsPerBlock = deviceProp.maxThreadsPerBlock;
+    std::cout << "CUDA Info: Max threads per block: " << maxThreadsPerBlock << std::endl;
+
+    // Ensure dim_block doesn't exceed the maxThreadsPerBlock
+    if (dim_block > maxThreadsPerBlock) {
+        std::cout << "WARNING: dim_block exceeds maxThreadsPerBlock, adjusting to maxThreadsPerBlock" << std::endl;
+        dim_block = maxThreadsPerBlock;
+    }
+
+    // If there are few particles, set dim_block to the number of particles
+    if (n_particles < dim_block) {
+        dim_block = n_particles;
+    }
+
+    if (n_particles == 0) {
+        std::cout << "WARNING: Particle::setKernelDimensions: n_particles is 0.  Ignore if only using vertex-level kernels, otherwise set n_particles." << std::endl;
+        n_particles = 1;
+    }
+    if (n_vertices == 0) {
+        std::cout << "WARNING: Particle::setKernelDimensions: n_vertices is 0.  Ignore if only using particle-level kernels, otherwise set n_vertices." << std::endl;
+        n_vertices = 1;
+    }
+
+    // Set block and grid dimensions for particles
     this->dim_block = dim_block;
     this->dim_grid = (n_particles + dim_block - 1) / dim_block;
+
+    // Set block and grid dimensions for vertices (optional)
     this->dim_vertex_grid = (n_vertices + dim_block - 1) / dim_block;
+
+    // Copy dimensions to device symbols
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::setKernelDimensions: Error copying dimBlock to device: " << cudaGetErrorString(cuda_err) << std::endl;
@@ -78,16 +111,36 @@ void Particle::setKernelDimensions(long dim_block) {
         std::cerr << "Particle::setKernelDimensions: Error copying dimVertexGrid to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
+
+    std::cout << "dim_grid: " << dim_grid << std::endl;
+    std::cout << "dim_block: " << dim_block << std::endl;
+    std::cout << "dim_vertex_grid: " << dim_vertex_grid << std::endl;
+
+    std::cout << "Printing constants from kernel" << std::endl;
+    kernelPrintN<<<dim_grid, dim_block>>>();
 }
+
 
 void Particle::setNumParticles(long n_particles) {
     this->n_particles = n_particles;
     this->n_dof = n_particles * N_DIM;
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_particles, &n_particles, sizeof(long));
+    std::cout << "n_particles: " << this->n_particles << std::endl;
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_particles, &this->n_particles, sizeof(this->n_particles));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::setNumParticles: Error copying number of particles to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
+
+    long host_n_particles;
+    cuda_err = cudaMemcpyFromSymbol(&host_n_particles, d_n_particles, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setNumParticles: Error copying number of particles from device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    std::cout << "host_n_particles: " << host_n_particles << std::endl;
+
+    initDynamicVariables();
+    initGeometricVariables();
 }
 
 void Particle::setNumVertices(long n_vertices) {
@@ -110,6 +163,13 @@ void Particle::initDynamicVariables() {
     d_masses.resize(n_particles);
     d_potential_energy.resize(n_particles);
     d_kinetic_energy.resize(n_particles);
+    d_neighbor_list.resize(n_particles);
+    d_num_neighbors.resize(n_particles);
+    max_neighbors = 0;
+    max_neighbors_allocated = 0;
+    thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+    thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), max_neighbors);
+
 
     // Cast the raw pointers
     d_positions_ptr = thrust::raw_pointer_cast(&d_positions[0]);
@@ -134,6 +194,8 @@ void Particle::clearDynamicVariables() {
     d_masses.clear();
     d_potential_energy.clear();
     d_kinetic_energy.clear();
+    d_neighbor_list.clear();
+    d_num_neighbors.clear();
 
     // Clear the pointers
     d_positions_ptr = nullptr;
@@ -166,6 +228,31 @@ thrust::host_vector<double> Particle::getBoxSize() {
         exit(EXIT_FAILURE);
     }
     return box_size;
+}
+
+void Particle::syncNeighborList() {
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors, &this->max_neighbors, sizeof(this->max_neighbors));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncNeighborList: Error copying max_neighbors to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &this->max_neighbors_allocated, sizeof(this->max_neighbors_allocated));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncNeighborList: Error copying max_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    long* neighbor_list_ptr = thrust::raw_pointer_cast(&d_neighbor_list[0]);
+    cuda_err = cudaMemcpyToSymbol(d_neighbor_list_ptr, &neighbor_list_ptr, sizeof(neighbor_list_ptr));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncNeighborList: Error copying d_neighbor_list_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    long* num_neighbors_ptr = thrust::raw_pointer_cast(&d_num_neighbors[0]);
+    cuda_err = cudaMemcpyToSymbol(d_num_neighbors_ptr, &num_neighbors_ptr, sizeof(num_neighbors_ptr));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncNeighborList: Error copying d_num_neighbors_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
 }
 
 void Particle::setEnergyScale(double e, std::string which) {
@@ -307,9 +394,61 @@ void Particle::scalePositions(double scale_factor) {
 }
 
 void Particle::updatePositions(double dt) {
-    kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_velocities_ptr, dt);
+    kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_last_positions_ptr, d_displacements_ptr, d_velocities_ptr, dt);
+
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Particle::updatePositions: Error in kernelUpdatePositions: " << cudaGetErrorString(err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cudaDeviceSynchronize();
 }
 
 void Particle::updateVelocities(double dt) {
     kernelUpdateVelocities<<<dim_grid, dim_block>>>(d_velocities_ptr, d_forces_ptr, d_masses_ptr, dt);
+}
+
+double Particle::getMaxDisplacement() {
+    return thrust::reduce(d_displacements.begin(), d_displacements.end(), 0.0, thrust::maximum<double>());
+}
+
+void Particle::updateNeighborList() {
+    std::cout << "dim_grid: " << dim_grid << std::endl;
+    std::cout << "dim_block: " << dim_block << std::endl;
+    std::cout << "n_particles: " << n_particles << std::endl;
+
+    thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0);
+    thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+    std::cout << "d_num_neighbors: " << d_num_neighbors.size() << std::endl;
+    std::cout << "d_neighbor_list: " << d_neighbor_list.size() << std::endl;
+    syncNeighborList();
+    kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
+    cudaError_t err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        std::cerr << "Particle::updateNeighborList: Error in kernelUpdateNeighborList: " << cudaGetErrorString(err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cudaDeviceSynchronize();
+    max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
+    std::cout << "max_neighbors: " << max_neighbors << std::endl;
+    syncNeighborList();
+    std::cout << "max_neighbors_allocated: " << max_neighbors_allocated << std::endl;
+    if (max_neighbors > max_neighbors_allocated) {
+        max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
+        d_neighbor_list.resize(n_particles * max_neighbors_allocated);
+        std::cout << "d_neighbor_list: " << d_neighbor_list.size() << std::endl;
+        thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+        syncNeighborList();
+        kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
+        cudaDeviceSynchronize();
+    }
+}
+
+void Particle::checkForNeighborUpdate() {
+    double tolerance = 3.0;
+    double max_displacement = getMaxDisplacement();
+    if (tolerance * max_displacement > neighbor_cutoff) {
+        updateNeighborList();
+        thrust::copy(d_positions.begin(), d_positions.end(), d_last_positions.begin());
+    }
 }

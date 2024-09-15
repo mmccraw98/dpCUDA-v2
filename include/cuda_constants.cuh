@@ -25,4 +25,9 @@ __constant__ double d_n_a;  // exponent for the area energy
 __constant__ double d_n_b;  // exponent for the bending energy
 __constant__ double d_n_l;  // exponent for the length energy
 
+__constant__ long* d_num_neighbors_ptr;  // pointer to the array that stores the number of neighbors for each particle
+__constant__ long* d_neighbor_list_ptr;  // pointer to the neighbor list array
+__constant__ long d_max_neighbors;  // maximum number of neighbors
+__constant__ long d_max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
+
 #endif /* CUDA_CONSTANTS_CUH_ */

@@ -43,11 +43,6 @@ public:
      * @brief Calculate the kinetic energy of the particles.
      */
     void calculateKineticEnergy() override;
-    
-    /**
-     * @brief Update the neighbor list of the particles.
-     */
-    void updateNeighborList() override;
 };
 
 #endif /* DISK_H */

@@ -3,7 +3,8 @@
 - add integrator factory
 - test setting member functions to final to save speed
 - add io (integrators will have things saved too)
-- make simulation scripts
+- make simulation scripts (be able to easily add new arguments to scripts / protocols / functions without changing the code) (should have backwards / forwards compatibility with arguments - if something isn't there and isn't required, it should work, if something isn't there that needs to be there, it should crash with a clear error message)
+- make simulation launchers and post-processing (management) in dpTools
 - split the cuda kernels into separate files for each purpose
 - organize the member function definitions in particle.h/.cu
 - figure out how best to lay out the grid, theread, and block dimensions
@@ -11,8 +12,25 @@
 - add a cell list
 - try to go back to crtp classes for the particles and integrators
 
+- make a readme with changes
+
 mkdir -p build
 cd build
 cmake ..
 make
 ./main_exec
+
+- planned v2.1.0:
+- migrate from virtual base classes to crtp classes
+- incorporate cell-lists
+
+- planned v2.0.1:
+- add rigid body particles
+
+- v2.0.0:
+- changes:
+- different particle types are now derived from a virtual base class with many virtual member functions defined
+- integrators are similarly defined from a virtual base class - similar to the original pyCUDA
+- no magic numbers, everything is templated and comes from a configuration files
+- objects are constructed via factory classes
+- scripts / protocols are defined universally in terms of the base classes

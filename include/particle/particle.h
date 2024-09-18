@@ -463,6 +463,11 @@ public:
      * @brief Virtual method to calculate the forces on the particles.
      */
     virtual void calculateForces() = 0;
+
+    /**
+     * @brief Virtual method to calculate the kinetic energy of the particles.
+     */
+    virtual void calculateKineticEnergy() = 0;
 };
 
 #endif /* PARTICLE_H */

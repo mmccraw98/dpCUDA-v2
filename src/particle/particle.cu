@@ -22,12 +22,16 @@
 
 // Constructor
 Particle::Particle() {
+    std::cout << "Particle::Particle: Start" << std::endl;
+    std::cout << "Particle::Particle: End" << std::endl;
 }
 
 // Destructor (virtual to allow proper cleanup in derived classes)
 Particle::~Particle() {
+    std::cout << "Particle::~Particle: Start" << std::endl;
     clearDynamicVariables();
     clearGeometricVariables();
+    std::cout << "Particle::~Particle: End" << std::endl;
 }
 
 // ----------------------------------------------------------------------
@@ -77,7 +81,7 @@ void Particle::syncNumParticles() {
 void Particle::setDegreesOfFreedom() {
     this->n_dof = n_particles * N_DIM;
 }
-    
+
 void Particle::setNumVertices(long n_vertices) {
     this->n_vertices = n_vertices;
     syncNumVertices();
@@ -117,7 +121,6 @@ void Particle::setKernelDimensions(long dim_block) {
 }
 
 void Particle::syncKernelDimensions() {
-    std::cout << "Particle::syncKernelDimensions: Syncing kernel dimensions: dim_block: " << dim_block << " dim_grid: " << dim_grid << " dim_vertex_grid: " << dim_vertex_grid << std::endl;
     cudaError_t cuda_err;
     cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
     if (cuda_err != cudaSuccess) {
@@ -349,7 +352,7 @@ void Particle::setRandomUniform(thrust::device_vector<double>& values, double mi
 }
 
 void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
-    std::cout << "This does not work yet" << std::endl;
+    std::cout << "Set: This does not work yet" << std::endl;
     thrust::counting_iterator<long> index_sequence_begin(seed);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomNormal(mean, stddev, seed));
 }
@@ -360,9 +363,9 @@ void Particle::setRandomPositions() {
 }
 
 void Particle::removeMeanVelocities() {
-    std::cout << "This does not work yet" << std::endl;
-    kernelRemoveMeanVelocities<<<1, N_DIM>>>(d_velocities_ptr);
-    cudaDeviceSynchronize();
+    // std::cout << "Remove: This does not work yet" << std::endl;
+    // kernelRemoveMeanVelocities<<<1, N_DIM>>>(d_velocities_ptr);
+    // cudaDeviceSynchronize();
 }
 
 void Particle::scaleVelocitiesToTemperature(double temperature) {
@@ -371,10 +374,16 @@ void Particle::scaleVelocitiesToTemperature(double temperature) {
 }
 
 void Particle::setRandomVelocities(double temperature) {
-    // setRandomUniform(d_velocities, -1.0, 1.0);
-    // setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
-    // removeMeanVelocities();
-    // scaleVelocitiesToTemperature(temperature);
+    setRandomUniform(d_velocities, -1.0, 1.0);
+    setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
+    removeMeanVelocities();
+    scaleVelocitiesToTemperature(temperature);
+    thrust::host_vector<double> velocities = getArray<double>("d_velocities");
+    for (long i = 0; i < n_particles; i++) {
+        for (long dim = 0; dim < N_DIM; dim++) {
+            std::cout << "Particle " << i << ", dim " << dim << ": " << velocities[i * N_DIM + dim] << std::endl;
+        }
+    }
 }
 
 double Particle::getDiameter(std::string which) {

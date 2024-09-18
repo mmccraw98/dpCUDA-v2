@@ -74,6 +74,18 @@ __global__ void kernelRemoveMeanVelocities(double* velocities) {
 }
 
 
+__global__ void kernelCalculateTranslationalKineticEnergy(const double* velocities, const double* masses, double* kinetic_energy) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id < d_n_particles) {
+        double velocity_sq = 0.0;
+        #pragma unroll (N_DIM)
+        for (long dim = 0; dim < d_n_dim; dim++) {
+            velocity_sq += velocities[particle_id * d_n_dim + dim] * velocities[particle_id * d_n_dim + dim];
+        }
+        kinetic_energy[particle_id] = 0.5 * masses[particle_id] * velocity_sq;
+    }
+}
+
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
 // ----------------------------------------------------------------------

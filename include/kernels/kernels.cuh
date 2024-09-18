@@ -308,6 +308,16 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
  */
 __global__ void kernelRemoveMeanVelocities(double* velocities);
 
+
+/**
+ * @brief Calculate the translational kinetic energy of the particles.
+ * 
+ * @param velocities The velocities of the particles.
+ * @param masses The masses of the particles.
+ * @param kinetic_energy The kinetic energy of the particles.
+ */
+__global__ void kernelCalculateTranslationalKineticEnergy(const double* velocities, const double* masses, double* kinetic_energy);
+
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
 // ----------------------------------------------------------------------

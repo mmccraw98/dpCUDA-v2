@@ -1,4 +1,5 @@
 - add integrators
+- add logger
 - add particle factory
 - add integrator factory
 - test setting member functions to final to save speed
@@ -29,6 +30,7 @@ make
 
 - v2.0.0:
 - changes:
+- switched to cmake
 - different particle types are now derived from a virtual base class with many virtual member functions defined
 - integrators are similarly defined from a virtual base class - similar to the original pyCUDA
 - no magic numbers, everything is templated and comes from a configuration files

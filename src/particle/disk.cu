@@ -22,9 +22,13 @@
 #include <thrust/functional.h>
 
 Disk::Disk() {
+    std::cout << "Disk::Disk: Start" << std::endl;
+    std::cout << "Disk::Disk: End" << std::endl;
 }
 
 Disk::~Disk() {
+    std::cout << "Disk::~Disk: Start" << std::endl;
+    std::cout << "Disk::~Disk: End" << std::endl;
 }
 
 // ----------------------------------------------------------------------
@@ -82,10 +86,5 @@ void Disk::calculateForces() {
 }
 
 void Disk::calculateKineticEnergy() {
-    thrust::transform(
-        thrust::make_zip_iterator(thrust::make_tuple(d_velocities.begin(), d_masses.begin())),  // Zip velocities and masses
-        thrust::make_zip_iterator(thrust::make_tuple(d_velocities.end(), d_masses.end())),      // End of the zip iterator
-        d_kinetic_energy.begin(),                                                              // Output iterator (d_kinetic_energy)
-        TranslationalKineticEnergy()                                                           // Functor to compute 1/2 m v^2
-    );
+    kernelCalculateTranslationalKineticEnergy<<<dim_grid, dim_block>>>(d_velocities_ptr, d_masses_ptr, d_kinetic_energy_ptr);
 }

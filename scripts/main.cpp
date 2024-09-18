@@ -28,7 +28,8 @@ int main() {
     disk.setSeed(0);
 
     // set/sync number of vertices/particles, define the array sizes
-    disk.setParticleCounts(2, 0);
+    disk.setParticleCounts(32, 0);
+
     
     // set/sync energies
     disk.setEnergyScale(1.0, "c");
@@ -43,7 +44,7 @@ int main() {
     disk.setRandomPositions();
     // define geometry when relevant (i.e. initialize vertex configurations, calculate shape parameters, etc.)
 
-    // disk.setRandomVelocities(1e-3);
+    disk.setRandomVelocities(1e-3);
 
     // define the neighbor cutoff size
     disk.setNeighborCutoff(1.5);  // 1.5 * min_diameter
@@ -52,12 +53,12 @@ int main() {
     disk.updateNeighborList();
     std::cout << "Neighbor list updated" << std::endl;
 
-    // NVE nve(disk, 0.001);
-    // for (long i = 0; i < 1e1; i++) {
-    //    nve.step();
-    //    disk.calculateKineticEnergy();
-    //    std::cout << disk.totalEnergy() << std::endl;
-    // }
+    NVE nve(disk, 0.001);
+    for (long i = 0; i < 1e1; i++) {
+       nve.step();
+       disk.calculateKineticEnergy();
+       std::cout << disk.totalEnergy() << std::endl;
+    }
 
     // constructing the simulation:
 

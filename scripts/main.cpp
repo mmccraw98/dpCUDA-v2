@@ -28,7 +28,7 @@ int main() {
     disk.setSeed(0);
 
     // set/sync number of vertices/particles, define the array sizes
-    disk.setParticleCounts(32, 0);
+    disk.setParticleCounts(2, 0);
 
     
     // set/sync energies
@@ -44,6 +44,8 @@ int main() {
     disk.setRandomPositions();
     // define geometry when relevant (i.e. initialize vertex configurations, calculate shape parameters, etc.)
 
+    disk.setMass(1.0);
+    
     disk.setRandomVelocities(1e-3);
 
     // define the neighbor cutoff size

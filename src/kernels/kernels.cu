@@ -54,6 +54,7 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
     if (particle_id < d_n_particles) {
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
+            printf("particle_id: %ld, dim: %ld, force: %f, velocity: %f, mass: %f\n", particle_id, dim, forces[particle_id * d_n_dim + dim], velocities[particle_id * d_n_dim + dim], masses[particle_id]);
             velocities[particle_id * d_n_dim + dim] += forces[particle_id * d_n_dim + dim] / masses[particle_id] * dt;
         }
     }

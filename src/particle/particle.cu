@@ -374,16 +374,11 @@ void Particle::scaleVelocitiesToTemperature(double temperature) {
 }
 
 void Particle::setRandomVelocities(double temperature) {
-    setRandomUniform(d_velocities, -1.0, 1.0);
-    setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
-    removeMeanVelocities();
-    scaleVelocitiesToTemperature(temperature);
-    thrust::host_vector<double> velocities = getArray<double>("d_velocities");
-    for (long i = 0; i < n_particles; i++) {
-        for (long dim = 0; dim < N_DIM; dim++) {
-            std::cout << "Particle " << i << ", dim " << dim << ": " << velocities[i * N_DIM + dim] << std::endl;
-        }
-    }
+    // setRandomUniform(d_velocities, -1.0, 1.0);
+    // setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
+    // removeMeanVelocities();
+    // scaleVelocitiesToTemperature(temperature);
+    thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
 }
 
 double Particle::getDiameter(std::string which) {
@@ -517,4 +512,8 @@ void Particle::zeroForceAndPotentialEnergy() {
 
 double Particle::calculateTemperature() {
     return totalKineticEnergy() * 2.0 / n_dof;
+}
+
+void Particle::setMass(double mass) {
+    thrust::fill(d_masses.begin(), d_masses.end(), mass);
 }

@@ -370,15 +370,17 @@ void Particle::removeMeanVelocities() {
 
 void Particle::scaleVelocitiesToTemperature(double temperature) {
     double current_temp = calculateTemperature();
+    std::cout << "Current temperature: " << current_temp << std::endl;
+    std::cout << "Target temperature: " << temperature << std::endl;
     thrust::transform(d_velocities.begin(), d_velocities.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities.begin(), thrust::multiplies<double>());
 }
 
 void Particle::setRandomVelocities(double temperature) {
     // setRandomUniform(d_velocities, -1.0, 1.0);
-    // setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
-    // removeMeanVelocities();
-    // scaleVelocitiesToTemperature(temperature);
-    thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
+    setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
+    removeMeanVelocities();
+    scaleVelocitiesToTemperature(temperature);
+    // thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
 }
 
 double Particle::getDiameter(std::string which) {
@@ -511,6 +513,7 @@ void Particle::zeroForceAndPotentialEnergy() {
 }
 
 double Particle::calculateTemperature() {
+    calculateKineticEnergy();
     return totalKineticEnergy() * 2.0 / n_dof;
 }
 

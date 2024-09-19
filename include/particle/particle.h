@@ -436,7 +436,7 @@ public:
     virtual void scaleVelocitiesToTemperature(double temperature);
 
     /**
-     * @brief Calculate the kinetic energy of the particles.
+     * @brief Calculate the temperature of the particles.
      * T = sum(KE) * 2 / dof
      */
     virtual double calculateTemperature();

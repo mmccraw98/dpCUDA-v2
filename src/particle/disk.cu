@@ -73,11 +73,11 @@ double Disk::getArea() const {
 }
 
 double Disk::getOverlapFraction() const {
-    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
-    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
-    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
-    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
-    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
     return 0.0;
 }
 

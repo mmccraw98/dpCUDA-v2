@@ -22,11 +22,9 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
-Logger::Logger(Particle& particle, const std::vector<std::string>& log_names) : particle(particle) {
+Logger::Logger(Particle& particle, Orchestrator& orchestrator) : particle(particle), orchestrator(orchestrator) {
     std::cout << "Logger::Logger: Start" << std::endl;
-    orchestrator = Orchestrator(particle, log_names);
     std::cout << "Logger::Logger: End" << std::endl;
-    
 }
 
 Logger::~Logger() {

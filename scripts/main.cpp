@@ -2,6 +2,7 @@
 #include "../include/particle/particle.h"
 #include "../include/particle/disk.h"
 #include "../include/integrator/nve.h"
+#include "../include/io/orchestrator.h"
 #include "../include/io/logger.h"
 #include <iostream>
 #include <string>
@@ -24,54 +25,50 @@
 int main() {
     // constructing the object
 
-    Disk disk;
+    Disk particle;
 
-    disk.setSeed(0);
+    particle.setSeed(0);
 
     // set/sync number of vertices/particles, define the array sizes
-    disk.setParticleCounts(32, 0);
+    particle.setParticleCounts(1024, 0);
 
     // set/sync kernel dimensions
-    disk.setKernelDimensions(256);  // TODO: not sure how to best motivate this
+    particle.setKernelDimensions(256);  // TODO: not sure how to best motivate this
 
     // define the particle sizes, initialize the box to a set packing fraction, and set random positions
-    disk.setBiDispersity(1.4, 0.5);  // TODO: define scaling to determine geometry units (min, max, or mean)
-    disk.initializeBox(0.5);
-    disk.setRandomPositions();
+    particle.setBiDispersity(1.4, 0.5);  // TODO: define scaling to determine geometry units (min, max, or mean)
+    particle.initializeBox(0.5);
+    particle.setRandomPositions();
     // define geometry when relevant (i.e. initialize vertex configurations, calculate shape parameters, etc.)
 
     // set/sync energies
-    disk.setEnergyScale(1.0, "c");
-    disk.setExponent(2.0, "c");
-    disk.setMass(1.0);
+    particle.setEnergyScale(1.0, "c");
+    particle.setExponent(2.0, "c");
+    particle.setMass(1.0);
     // TODO: set timestep
     
-    disk.setRandomVelocities(1e-3);
+    particle.setRandomVelocities(1e-3);
 
     // define the neighbor cutoff size
-    disk.setNeighborCutoff(1.5);  // 1.5 * min_diameter
+    particle.setNeighborCutoff(1.5);  // 1.5 * min_diameter
 
     // update the neighbor list
-    disk.updateNeighborList();
+    particle.updateNeighborList();
 
 
-
-    std::vector<std::string> log_entries = {"KE/N", "PE/N", "TE/N"};
-    Logger logger(disk, log_entries);
+    // constructing the simulation:
+    std::vector<std::string> log_entries = {"KE/N", "PE/N", "TE/N", "T", "TE"};
+    Logger logger(particle, log_entries);
 
     logger.write_header();
 
-    NVE nve(disk, 0.001);
+    NVE nve(particle, 0.001);
     for (long i = 0; i < 1e4; i++) {
        nve.step();
        if (i % 1000 == 0) {
-           disk.calculateKineticEnergy();
-        //    std::cout << disk.totalEnergy() << std::endl;
            logger.write_values(i);
        }
     }
-
-    // constructing the simulation:
 
     return 0;
 }

@@ -8,6 +8,20 @@
 #include <cmath>
 #include "../particle/particle.h"
 
+/**
+ * @class Orchestrator
+ * @brief Manages the orchestration of particle logging and calculations.
+ *
+ * The Orchestrator class is responsible for managing the logging of
+ * various properties of a Particle object.
+ * Importantly, it calculates all necessary values (if any) from which all
+ * log variables are calculated - and does so in one step.  This ensures
+ * that the values are calculated in a consistent manner and is done
+ * nearly as efficiently as possible.
+ * It additionally applies any necessary modifiers to the log variables.
+ * For instance, x/N, x/Nv, x/dof normalizes quantity x by the number
+ * of particles, vertices, or degrees of freedom in the system.
+ */
 class Orchestrator {
 protected:
     Particle& particle;  // The particle object that the orchestrator is orchestrating
@@ -22,7 +36,16 @@ protected:
     std::string get_unmodified_log_name(const std::string& name);
 
 public:
+    /**
+     * @brief Constructs an Orchestrator object.
+     * @param particle The particle object to orchestrate.
+     * @param log_names The names of the variables to log.
+     */
     Orchestrator(Particle& particle, const std::vector<std::string>& log_names);
+
+    /**
+     * @brief Destructor for the Orchestrator object.
+     */
     ~Orchestrator();
 
     std::vector<std::string> log_names;  // The name of the variables that are set to be logged
@@ -34,15 +57,14 @@ public:
     void set_log_names(const std::vector<std::string>& log_names);
 
     /**
-     * @brief Precalculates certain values that are needed before they can be calculated
-     * @details Certain values need things precalculated before they can be calculated (i.e. temperature needs kinetic energy) - multiple values may need the same thing precalculated, so this groups together precalculated quantities that are used for various log variables, it calculates the value for a given name
+     * @brief Precalculates values needed for logging.
      */
     void precalculate();
 
     /**
-     * @brief Gets the value of a given unmodified log name
-     * @param unmodified_log_name The name of the variable to get the value of
-     * @return The value of the variable
+     * @brief Gets the value of a log variable.
+     * @param unmodified_log_name The unmodified name of the log variable.
+     * @return The value of the log variable.
      */
     double get_value(const std::string& unmodified_log_name);
 

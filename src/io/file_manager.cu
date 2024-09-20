@@ -3,7 +3,7 @@
 #include "../../include/particle/particle.h"
 #include "../../include/kernels/kernels.cuh"
 #include "../../include/io/orchestrator.h"  
-#include "../../include/io/logger.h"
+#include "../../include/io/file_manager.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -22,21 +22,24 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
-Logger::Logger(Particle& particle, const std::vector<std::string>& log_names, LoggerConfig config) : orchestrator(particle, log_names) {
-    this->config = config;
+FileManager::FileManager(Particle& particle, const std::vector<std::string>& log_names) : orchestrator(particle, log_names) {
+    std::cout << "FileManager::FileManager: Start" << std::endl;
+    std::cout << "FileManager::FileManager: End" << std::endl;
 }
 
-Logger::~Logger() {
+FileManager::~FileManager() {
+    std::cout << "FileManager::~FileManager: Start" << std::endl;
+    std::cout << "FileManager::~FileManager: End" << std::endl;
 }
 
-void Logger::write_header() {
+void FileManager::write_header() {
     long num_names = orchestrator.log_names.size();
-    long total_width = (config.width + 3) * (num_names + 1) - 1;
+    long total_width = (width + 3) * (num_names + 1) - 1;
     std::cout << std::string(total_width, '_') << std::endl;
-    std::cout << std::setw(config.width) << "step" << " | ";
+    std::cout << std::setw(width) << "step" << " | ";
     
     for (long i = 0; i < num_names; i++) {
-        std::cout << std::setw(config.width) << orchestrator.log_names[i];
+        std::cout << std::setw(width) << orchestrator.log_names[i];
         if (i < num_names - 1) {
             std::cout << " | ";
         }
@@ -46,19 +49,19 @@ void Logger::write_header() {
     std::cout << std::string(total_width, '_') << std::endl;
 }
 
-void Logger::write_values(long step) {
+void FileManager::write_values(long step) {
     orchestrator.precalculate();
-    if (config.last_header_log_step >= config.header_log_step_frequency) {
+    if (last_header_log_step >= header_log_step_frequency) {
         write_header();
-        config.last_header_log_step = 0;
+        last_header_log_step = 0;
     } else {
-        config.last_header_log_step += 1;
+        last_header_log_step += 1;
     }
-    std::cout << std::setw(config.width) << step << " | " << std::setw(config.width);
+    std::cout << std::setw(width) << step << " | " << std::setw(width);
     for (long i = 0; i < orchestrator.log_names.size(); i++) {
         double value = orchestrator.get_value(orchestrator.log_names[i]);
         value = orchestrator.apply_modifier(orchestrator.log_names[i], value);
-        std::cout << std::setw(config.width) << std::scientific << std::setprecision(config.precision) << value;
+        std::cout << std::setw(width) << std::scientific << std::setprecision(precision) << value;
         if (i < orchestrator.log_names.size() - 1) {
             std::cout << " | ";
         }

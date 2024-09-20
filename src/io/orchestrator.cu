@@ -22,16 +22,12 @@
 #include <thrust/functional.h>
 
 Orchestrator::Orchestrator(Particle& particle, const std::vector<std::string>& log_names) : particle(particle) {
-    std::cout << "Orchestrator::Orchestrator: Start" << std::endl;
     set_log_names(log_names);
-    std::cout << "Orchestrator::Orchestrator: End" << std::endl;
 }
 
 Orchestrator::~Orchestrator() {
-    std::cout << "Orchestrator::~Orchestrator: Start" << std::endl;
     log_names.clear();
     unmodified_log_names.clear();
-    std::cout << "Orchestrator::~Orchestrator: End" << std::endl;
 }
 
 void Orchestrator::set_log_names(const std::vector<std::string>& log_names) {

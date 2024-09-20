@@ -1,4 +1,5 @@
 - add integrators
+- damped nve, nose hoover, adam, conjugate gradient
 - add logger
 - add particle factory
 - add integrator factory

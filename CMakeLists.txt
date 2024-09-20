@@ -20,6 +20,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/integrator
     ${CMAKE_SOURCE_DIR}/include/particle
     ${CMAKE_SOURCE_DIR}/include/kernels
+    ${CMAKE_SOURCE_DIR}/include/io
     ${CUDA_TOOLKIT_ROOT_DIR}/include
 )
 
@@ -40,6 +41,7 @@ add_executable(main_exec
     src/kernels/kernels.cu
     src/particle/particle.cu
     src/particle/disk.cu
+    src/io/logger.cu
 )
 
 # # Add a new executable for another script

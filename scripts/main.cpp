@@ -2,6 +2,7 @@
 #include "../include/particle/particle.h"
 #include "../include/particle/disk.h"
 #include "../include/integrator/nve.h"
+#include "../include/io/logger.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -28,7 +29,7 @@ int main() {
     disk.setSeed(0);
 
     // set/sync number of vertices/particles, define the array sizes
-    disk.setParticleCounts(1024*10, 0);
+    disk.setParticleCounts(32, 0);
 
     // set/sync kernel dimensions
     disk.setKernelDimensions(256);  // TODO: not sure how to best motivate this
@@ -53,14 +54,19 @@ int main() {
     // update the neighbor list
     disk.updateNeighborList();
 
-    NVE nve(disk, 0.001);
-    for (long i = 0; i < 1e5; i++) {
-       nve.step();
-       if (i % 1000 == 0) {
-           disk.calculateKineticEnergy();
-           std::cout << disk.totalEnergy() << std::endl;
-       }
-    }
+    // NVE nve(disk, 0.001);
+    // for (long i = 0; i < 1e5; i++) {
+    //    nve.step();
+    //    if (i % 1000 == 0) {
+    //        disk.calculateKineticEnergy();
+    //        std::cout << disk.totalEnergy() << std::endl;
+    //    }
+    // }
+
+    std::vector<std::string> log_entries = {"KE/N", "PE/N", "TE/N"};
+    Logger logger(disk, log_entries);
+
+    logger.write_header();
 
     // constructing the simulation:
 

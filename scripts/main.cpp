@@ -54,19 +54,22 @@ int main() {
     // update the neighbor list
     disk.updateNeighborList();
 
-    // NVE nve(disk, 0.001);
-    // for (long i = 0; i < 1e5; i++) {
-    //    nve.step();
-    //    if (i % 1000 == 0) {
-    //        disk.calculateKineticEnergy();
-    //        std::cout << disk.totalEnergy() << std::endl;
-    //    }
-    // }
+
 
     std::vector<std::string> log_entries = {"KE/N", "PE/N", "TE/N"};
     Logger logger(disk, log_entries);
 
     logger.write_header();
+
+    NVE nve(disk, 0.001);
+    for (long i = 0; i < 1e6; i++) {
+       nve.step();
+       if (i % 1000 == 0) {
+           disk.calculateKineticEnergy();
+        //    std::cout << disk.totalEnergy() << std::endl;
+           logger.write_values(i);
+       }
+    }
 
     // constructing the simulation:
 

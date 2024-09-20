@@ -3,6 +3,9 @@
 - add logger
 - add particle factory
 - add integrator factory
+- initialize from: (random pos, given pos, file, etc.)
+- save script name in the config file
+- convert one particle type into another
 - test setting member functions to final to save speed
 - add io (integrators will have things saved too)
 - make simulation scripts (be able to easily add new arguments to scripts / protocols / functions without changing the code) (should have backwards / forwards compatibility with arguments - if something isn't there and isn't required, it should work, if something isn't there that needs to be there, it should crash with a clear error message)

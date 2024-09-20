@@ -62,7 +62,7 @@ int main() {
     logger.write_header();
 
     NVE nve(disk, 0.001);
-    for (long i = 0; i < 1e6; i++) {
+    for (long i = 0; i < 1e4; i++) {
        nve.step();
        if (i % 1000 == 0) {
            disk.calculateKineticEnergy();

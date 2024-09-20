@@ -42,6 +42,7 @@ add_executable(main_exec
     src/particle/particle.cu
     src/particle/disk.cu
     src/io/logger.cu
+    src/io/orchestrator.cu
 )
 
 # # Add a new executable for another script

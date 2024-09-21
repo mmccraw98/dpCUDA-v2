@@ -18,6 +18,9 @@ public:
     Particle();
     virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
 
+    // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
+    std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
+
     // Device vectors for particle data
     thrust::device_vector<double> d_positions;  // particle positions
     thrust::device_vector<double> d_last_positions;  // particle positions at the last neighbor list update

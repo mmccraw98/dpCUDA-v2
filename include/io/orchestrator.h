@@ -6,55 +6,42 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <unordered_set>
 #include "../particle/particle.h"
+#include "utils.h"
 
-/**
- * @class Orchestrator
- * @brief Manages the orchestration of particle logging and calculations.
- *
- * The Orchestrator class is responsible for managing the logging of
- * various properties of a Particle object.
- * Importantly, it calculates all necessary values (if any) from which all
- * log variables are calculated - and does so in one step.  This ensures
- * that the values are calculated in a consistent manner and is done
- * nearly as efficiently as possible.
- * It additionally applies any necessary modifiers to the log variables.
- * For instance, x/N, x/Nv, x/dof normalizes quantity x by the number
- * of particles, vertices, or degrees of freedom in the system.
- */
 class Orchestrator {
-protected:
-    Particle& particle;  // The particle object that the orchestrator is orchestrating
-    std::vector<std::string> unmodified_log_names;  // Log variable names without any modifiers
-    std::vector<std::string> modifiers = {"/"};
-
-    /**
-     * @brief Removes the possible modifier from a given log name
-     * @param name The name to remove the modifier from
-     * @return The unmodified name
-     */
-    std::string get_unmodified_log_name(const std::string& name);
+private:
+    std::vector<std::shared_ptr<LogGroup>> log_groups; // Stores all LogGroups
 
 public:
-    /**
-     * @brief Constructs an Orchestrator object.
-     * @param particle The particle object to orchestrate.
-     * @param log_names The names of the variables to log.
-     */
-    Orchestrator(Particle& particle, const std::vector<std::string>& log_names);
+    Orchestrator(const std::vector<std::shared_ptr<LogGroup>>& log_groups) : log_groups(log_groups) {}
 
-    /**
-     * @brief Destructor for the Orchestrator object.
-     */
-    ~Orchestrator();
+    std::unordered_set<std::string> get_unique_unmodified_log_names(long step) {
+        std::unordered_set<std::string> unique_log_names;
 
-    std::vector<std::string> log_names;  // The name of the variables that are set to be logged
+        // Iterate through each log group and check if it's active for this step
+        for (const auto& log_group : log_groups) {
+            if (log_group->should_log(step)) {
+                // Get the log names and insert the unmodified names into the set
+                auto group_log_names = log_group->get_log_names();
+                for (const auto& log_name : group_log_names) {
+                    unique_log_names.insert(get_unmodified_log_name(log_name));
+                }
+            }
+        }
 
-    /**
-     * @brief Sets the log names and unmodified log names
-     * @param log_names The names of the variables to be logged
-     */
-    void set_log_names(const std::vector<std::string>& log_names);
+        return unique_log_names; // This will contain only unique unmodified log names
+    }
+
+private:
+    std::string get_unmodified_log_name(const std::string& name) {
+        // Remove any modifiers like "/N", "/Nv", etc.
+        size_t pos = name.find('/');
+        return (pos != std::string::npos) ? name.substr(0, pos) : name;
+    }
+};
+
 
     /**
      * @brief Precalculates values needed for logging.
@@ -75,6 +62,5 @@ public:
      * @return The modified value
      */
     double apply_modifier(std::string& name, double value);
-};
 
 #endif /* ORCHESTRATOR_H */

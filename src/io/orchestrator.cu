@@ -2,6 +2,7 @@
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
 #include "../../include/kernels/kernels.cuh"
+#include "../../include/io/utils.h"
 #include "../../include/io/orchestrator.h"
 #include <iostream>
 #include <string>
@@ -9,6 +10,7 @@
 #include <cmath>
 #include <random>
 #include <time.h>
+#include <set>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/fill.h>
@@ -21,8 +23,30 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
-Orchestrator::Orchestrator(Particle& particle, const std::vector<std::string>& log_names) : particle(particle) {
-    set_log_names(log_names);
+
+// when the step starts
+// check if the log groups should log
+// determine the values to log
+// log the values
+
+
+
+
+
+
+// rework orchestrator to be more general and something that is constructed from a list of log-objects (log name list and step manager)
+
+// orchestrator should be constructed from a list of a list of strings - the log names
+//
+
+
+// call this once at the beginning to define the log names and unique log names
+
+// then, call the precalculate function, passing the list of log names involved in the calculation
+
+Orchestrator::Orchestrator(Particle& particle, const std::vector<std::vector<std::string>>& log_names_list) : particle(particle) {
+    log_names = extract_unique_log_names(log_names_list);
+    unmodified_log_names = extract_unique_unmodified_log_names(log_names);
 }
 
 Orchestrator::~Orchestrator() {
@@ -30,12 +54,35 @@ Orchestrator::~Orchestrator() {
     unmodified_log_names.clear();
 }
 
-void Orchestrator::set_log_names(const std::vector<std::string>& log_names) {
-    this->log_names = log_names;
-    unmodified_log_names.reserve(log_names.size());
-    for (const auto& log_name : log_names) {
-        unmodified_log_names.push_back(get_unmodified_log_name(log_name));
+void Orchestrator::orchestrate(std::vector<std::vector<std::string>> log_names_list) {
+    std::vector<std::string> new_log_names;
+    for (const auto& unmodified_log_name : unmodified_log_names) {
+        // calculate kinetic energy when it is needed
+        if (unmodified_log_name == "KE" || unmodified_log_name == "TE" || unmodified_log_name == "T") {
+            particle.calculateKineticEnergy();
+        }
+        // TODO: implement others (probably geometric ones)
     }
+}
+
+std::vector<std::string> Orchestrator::extract_unique_log_names(const std::vector<std::vector<std::string>>& log_names_list) {
+    std::set<std::string> unique_log_names;
+    for (const auto& log_names : log_names_list) {
+        unique_log_names.insert(log_names.begin(), log_names.end());
+    }
+    return std::vector<std::string>(unique_log_names.begin(), unique_log_names.end());
+}
+
+std::vector<std::string> Orchestrator::extract_unique_unmodified_log_names(const std::vector<std::string>& log_names) {
+    std::set<std::string> unique_unmodified_log_names;
+    for (const auto& log_name : log_names) {
+        unique_unmodified_log_names.insert(get_unmodified_log_name(log_name));
+    }
+    return std::vector<std::string>(unique_unmodified_log_names.begin(), unique_unmodified_log_names.end());
+}
+
+bool Orchestrator::is_modified_log_name(const std::string& name) {
+    return name.find('/') != std::string::npos;
 }
 
 std::string Orchestrator::get_unmodified_log_name(const std::string& name) {
@@ -46,19 +93,9 @@ std::string Orchestrator::get_unmodified_log_name(const std::string& name) {
     return name;
 }
 
-void Orchestrator::precalculate() {
-    for (const auto& unmodified_log_name : unmodified_log_names) {
-        // calculate kinetic energy when it is needed
-        if (unmodified_log_name == "KE" || unmodified_log_name == "TE" || unmodified_log_name == "T") {
-            particle.calculateKineticEnergy();
-        }
-        // TODO: implement others (probably geometric ones)
-    }
-}
-
 // TODO: change this to work with any type - particularly, vectors and matrices
 double Orchestrator::get_value(const std::string& name) {
-    std::string temp_name = get_unmodified_log_name(name);
+    std::string temp_name = get_unmodified_log_name(name);  // define new saved variables here - make sure to add them to the precalculate function if needed
     if (temp_name == "KE") {
         return particle.totalKineticEnergy();
     } else if (temp_name == "PE") {

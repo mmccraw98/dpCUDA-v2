@@ -1,5 +1,5 @@
-#ifndef FILE_MANAGER_H
-#define FILE_MANAGER_H
+#ifndef IO_MANAGER_H
+#define IO_MANAGER_H
 
 #include <iostream>
 #include <fstream>
@@ -14,15 +14,18 @@
 #include "step_manager.h"
 #include "../particle/particle.h"
 
- // TODO: move all non-file related functionality to iomanager
-
-std::ifstream open_input_file(std::string file_name);
-std::ofstream open_output_file(std::string file_name);
-void make_dir(const std::string& dir_name, bool warn = true);
-bool contains_substrings(const std::string& string, const std::vector<std::string>& substrings);
-long get_largest_file_index(std::string dir_name, std::string file_prefix = "");
-
 // make a python resume script that loads the configuration, gets the script details and arguments, and calls the relevant script with optionally overwriting some arguments
+
+
+// IMMEDIATE TODO:
+// rework orchestrator to be more general and something that is constructed from a list of log-objects (log name list and step manager)
+
+// make logger use the log-object - maybe rename it to console-logger or something
+
+
+
+
+// iomanager will take a file manager, a logger, ....
 
 struct FileManagerConfig {
     std::string dir_name = "";
@@ -52,6 +55,21 @@ struct FileManagerConfig {
     std::string file_extension = ".csv";
 };
 
+
+
+
+// IOMANAGER SHOULD HAVE:
+// load restart
+// load parameters
+// orchestration
+// save restart
+// save trajectory
+// console logging
+// save energy
+// save parameters
+
+
+// eventually: add a struct and methods to handle script argument parsing to handle undefined variables, default variables, overwriting predefined variables and loading arguments from prior runs
 
 class FileManager {
 protected:
@@ -134,4 +152,4 @@ public:
     // TODO: write energy
 };
 
-#endif /* FILE_MANAGER_H */
+#endif /* IO_MANAGER_H */

@@ -41,6 +41,8 @@ add_executable(main_exec
     src/kernels/kernels.cu
     src/particle/particle.cu
     src/particle/disk.cu
+    src/io/step_manager.cu
+    src/io/utils.cu
     src/io/orchestrator.cu
     src/io/logger.cu
     src/io/file_manager.cu

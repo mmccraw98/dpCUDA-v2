@@ -23,6 +23,11 @@
 #include <thrust/functional.h>
 
 int main() {
+
+    // TODO: make a particle factory
+    // TODO: make the file io (input works with particle factory) (may need to make a particle method to construct values that are missing (some values can be derived from others))
+
+
     // constructing the object
 
     Disk particle;

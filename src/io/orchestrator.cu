@@ -56,6 +56,7 @@ void Orchestrator::precalculate() {
     }
 }
 
+// TODO: change this to work with any type - particularly, vectors and matrices
 double Orchestrator::get_value(const std::string& name) {
     std::string temp_name = get_unmodified_log_name(name);
     if (temp_name == "KE") {

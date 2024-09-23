@@ -6,7 +6,7 @@
 
 class ConsoleLog : public MacroLog {
 private:
-    std::string delimeter = "|";
+    std::string delimiter = "|";
     int precision = 3;
     int width = 10;
     int header_log_freq = 10;

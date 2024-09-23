@@ -68,16 +68,16 @@ int main() {
     
     // Make the energy log
     LogGroupConfig energy_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
-    energy_log_config.log_names = {"step"};
+    energy_log_config.log_names = {"step", "TE", "KE", "PE", "T"};
     energy_log_config.save_style = "lin";
-    energy_log_config.save_freq = 10;
+    energy_log_config.save_freq = 100;
     EnergyLog energy_log(energy_log_config, orchestrator, "/home/mmccraw/dev/dpCUDA/old/energy.csv");  // TODO: make filename config
 
     // Make the console log
     LogGroupConfig console_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
     console_log_config.log_names = {"step", "T", "TE/N"};
     console_log_config.save_style = "lin";
-    console_log_config.save_freq = 100;
+    console_log_config.save_freq = 1000;
     ConsoleLog console_log(console_log_config, orchestrator);
 
 
@@ -86,9 +86,19 @@ int main() {
     log_groups.push_back(&console_log);
 
 
+    // TODO:
+    // make functions to build the log groups
+    // make io manager
+    // make state log
+    // make state loading function (separate so can create particle object without needing the particle object to be defined)
+    // make restart
+    // make argument parser for defaults and overrides
+
     long step = 0;
 
-    while (step < 1e0) {
+    while (step < 1e4) {
+
+        // WRAP THIS IN SOME FUNCTION:
         bool log_required = false;
         for (BaseLogGroup* log_group : log_groups) {
             log_group->update_log_status(step);
@@ -100,9 +110,12 @@ int main() {
         if (log_required) {
             orchestrator.init_pre_req_calculation_status();
             for (BaseLogGroup* log_group : log_groups) {
-                log_group->log(step);
+                if (log_group->should_log) {
+                    log_group->log(step);
+                }
             }
         }
+        //////////////////////////////
 
         step++;
     }

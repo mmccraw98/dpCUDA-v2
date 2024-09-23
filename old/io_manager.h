@@ -51,7 +51,7 @@ struct FileManagerConfig {
     std::string init_dir_name = "init";
     std::string group_dir_name = "group";
     std::string indexed_file_prefix = "t";
-    std::string delimeter = ",";
+    std::string delimiter = ",";
     std::string file_extension = ".csv";
 };
 

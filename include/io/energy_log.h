@@ -9,9 +9,10 @@
 
 class EnergyLog : public MacroLog {
 private:
-    std::string delimeter = ",";
+    std::string delimiter = ",";
     std::ofstream log_file;
     std::string file_name;
+    long precision = 16;
 
 public:
     EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name);

@@ -5,7 +5,7 @@
 EnergyLog::EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name)
     : MacroLog(log_group_config, orchestrator) {
     this->file_name = file_name;
-    log_file.open(file_name, std::ios::app);
+    log_file.open(file_name);
     if (!log_file.is_open()) {
         std::cerr << "ERROR: EnergyLog: could not open file: " << file_name << std::endl;
         exit(1);
@@ -28,10 +28,11 @@ void EnergyLog::write_header() {
     for (size_t i = 0; i < config.log_names.size(); ++i) {
         log_file << config.log_names[i];
         if (i < config.log_names.size() - 1) {
-            log_file << delimeter;
+            log_file << delimiter;
         }
     }
     log_file << "\n";
+    log_file.flush();
 }
 
 void EnergyLog::log(long step) {
@@ -43,23 +44,24 @@ void EnergyLog::log(long step) {
         }
         log_file << std::fixed << std::setprecision(precision) << value;
         if (i < config.log_names.size() - 1) {
-            log_file << delimeter;
+            log_file << delimiter;
         }
     }
     log_file << "\n";
+    log_file.flush();
 }
 
 
 // void FileManager::write_energy_values(long step) {
 //     energy_orchestrator.precalculate();
 //     if (!energy_file_has_header) {write_header();}
-//     std::cout << std::setw(width) << step << delimeter << std::setw(width);
+//     std::cout << std::setw(width) << step << delimiter << std::setw(width);
 //     for (long i = 0; i < orchestrator.log_names.size(); i++) {
 //         double value = orchestrator.get_value(orchestrator.log_names[i]);
 //         value = orchestrator.apply_modifier(orchestrator.log_names[i], value);
 //         std::cout << std::setw(width) << std::scientific << std::setprecision(precision) << value;
 //         if (i < orchestrator.log_names.size() - 1) {
-//             std::cout << delimeter;
+//             std::cout << delimiter;
 //         }
 //     }
 //     std::cout << std::endl;

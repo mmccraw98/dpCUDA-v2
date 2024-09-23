@@ -64,11 +64,11 @@ void FileManager::orchestrate(long step) {
 void FileManager::write_energy_header() {
     // TODO: change this to work with resume
     long num_names = energy_orchestrator.log_names.size();
-    std::cout << std::setw(width) << "step" << delimeter;
+    std::cout << std::setw(width) << "step" << delimiter;
     for (long i = 0; i < num_names; i++) {
         std::cout << std::setw(width) << energy_orchestrator.log_names[i];
         if (i < num_names - 1) {
-            std::cout << delimeter;
+            std::cout << delimiter;
         }
     }
 
@@ -78,13 +78,13 @@ void FileManager::write_energy_header() {
 void FileManager::write_energy_values(long step) {
     energy_orchestrator.precalculate();
     if (!energy_file_has_header) {write_header();}
-    std::cout << std::setw(width) << step << delimeter << std::setw(width);
+    std::cout << std::setw(width) << step << delimiter << std::setw(width);
     for (long i = 0; i < orchestrator.log_names.size(); i++) {
         double value = orchestrator.get_value(orchestrator.log_names[i]);
         value = orchestrator.apply_modifier(orchestrator.log_names[i], value);
         std::cout << std::setw(width) << std::scientific << std::setprecision(precision) << value;
         if (i < orchestrator.log_names.size() - 1) {
-            std::cout << delimeter;
+            std::cout << delimiter;
         }
     }
     std::cout << std::endl;

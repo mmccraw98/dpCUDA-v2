@@ -39,7 +39,7 @@ public:
 class MacroLog : public BaseLogGroup {
 protected:
     std::vector<std::string> unmodified_log_names;
-    std::string delimeter;
+    std::string delimiter;
     std::string modifier = "/";
     long precision;
     long width;

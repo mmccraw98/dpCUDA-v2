@@ -8,15 +8,18 @@
 #include <cmath>
 #include <unordered_set>
 #include "../particle/particle.h"
+#include "../integrator/integrator.h"
 #include "utils.h"
 
 class Orchestrator {
 private:
     Particle& particle;  // the particle object (and integrator if needed) are private since the orchestrator handles everything
+    Integrator* integrator;
+    bool has_integrator;
     std::unordered_map<std::string, bool> pre_req_calculation_status;
 
 public:
-    Orchestrator(Particle& particle);  // can pass the integrator here too - this way, the log groups dont need to know about where the values are coming from
+    Orchestrator(Particle& particle, Integrator* integrator = nullptr);  // can pass the integrator here too - this way, the log groups dont need to know about where the values are coming from
     ~Orchestrator();
 
     void init_pre_req_calculation_status();

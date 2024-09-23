@@ -62,16 +62,20 @@ int main() {
     // update the neighbor list
     particle.updateNeighborList();
 
+    // make the integrator
+    NVE nve(particle, 0.001);
+
 
     // Make the orchestrator
     Orchestrator orchestrator(particle);
+    // Orchestrator orchestrator(particle, &nve);  // example of passing the integrator
     
     // Make the energy log
     LogGroupConfig energy_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
     energy_log_config.log_names = {"step", "TE", "KE", "PE", "T"};
     energy_log_config.save_style = "lin";
     energy_log_config.save_freq = 100;
-    EnergyLog energy_log(energy_log_config, orchestrator, "/home/mmccraw/dev/dpCUDA/old/energy.csv");  // TODO: make filename config
+    EnergyLog energy_log(energy_log_config, orchestrator, "/home/mmccraw/dev/dpCUDA/old/energy.csv");  // TODO: make filename config from the io manager
 
     // Make the console log
     LogGroupConfig console_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
@@ -91,12 +95,14 @@ int main() {
     // make io manager
     // make state log
     // make state loading function (separate so can create particle object without needing the particle object to be defined)
-    // make restart
+    // make restart file and init file
     // make argument parser for defaults and overrides
 
     long step = 0;
 
+
     while (step < 1e4) {
+        nve.step();
 
         // WRAP THIS IN SOME FUNCTION:
         bool log_required = false;
@@ -120,9 +126,5 @@ int main() {
         step++;
     }
 
-    // NVE nve(particle, 0.001);
-    // for (long i = 0; i < 1e4; i++) {
-    //    nve.step();
-    // }
     return 0;
 }

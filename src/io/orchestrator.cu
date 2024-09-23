@@ -25,8 +25,9 @@
 
 
 
-Orchestrator::Orchestrator(Particle& particle) : particle(particle) {
+Orchestrator::Orchestrator(Particle& particle, Integrator* integrator) : particle(particle), integrator(integrator) {
     init_pre_req_calculation_status();
+    has_integrator = integrator != nullptr;
 }
 
 Orchestrator::~Orchestrator() {

@@ -6,6 +6,7 @@
 #include "../include/io/utils.h"
 #include "../include/io/console_log.h"
 #include "../include/io/energy_log.h"
+#include "../include/io/io_manager.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -29,6 +30,11 @@ int main() {
     // TODO: make a particle factory
     // TODO: make the file io (input works with particle factory) (may need to make a particle method to construct values that are missing (some values can be derived from others))
 
+    // to make for the first time:
+    // seed, particle counts, vertex counts, kernel dimensions, bidispersity values (2), packing fraction, energy scales, timestep, neighbor cutoff
+
+    // to make from a file:
+    // seed, particle counts, vertex counts, kernel dimensions, radii, masses, positions, velocities, energy values
 
     // constructing the object
 
@@ -65,58 +71,37 @@ int main() {
     // make the integrator
     NVE nve(particle, 0.001);
 
-
-    // Make the orchestrator
-    Orchestrator orchestrator(particle);
-    // Orchestrator orchestrator(particle, &nve);  // example of passing the integrator
-    
-    // Make the energy log
-    EnergyLog energy_log = EnergyLog::from_names_lin(orchestrator, "/home/mmccraw/dev/dpCUDA/old/energy.csv", {"step", "TE", "KE", "PE", "T"}, 1e4, 100);
+    // Make the io manager
+    std::vector<LogGroupConfig> log_group_configs = {
+        config_from_names_lin({"step", "TE", "KE", "PE", "T"}, 1e4, 100, "energy"),
+        config_from_names_lin_everyN({"step", "T", "TE/N"}, 1e2, "console")
+    };
 
 
-    // Make the console log
-    ConsoleLog console_log = ConsoleLog::from_names_lin(orchestrator, {"step", "T", "TE/N"}, 1e4, 10);
+    IOManager io_manager(particle, nve, log_group_configs, "/home/mmccraw/dev/dpCUDA/old", false);
 
-
-    std::vector<BaseLogGroup*> log_groups;
-    log_groups.push_back(&energy_log);
-    log_groups.push_back(&console_log);
-
+    io_manager.log(0);
 
     // TODO:
-    // make io manager
     // make state log
-    // make state loading function (separate so can create particle object without needing the particle object to be defined)
+    // make state loading function (static method to load the particle from the file)
+        // from file(file, )
     // make restart file and init file
     // make argument parser for defaults and overrides
+    // add docstrings
+    // may need to add an integrator get state method to allow integrator to save its variables
 
-    long step = 0;
+    // long step = 0;
 
+    // while (step < 1e4) {
+    //     nve.step();
 
-    while (step < 1e4) {
-        nve.step();
+    //     // WRAP THIS IN SOME FUNCTION:
 
-        // WRAP THIS IN SOME FUNCTION:
-        bool log_required = false;
-        for (BaseLogGroup* log_group : log_groups) {
-            log_group->update_log_status(step);
-            if (log_group->should_log) {
-                log_required = true;
-            }
-        }
+    //     //////////////////////////////
 
-        if (log_required) {
-            orchestrator.init_pre_req_calculation_status();
-            for (BaseLogGroup* log_group : log_groups) {
-                if (log_group->should_log) {
-                    log_group->log(step);
-                }
-            }
-        }
-        //////////////////////////////
-
-        step++;
-    }
+    //     step++;
+    // }
 
     return 0;
 }

@@ -46,6 +46,7 @@ add_executable(main_exec
     src/io/base_log_groups.cu
     src/io/console_log.cu
     src/io/energy_log.cu
+    src/io/io_manager.cu
 )
 
 # # Add a new executable for another script

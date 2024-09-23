@@ -2,18 +2,17 @@
 #include "../../include/io/energy_log.h"
 #include "../../include/io/utils.h"
 
-EnergyLog::EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name)
+EnergyLog::EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite)
     : MacroLog(log_group_config, orchestrator) {
     this->file_name = file_name;
-    log_file.open(file_name);
+    log_file = open_output_file(file_name, overwrite);
     if (!log_file.is_open()) {
         std::cerr << "ERROR: EnergyLog: could not open file: " << file_name << std::endl;
         exit(1);
     }
     if (log_file.tellp() != 0) {
         has_header = true;
-    }
-    else {
+    } else {
         write_header();
     }
 }
@@ -52,12 +51,12 @@ void EnergyLog::log(long step) {
 }
 
 
-EnergyLog EnergyLog::from_names_lin(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves) {
-    LogGroupConfig config = config_from_names_lin(log_names, num_steps, num_saves);
-    return EnergyLog(config, orchestrator, file_name);
+EnergyLog EnergyLog::from_names_lin(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, bool overwrite) {
+    LogGroupConfig config = config_from_names_lin(log_names, num_steps, num_saves, "energy");
+    return EnergyLog(config, orchestrator, file_name, overwrite);
 }
 
-EnergyLog EnergyLog::from_names_log(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade) {
-    LogGroupConfig config = config_from_names_log(log_names, num_steps, num_saves, min_save_decade);
-    return EnergyLog(config, orchestrator, file_name);
+EnergyLog EnergyLog::from_names_log(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, bool overwrite) {
+    LogGroupConfig config = config_from_names_log(log_names, num_steps, num_saves, min_save_decade, "energy");
+    return EnergyLog(config, orchestrator, file_name, overwrite);
 }

@@ -33,8 +33,14 @@ std::ifstream open_input_file(std::string file_name) {
     return input_file;
 }
 
-std::ofstream open_output_file(std::string file_name) {
-    std::ofstream output_file = std::ofstream(file_name.c_str());
+std::ofstream open_output_file(std::string file_name, bool overwrite) {
+    std::ofstream output_file;
+    if (overwrite) {
+        output_file.open(file_name.c_str(), std::ios::out | std::ios::trunc);
+    } else {
+        output_file.open(file_name.c_str(), std::ios::out | std::ios::app);
+    }
+
     if (!output_file.is_open()) {
         std::cerr << "ERROR: open_output_file: could not open: " << file_name << std::endl;
         exit(1);
@@ -42,11 +48,12 @@ std::ofstream open_output_file(std::string file_name) {
     return output_file;
 }
 
-void make_dir(const std::string& dir_name, bool warn) {
+void make_dir(const std::string& dir_name, bool overwrite) {
     if (std::filesystem::exists(dir_name)) {
-        if (warn) {
-            std::cerr << "ERROR: make_dir: directory exists: " << dir_name << std::endl;
-            exit(1);
+        if (!overwrite) {
+            // std::cerr << "ERROR: make_dir: directory exists: " << dir_name << std::endl;
+            // exit(1);
+            return;
         }
     } else {
         try {

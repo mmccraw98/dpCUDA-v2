@@ -13,14 +13,16 @@ struct LogGroupConfig {
     long min_save_decade;  // the minimum save frequency
     long multiple = 0;  // the current multiple of the reset_save_decade
     long decade = 10;  // the decade to multiply the save frequency by
+    std::string group_name;
 
     ~LogGroupConfig() {
         log_names.clear();
     }
 };
 
-LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves);
-LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade);
+LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves, std::string group_name);
+LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name);
+LogGroupConfig config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name);
 
 class BaseLogGroup {
 protected:

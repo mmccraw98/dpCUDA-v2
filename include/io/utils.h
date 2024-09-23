@@ -16,8 +16,8 @@
  // TODO: move all non-file related functionality to iomanager
 
 std::ifstream open_input_file(std::string file_name);
-std::ofstream open_output_file(std::string file_name);
-void make_dir(const std::string& dir_name, bool warn = true);
+std::ofstream open_output_file(std::string file_name, bool overwrite = false);
+void make_dir(const std::string& dir_name, bool overwrite = false);
 bool contains_substrings(const std::string& string, const std::vector<std::string>& substrings);
 long get_largest_file_index(std::string dir_name, std::string file_prefix = "");
 

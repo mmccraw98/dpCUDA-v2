@@ -3,7 +3,9 @@
 #include "../include/particle/disk.h"
 #include "../include/integrator/nve.h"
 #include "../include/io/orchestrator.h"
-#include "../include/io/logger.h"
+#include "../include/io/utils.h"
+#include "../include/io/console_log.h"
+#include "../include/io/energy_log.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -61,19 +63,53 @@ int main() {
     particle.updateNeighborList();
 
 
-    // constructing the simulation:
-    std::vector<std::string> log_entries = {"KE/N", "PE/N", "TE/N", "T", "TE"};
-    Logger logger(particle, log_entries);
+    // Make the orchestrator
+    Orchestrator orchestrator(particle);
+    
+    // Make the energy log
+    LogGroupConfig energy_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
+    energy_log_config.log_names = {"step"};
+    energy_log_config.save_style = "lin";
+    energy_log_config.save_freq = 10;
+    EnergyLog energy_log(energy_log_config, orchestrator, "/home/mmccraw/dev/dpCUDA/old/energy.csv");  // TODO: make filename config
 
-    logger.write_header();
+    // Make the console log
+    LogGroupConfig console_log_config;  // TODO: construct the entire log using a from log names, save freq, save type, etc....
+    console_log_config.log_names = {"step", "T", "TE/N"};
+    console_log_config.save_style = "lin";
+    console_log_config.save_freq = 100;
+    ConsoleLog console_log(console_log_config, orchestrator);
 
-    NVE nve(particle, 0.001);
-    for (long i = 0; i < 1e4; i++) {
-       nve.step();
-       if (i % 1000 == 0) {
-           logger.write_values(i);
-       }
+
+    std::vector<BaseLogGroup*> log_groups;
+    log_groups.push_back(&energy_log);
+    log_groups.push_back(&console_log);
+
+
+    long step = 0;
+
+    while (step < 1e0) {
+        bool log_required = false;
+        for (BaseLogGroup* log_group : log_groups) {
+            log_group->update_log_status(step);
+            if (log_group->should_log) {
+                log_required = true;
+            }
+        }
+
+        if (log_required) {
+            orchestrator.init_pre_req_calculation_status();
+            for (BaseLogGroup* log_group : log_groups) {
+                log_group->log(step);
+            }
+        }
+
+        step++;
     }
 
+    // NVE nve(particle, 0.001);
+    // for (long i = 0; i < 1e4; i++) {
+    //    nve.step();
+    // }
     return 0;
 }

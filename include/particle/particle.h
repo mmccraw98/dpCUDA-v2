@@ -20,6 +20,8 @@ public:
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
+    // These are the values that need to be calculated before the log value is calculated
+    std::vector<std::string> pre_req_calculations = {"KE", "T"};
 
     // Device vectors for particle data
     thrust::device_vector<double> d_positions;  // particle positions

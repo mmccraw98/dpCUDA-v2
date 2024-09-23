@@ -22,13 +22,9 @@
 #include <thrust/functional.h>
 
 Disk::Disk() {
-    std::cout << "Disk::Disk: Start" << std::endl;
-    std::cout << "Disk::Disk: End" << std::endl;
 }
 
 Disk::~Disk() {
-    std::cout << "Disk::~Disk: Start" << std::endl;
-    std::cout << "Disk::~Disk: End" << std::endl;
 }
 
 // ----------------------------------------------------------------------

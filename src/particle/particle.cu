@@ -22,16 +22,12 @@
 
 // Constructor
 Particle::Particle() {
-    std::cout << "Particle::Particle: Start" << std::endl;
-    std::cout << "Particle::Particle: End" << std::endl;
 }
 
 // Destructor (virtual to allow proper cleanup in derived classes)
 Particle::~Particle() {
-    std::cout << "Particle::~Particle: Start" << std::endl;
     clearDynamicVariables();
     clearGeometricVariables();
-    std::cout << "Particle::~Particle: End" << std::endl;
 }
 
 // ----------------------------------------------------------------------

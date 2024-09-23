@@ -21,6 +21,9 @@ public:
     bool has_header = false;
     void write_header();
     void log(long step) final;
+    static EnergyLog from_names_lin(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves);
+    static EnergyLog from_names_log(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade);
 };
+
 
 #endif /* ENERGY_LOG_H */

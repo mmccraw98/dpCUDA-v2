@@ -52,55 +52,12 @@ void EnergyLog::log(long step) {
 }
 
 
-// void FileManager::write_energy_values(long step) {
-//     energy_orchestrator.precalculate();
-//     if (!energy_file_has_header) {write_header();}
-//     std::cout << std::setw(width) << step << delimiter << std::setw(width);
-//     for (long i = 0; i < orchestrator.log_names.size(); i++) {
-//         double value = orchestrator.get_value(orchestrator.log_names[i]);
-//         value = orchestrator.apply_modifier(orchestrator.log_names[i], value);
-//         std::cout << std::setw(width) << std::scientific << std::setprecision(precision) << value;
-//         if (i < orchestrator.log_names.size() - 1) {
-//             std::cout << delimiter;
-//         }
-//     }
-//     std::cout << std::endl;
-// }
+EnergyLog EnergyLog::from_names_lin(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves) {
+    LogGroupConfig config = config_from_names_lin(log_names, num_steps, num_saves);
+    return EnergyLog(config, orchestrator, file_name);
+}
 
-
-// void Logger::write_header() {
-//     long num_names = orchestrator.log_names.size();
-//     long total_width = (config.width + 3) * (num_names + 1) - 1;
-//     std::cout << std::string(total_width, '_') << std::endl;
-//     std::cout << std::setw(config.width) << "step" << " | ";
-    
-//     for (long i = 0; i < num_names; i++) {
-//         std::cout << std::setw(config.width) << orchestrator.log_names[i];
-//         if (i < num_names - 1) {
-//             std::cout << " | ";
-//         }
-//     }
-
-//     std::cout << std::endl;
-//     std::cout << std::string(total_width, '_') << std::endl;
-// }
-
-// void Logger::write_values(long step) {
-//     orchestrator.precalculate();
-//     if (config.last_header_log_step >= config.header_log_step_frequency) {
-//         write_header();
-//         config.last_header_log_step = 0;
-//     } else {
-//         config.last_header_log_step += 1;
-//     }
-//     std::cout << std::setw(config.width) << step << " | " << std::setw(config.width);
-//     for (long i = 0; i < orchestrator.log_names.size(); i++) {
-//         double value = orchestrator.get_value(orchestrator.log_names[i]);
-//         value = orchestrator.apply_modifier(orchestrator.log_names[i], value);
-//         std::cout << std::setw(config.width) << std::scientific << std::setprecision(config.precision) << value;
-//         if (i < orchestrator.log_names.size() - 1) {
-//             std::cout << " | ";
-//         }
-//     }
-//     std::cout << std::endl;
-// }
+EnergyLog EnergyLog::from_names_log(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade) {
+    LogGroupConfig config = config_from_names_log(log_names, num_steps, num_saves, min_save_decade);
+    return EnergyLog(config, orchestrator, file_name);
+}

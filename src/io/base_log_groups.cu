@@ -3,6 +3,24 @@
 #include <string>
 #include <iostream>
 
+
+LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves) {
+    LogGroupConfig config;
+    config.log_names = log_names;
+    config.save_style = "lin";
+    config.save_freq = static_cast<long>(num_steps / num_saves);
+    return config;
+}
+
+LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade) {
+    LogGroupConfig config;
+    config.log_names = log_names;
+    config.save_style = "log";
+    config.reset_save_decade = static_cast<long>(num_steps / num_saves);
+    config.min_save_decade = min_save_decade;
+    return config;
+}
+
 BaseLogGroup::BaseLogGroup(LogGroupConfig config, Orchestrator& orchestrator) : config(config), orchestrator(orchestrator) {
 }
 

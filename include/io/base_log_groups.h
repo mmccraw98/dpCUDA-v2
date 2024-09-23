@@ -8,7 +8,7 @@
 struct LogGroupConfig {
     std::vector<std::string> log_names;
     std::string save_style;  // "lin" or "log"
-    long save_freq;  // save frequency (does nothing for lin)
+    long save_freq = 1;  // save frequency (does nothing for log)
     long reset_save_decade;  // the maximum decade before the save frequency is reset
     long min_save_decade;  // the minimum save frequency
     long multiple = 0;  // the current multiple of the reset_save_decade
@@ -19,6 +19,8 @@ struct LogGroupConfig {
     }
 };
 
+LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves);
+LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade);
 
 class BaseLogGroup {
 protected:

@@ -18,6 +18,8 @@ public:
 
     void write_header();
     void log(long step) final;
+    static ConsoleLog from_names_lin(Orchestrator& orchestrator, std::vector<std::string> log_names, long num_steps, long num_saves);
+    static ConsoleLog from_names_log(Orchestrator& orchestrator, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade);
 };
 
 #endif /* CONSOLE_LOG_H */

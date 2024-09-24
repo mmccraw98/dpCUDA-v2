@@ -9,13 +9,21 @@ IOManager::IOManager(Particle& particle, Integrator& integrator, std::vector<Log
     for (auto& config : log_configs) {
         if (config.group_name == "energy") {
             if (system_dir_path.empty()) {
-                init_system_path();
+                init_path(&system_dir_path)
+                make_dir(system_dir_path, overwrite);  // may need to change function signature
             }
             std::filesystem::path energy_file_path = system_dir_path / (energy_file_name + energy_file_extension);
-            make_dir(energy_file_path.parent_path(), overwrite);
             log_groups.push_back(new EnergyLog(config, orchestrator, energy_file_path, overwrite));
         } else if (config.group_name == "console") {
             log_groups.push_back(new ConsoleLog(config, orchestrator));
+        } else if (config.group_name == "state") {
+            if (trajectory_dir_path.empty()) {
+                init_path(&trajectory_dir_path);
+                make_dir(trajectory_dir_path, overwrite);  // may need to change function signature
+            }
+            // std::filesystem::path state_file_path = system_dir_path / (state_file_name + state_file_extension);
+            // make_dir(state_file_path.parent_path(), overwrite);
+            log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path));
         }
         // check if saving trajectories is enabled
         // check if saving parameters is enabled
@@ -28,36 +36,12 @@ IOManager::~IOManager() {
     }
 }
 
-void IOManager::init_system_path() {
-    if (root_path.empty()) {
-        std::cerr << "ERROR: IOManager::init_system_path: root_path is empty" << std::endl;
+void IOManager::init_path(std::filesystem::path& path, const std::string& path_name) {
+    if (root_path.isempty()) {
+        std::cerr << "ERROR: IOManager::init_path:" << path_name << " root_path is empty" << std::endl;
         return;
     }
-    system_dir_path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(system_dir_name);
-}
-
-void IOManager::init_trajectory_path() {
-    if (root_path.empty()) {
-        std::cerr << "ERROR: IOManager::init_trajectory_path: root_path is empty" << std::endl;
-        return;
-    }
-    trajectory_dir_path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(trajectory_dir_name);
-}
-
-void IOManager::init_restart_path() {
-    if (root_path.empty()) {
-        std::cerr << "ERROR: IOManager::init_restart_path: root_path is empty" << std::endl;
-        return;
-    }
-    restart_dir_path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(restart_dir_name);
-}
-
-void IOManager::init_init_path() {
-    if (root_path.empty()) {
-        std::cerr << "ERROR: IOManager::init_init_path: root_path is empty" << std::endl;
-        return;
-    }
-    init_dir_path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(init_dir_name);
+    path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(path_name);
 }
 
 void IOManager::log(long step) {

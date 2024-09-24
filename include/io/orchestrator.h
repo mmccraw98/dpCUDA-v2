@@ -27,7 +27,8 @@ public:
     template <typename T>
     T get_value(const std::string& unmodified_log_name, long step);
     double apply_modifier(std::string& modifier, double value);
-    thrust::host_vector<double> get_vector_value(const std::string& unmodified_log_name, long step);
+    thrust::host_vector<double> get_vector_value(const std::string& unmodified_log_name);  // TODO: make this templated for double/long
+    std::vector<long> get_vector_size(const std::string& unmodified_log_name);
 };
 
 

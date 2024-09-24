@@ -90,16 +90,27 @@ double Orchestrator::apply_modifier(std::string& modifier, double value) {
     }
 }
 
-thrust::host_vector<double> Orchestrator::get_vector_value(const std::string& unmodified_log_name, long step) {
+thrust::host_vector<double> Orchestrator::get_vector_value(const std::string& unmodified_log_name) {
     thrust::host_vector<double> vec;
     std::cout << "NOT IMPLEMENTED" << std::endl;
     return vec;
 }
 
-// when the step starts
-// check if the log groups should log
-// determine the values to log
-// log the values
+std::vector<long> get_vector_size(const std::string& unmodified_log_name) {
+    std::vector<long> size;
+    if (unmodified_log_name == 'something complicated') {
+        // d > 2 here
+    } else if (unmodified_log_name == 'positions' || unmodified_log_name == 'velocities' || unmodified_log_name == 'forces') {
+        size = {particle.n_particles, N_DIM};  // n x d
+    } else if (unmodified_log_name == 'something to do with vertices') {
+        // 
+    } else {
+        size = {particle.n_particles, 1};  // n x 1
+    }
+    return size;
+}
+
+
 
 
 

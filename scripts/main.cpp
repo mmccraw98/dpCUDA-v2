@@ -35,8 +35,23 @@ int main() {
 
     // to make from a file:
     // seed, particle counts, vertex counts, kernel dimensions, radii, masses, positions, velocities, energy values
+    // load everything from the parameters that is found
+    // once loaded, handle the cmd-line arguments
 
     // constructing the object
+
+    struct ParticleConfig {
+        long seed;
+        long n_particles;
+        long n_vertices;
+        double e_c, e_a, e_b, e_l;
+        double n_c, n_a, n_b, n_l;
+    }
+
+    // need a type
+    Particle from_config(ParticleConfig& config) {
+
+    }
 
     Disk particle;
 

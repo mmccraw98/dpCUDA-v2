@@ -93,46 +93,10 @@ long get_largest_file_index(std::string dir_name, std::string file_prefix) {
     return largest_index;
 }
 
-template <typename T>
-void write_array_to_file(const std::string& file_name, const thrust::host_vector<T>& data, long num_rows, long num_cols, int precision) {
-    std::ofstream output_file(file_name);
-    if (!output_file.is_open()) {
-        std::cerr << "write_array_to_file: Error: could not open output file " << file_name << std::endl;
-        exit(1);
-    }
-
-    for (long row = 0; row < num_rows; row++) {
-        for (long col = 0; col < num_cols; col++) {
-            output_file << std::setprecision(precision) << data[row * num_cols + col] << "\t";
-        }
-        output_file << std::endl;
-    }
-
+void write_json_to_file(const std::string& file_name, const nlohmann::json& data) {
+    std::ofstream output_file = open_output_file(file_name, true);
+    output_file << data.dump(4);
     output_file.close();
-}
-
-
-template <typename T>
-thrust::host_vector<T> read_array_from_file(const std::string& file_name, long num_rows, long num_cols) {
-    thrust::host_vector<T> data(num_rows * num_cols);
-    std::ifstream input_file(file_name);
-    if (!input_file.is_open()) {
-        std::cerr << "read_array_from_file: Error: could not open input file " << file_name << std::endl;
-        exit(1);
-    }
-
-    std::string input_string;
-    for (long row = 0; row < num_rows; row++) {
-        for (long col = 0; col < num_cols; col++) {
-            if (!(input_file >> data[row * num_cols + col])) {
-                std::cerr << "Error: insufficient data in file " << file_name << std::endl;
-                exit(1);
-            }
-        }
-    }
-
-    input_file.close();
-    return data;
 }
 
 

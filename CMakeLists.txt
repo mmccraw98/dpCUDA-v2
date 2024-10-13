@@ -24,6 +24,9 @@ include_directories(
     ${CUDA_TOOLKIT_ROOT_DIR}/include
 )
 
+# Find the nlohmann_json package
+find_package(nlohmann_json 3.2.0 REQUIRED)
+
 # CC compiler flags (G++)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
 
@@ -40,14 +43,19 @@ add_executable(main_exec
     src/integrator/nve.cu
     src/kernels/kernels.cu
     src/particle/particle.cu
+    src/particle/config.cu
     src/particle/disk.cu
     src/io/utils.cu
     src/io/orchestrator.cu
     src/io/base_log_groups.cu
     src/io/console_log.cu
+    src/io/state_log.cu
     src/io/energy_log.cu
     src/io/io_manager.cu
 )
+
+# Link nlohmann_json to the main_exec target
+target_link_libraries(main_exec PRIVATE nlohmann_json::nlohmann_json)
 
 # # Add a new executable for another script
 # add_executable(other_script_exec

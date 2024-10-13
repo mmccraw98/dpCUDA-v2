@@ -17,13 +17,16 @@ public:  // TODO: pass a config
     IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path = "", bool overwrite = true);
     ~IOManager();
     void log(long step);
-
+    void write_params(std::filesystem::path);
+    void write_log_configs(std::filesystem::path);
+    void write_particle_config(std::filesystem::path);
 
 private:
     Particle& particle;
     Integrator& integrator;
     Orchestrator orchestrator;
     std::vector<BaseLogGroup*> log_groups;
+    std::vector<LogGroupConfig> log_configs;
 
     bool overwrite;
 
@@ -46,8 +49,6 @@ private:
     std::filesystem::path init_dir_path;
 
     void init_path(std::filesystem::path& path, const std::string& path_name);
-
-    void write_params(std::filesystem::path);
 };
 
 #endif /* IO_MANAGER_H */

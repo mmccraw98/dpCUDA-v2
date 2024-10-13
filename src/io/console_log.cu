@@ -40,13 +40,3 @@ void ConsoleLog::log(long step) {
     }
     std::cout << out.str() << std::endl;
 }
-
-ConsoleLog ConsoleLog::from_names_lin(Orchestrator& orchestrator, std::vector<std::string> log_names, long num_steps, long num_saves) {
-    LogGroupConfig config = config_from_names_lin(log_names, num_steps, num_saves, "console");
-    return ConsoleLog(config, orchestrator);
-}
-
-ConsoleLog ConsoleLog::from_names_log(Orchestrator& orchestrator, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade) {
-    LogGroupConfig config = config_from_names_log(log_names, num_steps, num_saves, min_save_decade, "console");
-    return ConsoleLog(config, orchestrator);
-}

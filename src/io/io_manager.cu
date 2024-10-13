@@ -2,31 +2,37 @@
 #include <iostream>
 #include <filesystem>
 
-IOManager::IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, &integrator), root_path(root_path), overwrite(overwrite) {
+IOManager::IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, &integrator), root_path(root_path), overwrite(overwrite), log_configs(log_configs) {
     // probably validate root_path if it is not empty
-    // set up system path if root is not empty
-    // set up trajectory path if root is not empty and saving trajectories is enabled
+
     for (auto& config : log_configs) {
+
         if (config.group_name == "energy") {
             if (system_dir_path.empty()) {
-                init_path(&system_dir_path)
+                init_path(system_dir_path, system_dir_name);
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
             }
             std::filesystem::path energy_file_path = system_dir_path / (energy_file_name + energy_file_extension);
             log_groups.push_back(new EnergyLog(config, orchestrator, energy_file_path, overwrite));
+
         } else if (config.group_name == "console") {
             log_groups.push_back(new ConsoleLog(config, orchestrator));
+
         } else if (config.group_name == "state") {
             if (trajectory_dir_path.empty()) {
-                init_path(&trajectory_dir_path);
+                init_path(trajectory_dir_path, trajectory_dir_name);
                 make_dir(trajectory_dir_path, overwrite);  // may need to change function signature
             }
-            // std::filesystem::path state_file_path = system_dir_path / (state_file_name + state_file_extension);
-            // make_dir(state_file_path.parent_path(), overwrite);
-            log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path));
+            log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path, indexed_file_prefix, state_file_extension));
         }
-        // check if saving trajectories is enabled
-        // check if saving parameters is enabled
+    }
+
+    
+
+    long num_log_groups = log_groups.size();
+    for (long i = 0; i < num_log_groups; i++) {
+        // std::cout << log_groups[i]->config.to_json().dump(4) << std::endl;
+        std::cout << log_groups[i]->config.group_name << std::endl;
     }
 }
 
@@ -37,7 +43,7 @@ IOManager::~IOManager() {
 }
 
 void IOManager::init_path(std::filesystem::path& path, const std::string& path_name) {
-    if (root_path.isempty()) {
+    if (root_path.empty()) {
         std::cerr << "ERROR: IOManager::init_path:" << path_name << " root_path is empty" << std::endl;
         return;
     }
@@ -61,4 +67,14 @@ void IOManager::log(long step) {
             }
         }
     }
+}
+
+void IOManager::write_log_configs(std::filesystem::path path) {
+    for (auto& config : log_configs) {
+        std::cout << config.to_json().dump(4) << std::endl;
+    }
+}
+
+void IOManager::write_particle_config(std::filesystem::path path) {
+    // std::cout << particle.config.to_json().dump(4) << std::endl;
 }

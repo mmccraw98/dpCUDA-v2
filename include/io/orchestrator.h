@@ -24,11 +24,35 @@ public:
 
     void init_pre_req_calculation_status();
     void handle_pre_req_calculations(const std::string& log_name);
-    template <typename T>
-    T get_value(const std::string& unmodified_log_name, long step);
     double apply_modifier(std::string& modifier, double value);
-    thrust::host_vector<double> get_vector_value(const std::string& unmodified_log_name);  // TODO: make this templated for double/long
     std::vector<long> get_vector_size(const std::string& unmodified_log_name);
+    
+    template <typename T>
+    T get_value(const std::string& unmodified_log_name, long step) {
+        if (pre_req_calculation_status.find(unmodified_log_name) != pre_req_calculation_status.end()) {
+            handle_pre_req_calculations(unmodified_log_name);
+        }
+
+        if (unmodified_log_name == "step") {
+            return step;
+        } else if (unmodified_log_name == "KE") {
+            return particle.totalKineticEnergy();
+        } else if (unmodified_log_name == "PE") {
+            return particle.totalPotentialEnergy();
+        } else if (unmodified_log_name == "TE") {
+            return particle.totalEnergy();
+        } else if (unmodified_log_name == "T") {
+            return particle.calculateTemperature();
+        } else {
+            std::cerr << "Orchestrator::get_value: Log name not recognized: " << unmodified_log_name << std::endl;
+            return 0.0;
+        }
+    }
+    
+    template <typename T>
+    thrust::host_vector<T> get_vector_value(const std::string& unmodified_log_name) {
+        return particle.getArray<T>(unmodified_log_name);
+    }
 };
 
 

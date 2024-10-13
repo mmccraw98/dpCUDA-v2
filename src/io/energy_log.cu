@@ -49,14 +49,3 @@ void EnergyLog::log(long step) {
     log_file << "\n";
     log_file.flush();
 }
-
-
-EnergyLog EnergyLog::from_names_lin(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, bool overwrite) {
-    LogGroupConfig config = config_from_names_lin(log_names, num_steps, num_saves, "energy");
-    return EnergyLog(config, orchestrator, file_name, overwrite);
-}
-
-EnergyLog EnergyLog::from_names_log(Orchestrator& orchestrator, const std::string& file_name, std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, bool overwrite) {
-    LogGroupConfig config = config_from_names_log(log_names, num_steps, num_saves, min_save_decade, "energy");
-    return EnergyLog(config, orchestrator, file_name, overwrite);
-}

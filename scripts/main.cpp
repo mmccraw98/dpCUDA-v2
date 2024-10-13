@@ -3,6 +3,7 @@
 #include "../include/particle/disk.h"
 #include "../include/integrator/nve.h"
 #include "../include/io/orchestrator.h"
+#include "../include/particle/particle_factory.h"
 #include "../include/io/utils.h"
 #include "../include/io/console_log.h"
 #include "../include/io/energy_log.h"
@@ -25,66 +26,43 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+#include <nlohmann/json.hpp>
+
 int main() {
 
     // TODO: make a particle factory
     // TODO: make the file io (input works with particle factory) (may need to make a particle method to construct values that are missing (some values can be derived from others))
+    // TODO: make an arg parsing system with defaults and overrides
+        // 1: from cli
+        // 2: from file
 
     // to make for the first time:
-    // seed, particle counts, vertex counts, kernel dimensions, bidispersity values (2), packing fraction, energy scales, timestep, neighbor cutoff
+    // seed, particle counts, vertex counts, kernel dimensions, bidispersity values (2), packing fraction, energy scales, 1, neighbor cutoff
 
     // to make from a file:
     // seed, particle counts, vertex counts, kernel dimensions, radii, masses, positions, velocities, energy values
     // load everything from the parameters that is found
+    // calculate values that are missing and derivable
+    // if any non-derivable values are missing, throw an error
     // once loaded, handle the cmd-line arguments
 
     // constructing the object
 
-    struct ParticleConfig {
-        long seed;
-        long n_particles;
-        long n_vertices;
-        double e_c, e_a, e_b, e_l;
-        double n_c, n_a, n_b, n_l;
-    }
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.5, 1.5, 256, 1.4, 0.5);
 
-    // need a type
-    Particle from_config(ParticleConfig& config) {
+    write_json_to_file("/home/mmccraw/dev/dpCUDA/old/system/config.json", config.to_json());
 
-    }
+    auto particle = create_particle(config);
 
-    Disk particle;
+    // TODO: fix remove mean velocities
 
-    particle.setSeed(0);
 
-    // set/sync number of vertices/particles, define the array sizes
-    particle.setParticleCounts(1024, 0);
-
-    // set/sync kernel dimensions
-    particle.setKernelDimensions(256);  // TODO: not sure how to best motivate this
-
-    // define the particle sizes, initialize the box to a set packing fraction, and set random positions
-    particle.setBiDispersity(1.4, 0.5);  // TODO: define scaling to determine geometry units (min, max, or mean)
-    particle.initializeBox(0.5);
-    particle.setRandomPositions();
-    // define geometry when relevant (i.e. initialize vertex configurations, calculate shape parameters, etc.)
-
-    // set/sync energies
-    particle.setEnergyScale(1.0, "c");
-    particle.setExponent(2.0, "c");
-    particle.setMass(1.0);
-    // TODO: set timestep
-    
-    particle.setRandomVelocities(1e-3);
-
-    // define the neighbor cutoff size
-    particle.setNeighborCutoff(1.5);  // 1.5 * min_diameter
-
-    // update the neighbor list
-    particle.updateNeighborList();
+    particle->setRandomVelocities(1e-3);
 
     // make the integrator
-    NVE nve(particle, 0.001);
+    double dt = 1e-2 * particle->getTimeUnit();
+
+    NVE nve(*particle, dt);
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
@@ -92,10 +70,12 @@ int main() {
         config_from_names_lin_everyN({"step", "T", "TE/N"}, 1e2, "console")
     };
 
+    IOManager io_manager(*particle, nve, log_group_configs, "/home/mmccraw/dev/dpCUDA/old", false);
 
-    IOManager io_manager(particle, nve, log_group_configs, "/home/mmccraw/dev/dpCUDA/old", false);
+    io_manager.write_log_configs("/home/mmccraw/dev/dpCUDA/old");
 
     io_manager.log(0);
+
 
     // TODO:
     // make state log

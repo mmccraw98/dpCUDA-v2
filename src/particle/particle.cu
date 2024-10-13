@@ -53,6 +53,11 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
 // -------------------- Universally Defined Methods ---------------------
 // ----------------------------------------------------------------------
 
+
+std::string Particle::getTypeName() const {
+    return type_name;
+}
+
 void Particle::setSeed(long seed) {
     if (seed == -1) {
         seed = time(0);
@@ -284,6 +289,20 @@ void Particle::setEnergyScale(double e, std::string which) {
     }
 }
 
+double Particle::getEnergyScale(std::string which) {
+    if (which == "c") {
+        return e_c;
+    } else if (which == "a") {
+        return e_a;
+    } else if (which == "b") {
+        return e_b;
+    } else if (which == "l") {
+        return e_l;
+    } else {
+        throw std::invalid_argument("Particle::getEnergyScale: which must be 'c', 'a', 'b', or 'l', not " + which);
+    }
+}
+
 void Particle::setAllEnergyScales(double e_c, double e_a, double e_b, double e_l) {
     setEnergyScale(e_c, "c");
     setEnergyScale(e_a, "a");
@@ -333,6 +352,20 @@ void Particle::setAllExponents(double n_c, double n_a, double n_b, double n_l) {
     setExponent(n_l, "l");
 }
 
+double Particle::getExponent(std::string which) {
+    if (which == "c") {
+        return n_c;
+    } else if (which == "a") {
+        return n_a;
+    } else if (which == "b") {
+        return n_b;
+    } else if (which == "l") {
+        return n_l;
+    } else {
+        throw std::invalid_argument("Particle::getExponent: which must be 'c', 'a', 'b', or 'l', not " + which);
+    }
+}
+
 void Particle::initializeBox(double packing_fraction) {
     // set the box size to an arbitrary initial value
     double side_length = 1.0;
@@ -359,15 +392,13 @@ void Particle::setRandomPositions() {
 }
 
 void Particle::removeMeanVelocities() {
-    // std::cout << "Remove: This does not work yet" << std::endl;
+    std::cout << "Remove: This does not work yet" << std::endl;
     // kernelRemoveMeanVelocities<<<1, N_DIM>>>(d_velocities_ptr);
     // cudaDeviceSynchronize();
 }
 
 void Particle::scaleVelocitiesToTemperature(double temperature) {
     double current_temp = calculateTemperature();
-    std::cout << "Current temperature: " << current_temp << std::endl;
-    std::cout << "Target temperature: " << temperature << std::endl;
     thrust::transform(d_velocities.begin(), d_velocities.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities.begin(), thrust::multiplies<double>());
 }
 
@@ -509,8 +540,14 @@ void Particle::zeroForceAndPotentialEnergy() {
 }
 
 double Particle::calculateTemperature() {
+    std::cout << "dof: " << n_dof << std::endl;
     calculateKineticEnergy();
     return totalKineticEnergy() * 2.0 / n_dof;
+}
+
+double Particle::getTimeUnit() {
+    double average_mass = thrust::reduce(d_masses.begin(), d_masses.end()) / n_particles;
+    return getDiameter("min") * std::sqrt(average_mass / getEnergyScale("c"));
 }
 
 void Particle::setMass(double mass) {

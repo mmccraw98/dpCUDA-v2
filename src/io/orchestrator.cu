@@ -51,32 +51,6 @@ void Orchestrator::handle_pre_req_calculations(const std::string& log_name) {
     // fill in others here...
 }
 
-template <typename T>
-T Orchestrator::get_value(const std::string& unmodified_log_name, long step) {
-    if (pre_req_calculation_status.find(unmodified_log_name) != pre_req_calculation_status.end()) {
-        handle_pre_req_calculations(unmodified_log_name);
-    }
-
-    if (unmodified_log_name == "step") {
-        return step;
-    } else if (unmodified_log_name == "KE") {
-        return particle.totalKineticEnergy();
-    } else if (unmodified_log_name == "PE") {
-        return particle.totalPotentialEnergy();
-    } else if (unmodified_log_name == "TE") {
-        return particle.totalEnergy();
-    } else if (unmodified_log_name == "T") {
-        return particle.calculateTemperature();
-    } else {
-        std::cerr << "Orchestrator::get_value: Log name not recognized: " << unmodified_log_name << std::endl;
-        return 0.0;
-    }
-}
-
-// Explicit instantiation for double and long
-template double Orchestrator::get_value<double>(const std::string& unmodified_log_name, long step);
-template long Orchestrator::get_value<long>(const std::string& unmodified_log_name, long step);
-
 double Orchestrator::apply_modifier(std::string& modifier, double value) {
     if (modifier == "N") {
         return value / particle.n_particles;
@@ -90,20 +64,14 @@ double Orchestrator::apply_modifier(std::string& modifier, double value) {
     }
 }
 
-thrust::host_vector<double> Orchestrator::get_vector_value(const std::string& unmodified_log_name) {
-    thrust::host_vector<double> vec;
-    std::cout << "NOT IMPLEMENTED" << std::endl;
-    return vec;
-}
-
-std::vector<long> get_vector_size(const std::string& unmodified_log_name) {
+std::vector<long> Orchestrator::get_vector_size(const std::string& unmodified_log_name) {
     std::vector<long> size;
-    if (unmodified_log_name == 'something complicated') {
+    if (unmodified_log_name == "something complicated") {
         // d > 2 here
-    } else if (unmodified_log_name == 'positions' || unmodified_log_name == 'velocities' || unmodified_log_name == 'forces') {
+    } else if (unmodified_log_name == "positions" || unmodified_log_name == "velocities" || unmodified_log_name == "forces") {
         size = {particle.n_particles, N_DIM};  // n x d
-    } else if (unmodified_log_name == 'something to do with vertices') {
-        // 
+    } else if (unmodified_log_name == "something to do with vertices") {
+        // num_vertices x d
     } else {
         size = {particle.n_particles, 1};  // n x 1
     }

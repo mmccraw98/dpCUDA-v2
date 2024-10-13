@@ -23,6 +23,8 @@ public:
     // These are the values that need to be calculated before the log value is calculated
     std::vector<std::string> pre_req_calculations = {"KE", "T"};
 
+    std::string type_name;
+
     // Device vectors for particle data
     thrust::device_vector<double> d_positions;  // particle positions
     thrust::device_vector<double> d_last_positions;  // particle positions at the last neighbor list update
@@ -128,6 +130,13 @@ public:
     // ----------------------------------------------------------------------
 
     /**
+     * @brief Get the type name of the particle.
+     * 
+     * @return The type name of the particle.
+     */
+    std::string getTypeName() const;
+
+    /**
      * @brief Set the seed for the random number generator.
      * 
      * @param seed The seed for the random number generator.
@@ -225,6 +234,8 @@ public:
      */
     void setEnergyScale(double e, std::string which);
 
+    double getEnergyScale(std::string which);
+
     /**
      * @brief Set the energy scales for the particles.
      * V = e / n (1 - r / sigma) ^ n
@@ -244,6 +255,8 @@ public:
      * @param which The type of exponent to set ("c", "a", "b", or "l").
      */
     void setExponent(double n, std::string which);
+
+    double getExponent(std::string which);
 
     /**
      * @brief Set the exponents for the energy terms.
@@ -445,6 +458,8 @@ public:
      * T = sum(KE) * 2 / dof
      */
     virtual double calculateTemperature();
+
+    virtual double getTimeUnit();
 
     virtual void setMass(double mass);
 

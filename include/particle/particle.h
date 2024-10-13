@@ -3,6 +3,7 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
+#include "config.h"
 
 #include <unordered_map>
 #include <any>
@@ -13,10 +14,23 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
+template <typename Derived>
 class Particle {
 public:
     Particle();
-    virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
+    ~Particle();
+
+    template <typename ConfigType>
+    void initialize(const ConfigType& config) {
+        static_assert(std::is_base_of<BaseParticleConfig, ConfigType>::value, 
+                      "ConfigType must derive from BaseParticleConfig");
+
+        // Initialize common fields
+        this->type_name = config.type_name;
+
+        // Delegate to the specific particle class (Derived) for further initialization
+        static_cast<Derived*>(this)->initializeFromConfig(config);
+    }
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
@@ -82,22 +96,7 @@ public:
      * @return The host array.
      */
     template <typename T>
-    thrust::host_vector<T> getArray(const std::string& array_name) {
-        auto array_map = getArrayMap();
-        auto it = array_map.find(array_name);
-        if (it != array_map.end()) {
-            if (it->second.type() == typeid(thrust::device_vector<T>*)) {
-                auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
-                thrust::host_vector<T> host_array(vec_ptr->size());
-                thrust::copy(vec_ptr->begin(), vec_ptr->end(), host_array.begin());
-                return host_array;
-            } else {
-                throw std::runtime_error("Particle::getArray: Type mismatch for array: " + array_name);
-            }
-        } else {
-            throw std::runtime_error("Particle::getArray: Array not found: " + array_name);
-        }
-    }
+    thrust::host_vector<T> getArray(const std::string& array_name);
 
     /**
      * @brief Set a device array from a host array.
@@ -107,23 +106,7 @@ public:
      * @param host_array The host array.
      */
     template <typename T>
-    void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array) {
-        auto array_map = getArrayMap();
-        auto it = array_map.find(array_name);
-        if (it != array_map.end()) {
-            if (it->second.type() == typeid(thrust::device_vector<T>*)) {
-                auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
-                if (host_array.size() != vec_ptr->size()) {
-                    throw std::out_of_range("Particle::setArray: Size mismatch between host and device arrays for: " + array_name);
-                }
-                thrust::copy(host_array.begin(), host_array.end(), vec_ptr->begin());
-            } else {
-                throw std::runtime_error("Particle::setArray: Type mismatch for array: " + array_name);
-            }
-        } else {
-            throw std::runtime_error("Particle::setArray: Array not found: " + array_name);
-        }
-    }
+    void setArray(const std::string& array_name, const thrust::host_vector<T>& host_array);
 
     // ----------------------------------------------------------------------
     // -------------------- Universally Defined Methods ---------------------
@@ -132,7 +115,7 @@ public:
     /**
      * @brief Get the type name of the particle.
      * 
-     * @return The type name of the particle.
+     * @return The type name of the particle.   
      */
     std::string getTypeName() const;
 
@@ -148,7 +131,7 @@ public:
      * 
      * @param dim_block The number of threads in the block (default is 256).
      */
-    virtual void setKernelDimensions(long dim_block = 256);
+    void setKernelDimensions(long dim_block = 256);
 
     /**
      * @brief Synchronize the kernel dimensions to the device constant memory.
@@ -165,7 +148,7 @@ public:
     /**
      * @brief Set the degrees of freedom.  Specific values depend on the derived class.
      */
-    virtual void setDegreesOfFreedom();
+    void setDegreesOfFreedom();
 
     /**
      * @brief Synchronize the number of particles to the device constant memory.
@@ -192,19 +175,19 @@ public:
      * @param n_particles The number of particles.
      * @param n_vertices The number of vertices.
      */
-    virtual void setParticleCounts(long n_particles, long n_vertices);
+    void setParticleCounts(long n_particles, long n_vertices);
 
     /**
      * @brief Initialize the dynamic variables and their pointers given the number of particles and dimensions.
      * Depends on the derived class to define the logic.
      */
-    virtual void initDynamicVariables();
+    void initDynamicVariables();
 
     /**
      * @brief Clear the dynamic variables and their pointers from the device memory.
      * Depends on the derived class to define the logic.
      */
-    virtual void clearDynamicVariables();
+    void clearDynamicVariables();
 
     /**
      * @brief Set the box size vector constant in the device memory.
@@ -223,7 +206,7 @@ public:
     /**
      * @brief Synchronize the neighbor list on the device.
      */
-    virtual void syncNeighborList();
+    void syncNeighborList();
     
     /**
      * @brief Set the energy scales for the particles.
@@ -297,14 +280,14 @@ public:
     /**
      * @brief Set the particle positions to random uniform values within the box size.
      */
-    virtual void setRandomPositions();
+    void setRandomPositions();
 
     /**
      * @brief Set the particle velocities to random normal values with a given temperature.
      * 
      * @param temperature The desired temperature of the system.
      */
-    virtual void setRandomVelocities(double temperature);
+    void setRandomVelocities(double temperature);
 
     /**
      * @brief Get the diameter of the particles.
@@ -312,7 +295,7 @@ public:
      * @param which The type of diameter to get ("min" for minimum, "max" for maximum, or "avg" for average).
      * @return The diameter of the particles.
      */
-    virtual double getDiameter(std::string which = "min");
+    double getDiameter(std::string which = "min");
 
     /**
      * @brief Set the bi-dispersity of the particles given the size ratio (large/small) and the count ratio (large/small).
@@ -349,7 +332,7 @@ public:
      * 
      * @param packing_fraction The new packing fraction.
      */
-    virtual void scaleToPackingFraction(double packing_fraction);
+    void scaleToPackingFraction(double packing_fraction);
 
     /**
      * @brief Get the total kinetic energy of the particles.
@@ -376,20 +359,20 @@ public:
      * @brief Initialize the geometric variables and their pointers for the object - default is empty.
      * Depends on the derived class to define the logic.
      */
-    virtual void initGeometricVariables() {};
+    void initGeometricVariables() {};
 
     /**
      * @brief Clear the geometric variables and their pointers for the object - default is empty.
      * Depends on the derived class to define the logic.
      */
-    virtual void clearGeometricVariables() {};
+    void clearGeometricVariables() {};
 
     /**
      * @brief Apply an affine transformation to the positions of the particles.
      * 
      * @param scale_factor The scaling factor.
      */
-    virtual void scalePositions(double scale_factor);
+    void scalePositions(double scale_factor);
 
     /**
      * @brief Update the positions of the particles using an explicit Euler method.
@@ -397,31 +380,31 @@ public:
      * 
      * @param dt The time step.
      */
-    virtual void updatePositions(double dt);
+    void updatePositions(double dt);
 
     /**
      * @brief Update the velocities of the particles using an explicit Euler method.
      * 
      * @param dt The time step.
      */
-    virtual void updateVelocities(double dt);
+    void updateVelocities(double dt);
 
     /**
      * @brief Get the maximum displacement of the particles since the last neighbor list update.
      * 
      * @return The maximum displacement.
      */
-    virtual double getMaxDisplacement();
+    double getMaxDisplacement();
 
     /**
      * @brief Check if the neighbor list of the particles needs to be updated (if maximum displacement is greater than the neighbor cutoff).
      */
-    virtual void checkForNeighborUpdate();
+    void checkForNeighborUpdate();
 
     /**
      * @brief Calculate the neighbor list for the particles.
      */
-    virtual void updateNeighborList();
+    void updateNeighborList();
 
     /**
      * @brief Set the neighbor cutoff for the particles based on some multiple of a defined length scale.
@@ -429,39 +412,39 @@ public:
      * 
      * @param neighbor_cutoff_multiplier The multiplier for the neighbor cutoff.
      */
-    virtual void setNeighborCutoff(double neighbor_cutoff_multiplier);
+    void setNeighborCutoff(double neighbor_cutoff_multiplier);
 
     /**
      * @brief Print the neighbor list for the particles.  Useful for debugging.
      */
-    virtual void printNeighborList();
+    void printNeighborList();
 
     /**
      * @brief Zero out the force and potential energy arrays.
      */
-    virtual void zeroForceAndPotentialEnergy();
+    void zeroForceAndPotentialEnergy();
 
     /**
      * @brief Remove the mean velocity of the particles along each dimension.
      */
-    virtual void removeMeanVelocities();
+    void removeMeanVelocities();
 
     /**
      * @brief Scale the velocities of the particles to a desired temperature.
      * 
      * @param temperature The desired temperature.
      */
-    virtual void scaleVelocitiesToTemperature(double temperature);
+    void scaleVelocitiesToTemperature(double temperature);
 
     /**
      * @brief Calculate the temperature of the particles.
      * T = sum(KE) * 2 / dof
      */
-    virtual double calculateTemperature();
+    double calculateTemperature();
 
-    virtual double getTimeUnit();
+    double getTimeUnit();
 
-    virtual void setMass(double mass);
+    void setMass(double mass);
 
     // ----------------------------------------------------------------------
     // ---------------------- Pure Virtual Methods --------------------------
@@ -472,24 +455,32 @@ public:
      * 
      * @return The total area of the particles.
      */
-    virtual double getArea() const = 0;
+    double getArea() const {
+        return static_cast<const Derived*>(this)->getArea();
+    }
 
     /**
      * @brief Virtual method to calculate the ratio of the particle overlap area to the total area.
      * 
      * @return The overlap fraction of the particles.
      */
-    virtual double getOverlapFraction() const = 0;
+    double getOverlapFraction() const {
+        return static_cast<const Derived*>(this)->getOverlapFraction();
+    }
 
     /**
      * @brief Virtual method to calculate the forces on the particles.
      */
-    virtual void calculateForces() = 0;
+    void calculateForces() {
+        static_cast<Derived*>(this)->calculateForces();
+    }
 
     /**
      * @brief Virtual method to calculate the kinetic energy of the particles.
      */
-    virtual void calculateKineticEnergy() = 0;
+    void calculateKineticEnergy() {
+        static_cast<Derived*>(this)->calculateKineticEnergy();
+    }
 };
 
 #endif /* PARTICLE_H */

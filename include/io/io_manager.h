@@ -12,9 +12,10 @@
 #include <iostream>
 #include <filesystem>
 
+template <typename ParticleType, typename IntegratorType>
 class IOManager {
 public:  // TODO: pass a config
-    IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path = "", bool overwrite = true);
+    IOManager(ParticleType& particle, IntegratorType* integrator, std::vector<LogGroupConfig> log_configs, std::string root_path = "", bool overwrite = true);
     ~IOManager();
     void log(long step);
     void write_params(std::filesystem::path);
@@ -22,10 +23,10 @@ public:  // TODO: pass a config
     void write_particle_config(std::filesystem::path);
 
 private:
-    Particle& particle;
-    Integrator& integrator;
-    Orchestrator orchestrator;
-    std::vector<BaseLogGroup*> log_groups;
+    ParticleType& particle;
+    IntegratorType* integrator;
+    Orchestrator<ParticleType, IntegratorType> orchestrator;
+    std::vector<std::unique_ptr<BaseLogGroup<ParticleType, IntegratorType>>> log_groups;
     std::vector<LogGroupConfig> log_configs;
 
     bool overwrite;
@@ -50,5 +51,7 @@ private:
 
     void init_path(std::filesystem::path& path, const std::string& path_name);
 };
+
+#include "io_manager_impl.h"
 
 #endif /* IO_MANAGER_H */

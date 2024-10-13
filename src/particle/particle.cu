@@ -21,20 +21,25 @@
 #include <thrust/functional.h>
 
 // Constructor
-Particle::Particle() {
+template <typename ParticleType>
+Particle<ParticleType>::Particle() {
 }
 
-// Destructor (virtual to allow proper cleanup in derived classes)
-Particle::~Particle() {
+// Destructor (virtual to allow proper cleanup in ParticleType classes)
+template <typename ParticleType>
+Particle<ParticleType>::~Particle() {
     clearDynamicVariables();
     clearGeometricVariables();
 }
+
+// the templated functions need to be defined in a header
 
 // ----------------------------------------------------------------------
 // ----------------------- Template Methods -----------------------------
 // ----------------------------------------------------------------------
 
-std::unordered_map<std::string, std::any> Particle::getArrayMap() {
+template <typename ParticleType>
+std::unordered_map<std::string, std::any> Particle<ParticleType>::getArrayMap() {
     std::unordered_map<std::string, std::any> array_map;
     array_map["d_positions"]        = &d_positions;
     array_map["d_last_positions"]   = &d_last_positions;
@@ -45,20 +50,56 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     array_map["d_potential_energy"] = &d_potential_energy;
     array_map["d_kinetic_energy"]   = &d_kinetic_energy;
     array_map["d_neighbor_list"]    = &d_neighbor_list;
-    array_map["d_num_neighbors"]  = &d_num_neighbors;
+    array_map["d_num_neighbors"]    = &d_num_neighbors;
     return array_map;
 }
 
-// ----------------------------------------------------------------------
-// -------------------- Universally Defined Methods ---------------------
-// ----------------------------------------------------------------------
+template <typename ParticleType>
+template <typename T>
+thrust::host_vector<T> Particle<ParticleType>::getArray(const std::string& array_name) {
+    auto array_map = getArrayMap();
+    auto it = array_map.find(array_name);
+    if (it != array_map.end()) {
+        if (it->second.type() == typeid(thrust::device_vector<T>*)) {
+            auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
+            thrust::host_vector<T> host_array(vec_ptr->size());
+            thrust::copy(vec_ptr->begin(), vec_ptr->end(), host_array.begin());
+            return host_array;
+        } else {
+            throw std::runtime_error("Particle::getArray: Type mismatch for array: " + array_name);
+        }
+    } else {
+        throw std::runtime_error("Particle::getArray: Array not found: " + array_name);
+    }
+}
 
+template <typename ParticleType>
+template <typename T>
+void Particle<ParticleType>::setArray(const std::string& array_name, const thrust::host_vector<T>& host_array) {
+    auto array_map = getArrayMap();
+    auto it = array_map.find(array_name);
+    if (it != array_map.end()) {
+        if (it->second.type() == typeid(thrust::device_vector<T>*)) {
+            auto vec_ptr = std::any_cast<thrust::device_vector<T>*>(it->second);
+            if (host_array.size() != vec_ptr->size()) {
+                throw std::out_of_range("Particle::setArray: Size mismatch between host and device arrays for: " + array_name);
+            }
+            thrust::copy(host_array.begin(), host_array.end(), vec_ptr->begin());
+        } else {
+            throw std::runtime_error("Particle::setArray: Type mismatch for array: " + array_name);
+        }
+    } else {
+        throw std::runtime_error("Particle::setArray: Array not found: " + array_name);
+    }
+}
 
-std::string Particle::getTypeName() const {
+template <typename ParticleType>
+std::string Particle<ParticleType>::getTypeName() const {
     return type_name;
 }
 
-void Particle::setSeed(long seed) {
+template<typename ParticleType>
+void Particle<ParticleType>::setSeed(long seed) {
     if (seed == -1) {
         seed = time(0);
     }
@@ -66,12 +107,14 @@ void Particle::setSeed(long seed) {
     srand(seed);
 }
 
-void Particle::setNumParticles(long n_particles) {
+template<typename ParticleType>
+void Particle<ParticleType>::setNumParticles(long n_particles) {
     this->n_particles = n_particles;
     syncNumParticles();
 }
 
-void Particle::syncNumParticles() {
+template<typename ParticleType>
+void Particle<ParticleType>::syncNumParticles() {
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_particles, &n_particles, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNumParticles: Error copying n_particles to device: " << cudaGetErrorString(cuda_err) << std::endl;
@@ -79,16 +122,19 @@ void Particle::syncNumParticles() {
     }
 }
 
-void Particle::setDegreesOfFreedom() {
+template<typename ParticleType>
+void Particle<ParticleType>::setDegreesOfFreedom() {
     this->n_dof = n_particles * N_DIM;
 }
 
-void Particle::setNumVertices(long n_vertices) {
+template<typename ParticleType>
+void Particle<ParticleType>::setNumVertices(long n_vertices) {
     this->n_vertices = n_vertices;
     syncNumVertices();
 }
 
-void Particle::syncNumVertices() {
+template<typename ParticleType>
+void Particle<ParticleType>::syncNumVertices() {
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_vertices, &n_vertices, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNumVertices: Error copying n_vertices to device: " << cudaGetErrorString(cuda_err) << std::endl;
@@ -96,7 +142,8 @@ void Particle::syncNumVertices() {
     }
 }
 
-void Particle::setParticleCounts(long n_particles, long n_vertices) {
+template<typename ParticleType>
+void Particle<ParticleType>::setParticleCounts(long n_particles, long n_vertices) {
     setNumParticles(n_particles);
     setNumVertices(n_vertices);
     setDegreesOfFreedom();
@@ -104,8 +151,9 @@ void Particle::setParticleCounts(long n_particles, long n_vertices) {
     initGeometricVariables();
 }
 
-void Particle::setKernelDimensions(long dim_block) {
-    int maxThreadsPerBlock;
+template<typename ParticleType>
+void Particle<ParticleType>::setKernelDimensions(long dim_block) {
+    long maxThreadsPerBlock;
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
     maxThreadsPerBlock = deviceProp.maxThreadsPerBlock;
@@ -121,9 +169,9 @@ void Particle::setKernelDimensions(long dim_block) {
     syncKernelDimensions();
 }
 
-void Particle::syncKernelDimensions() {
-    cudaError_t cuda_err;
-    cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
+template<typename ParticleType>
+void Particle<ParticleType>::syncKernelDimensions() {
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_dim_block, &dim_block, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncKernelDimensions: Error copying dim_block to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
@@ -140,7 +188,8 @@ void Particle::syncKernelDimensions() {
     }
 }
 
-void Particle::initDynamicVariables() {
+template<typename ParticleType>
+void Particle<ParticleType>::initDynamicVariables() {
     // Resize the device vectors
     d_positions.resize(n_particles * N_DIM);
     d_last_positions.resize(n_particles * N_DIM);
@@ -169,7 +218,6 @@ void Particle::initDynamicVariables() {
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), max_neighbors);
 
-
     // Cast the raw pointers
     d_positions_ptr = thrust::raw_pointer_cast(&d_positions[0]);
     d_last_positions_ptr = thrust::raw_pointer_cast(&d_last_positions[0]);
@@ -182,7 +230,8 @@ void Particle::initDynamicVariables() {
     d_kinetic_energy_ptr = thrust::raw_pointer_cast(&d_kinetic_energy[0]);
 }
 
-void Particle::clearDynamicVariables() {
+template<typename ParticleType>
+void Particle<ParticleType>::clearDynamicVariables() {
     // Clear the device vectors
     d_positions.clear();
     d_last_positions.clear();
@@ -208,7 +257,8 @@ void Particle::clearDynamicVariables() {
     d_kinetic_energy_ptr = nullptr;
 }
 
-void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
+template<typename ParticleType>
+void Particle<ParticleType>::setBoxSize(const thrust::host_vector<double>& box_size) {
     if (box_size.size() != N_DIM) {
         throw std::invalid_argument("Particle::setBoxSize: Error box_size (" + std::to_string(box_size.size()) + ")" + " != " + std::to_string(N_DIM) + " elements");
     }
@@ -219,7 +269,8 @@ void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
     }
 }
 
-thrust::host_vector<double> Particle::getBoxSize() {
+template<typename ParticleType>
+thrust::host_vector<double> Particle<ParticleType>::getBoxSize() {
     thrust::host_vector<double> box_size(N_DIM);
     cudaError_t cuda_err = cudaMemcpyFromSymbol(&box_size[0], d_box_size, sizeof(double) * N_DIM);
     if (cuda_err != cudaSuccess) {
@@ -229,7 +280,8 @@ thrust::host_vector<double> Particle::getBoxSize() {
     return box_size;
 }
 
-void Particle::syncNeighborList() {
+template<typename ParticleType>
+void Particle<ParticleType>::syncNeighborList() {
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors, &this->max_neighbors, sizeof(this->max_neighbors));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNeighborList: Error copying max_neighbors to device: " << cudaGetErrorString(cuda_err) << std::endl;
@@ -254,7 +306,8 @@ void Particle::syncNeighborList() {
     }
 }
 
-void Particle::setEnergyScale(double e, std::string which) {
+template<typename ParticleType>
+void Particle<ParticleType>::setEnergyScale(double e, std::string which) {
     cudaError_t cuda_err;
     if (which == "c") {
         e_c = e;
@@ -289,7 +342,8 @@ void Particle::setEnergyScale(double e, std::string which) {
     }
 }
 
-double Particle::getEnergyScale(std::string which) {
+template<typename ParticleType>
+double Particle<ParticleType>::getEnergyScale(std::string which) {
     if (which == "c") {
         return e_c;
     } else if (which == "a") {
@@ -303,14 +357,17 @@ double Particle::getEnergyScale(std::string which) {
     }
 }
 
-void Particle::setAllEnergyScales(double e_c, double e_a, double e_b, double e_l) {
+
+template<typename ParticleType>
+void Particle<ParticleType>::setAllEnergyScales(double e_c, double e_a, double e_b, double e_l) {
     setEnergyScale(e_c, "c");
     setEnergyScale(e_a, "a");
     setEnergyScale(e_b, "b");
     setEnergyScale(e_l, "l");
 }
 
-void Particle::setExponent(double n, std::string which) {
+template<typename ParticleType>
+void Particle<ParticleType>::setExponent(double n, std::string which) {
     cudaError_t cuda_err;
     if (which == "c") {
         n_c = n;
@@ -345,14 +402,16 @@ void Particle::setExponent(double n, std::string which) {
     }
 }
 
-void Particle::setAllExponents(double n_c, double n_a, double n_b, double n_l) {
+template<typename ParticleType>
+void Particle<ParticleType>::setAllExponents(double n_c, double n_a, double n_b, double n_l) {
     setExponent(n_c, "c");
     setExponent(n_a, "a");
     setExponent(n_b, "b");
     setExponent(n_l, "l");
 }
 
-double Particle::getExponent(std::string which) {
+template<typename ParticleType>
+double Particle<ParticleType>::getExponent(std::string which) {
     if (which == "c") {
         return n_c;
     } else if (which == "a") {
@@ -366,7 +425,8 @@ double Particle::getExponent(std::string which) {
     }
 }
 
-void Particle::initializeBox(double packing_fraction) {
+template<typename ParticleType>
+void Particle<ParticleType>::initializeBox(double packing_fraction) {
     // set the box size to an arbitrary initial value
     double side_length = 1.0;
     thrust::host_vector<double> box_size(N_DIM, side_length);
@@ -375,34 +435,41 @@ void Particle::initializeBox(double packing_fraction) {
     scaleToPackingFraction(packing_fraction);
 }
 
-void Particle::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
+template<typename ParticleType>
+void Particle<ParticleType>::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
     thrust::counting_iterator<long> index_sequence_begin(seed);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomUniform(min, max, seed));
 }
 
-void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
+template<typename ParticleType>
+void Particle<ParticleType>::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
     std::cout << "Set: This does not work yet" << std::endl;
     thrust::counting_iterator<long> index_sequence_begin(seed);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomNormal(mean, stddev, seed));
 }
 
-void Particle::setRandomPositions() {
+template<typename ParticleType>
+void Particle<ParticleType>::setRandomPositions() {
     thrust::host_vector<double> box_size = getBoxSize();
     setRandomUniform(d_positions, 0.0, box_size[0]);
 }
 
-void Particle::removeMeanVelocities() {
+template<typename ParticleType>
+void Particle<ParticleType>::removeMeanVelocities() {
     std::cout << "Remove: This does not work yet" << std::endl;
     // kernelRemoveMeanVelocities<<<1, N_DIM>>>(d_velocities_ptr);
     // cudaDeviceSynchronize();
 }
 
-void Particle::scaleVelocitiesToTemperature(double temperature) {
+
+template<typename ParticleType>
+void Particle<ParticleType>::scaleVelocitiesToTemperature(double temperature) {
     double current_temp = calculateTemperature();
     thrust::transform(d_velocities.begin(), d_velocities.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities.begin(), thrust::multiplies<double>());
 }
 
-void Particle::setRandomVelocities(double temperature) {
+template<typename ParticleType>
+void Particle<ParticleType>::setRandomVelocities(double temperature) {
     // setRandomUniform(d_velocities, -1.0, 1.0);
     setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
     removeMeanVelocities();
@@ -410,7 +477,8 @@ void Particle::setRandomVelocities(double temperature) {
     // thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
 }
 
-double Particle::getDiameter(std::string which) {
+template<typename ParticleType>
+double Particle<ParticleType>::getDiameter(std::string which) {
     if (which == "min") {
         return 2.0 * *thrust::min_element(d_radii.begin(), d_radii.end());
     } else if (which == "max") {
@@ -422,7 +490,8 @@ double Particle::getDiameter(std::string which) {
     }
 }
 
-void Particle::setBiDispersity(double size_ratio, double count_ratio) {
+template<typename ParticleType>
+void Particle<ParticleType>::setBiDispersity(double size_ratio, double count_ratio) {
     if (size_ratio < 1.0) {
         throw std::invalid_argument("Particle::setBiDispersity: size_ratio must be > 1.0");
     }
@@ -442,57 +511,71 @@ void Particle::setBiDispersity(double size_ratio, double count_ratio) {
     setArray("d_radii", radii);
 }
 
-double Particle::getBoxArea() {
+template<typename ParticleType>
+double Particle<ParticleType>::getBoxArea() {
     thrust::host_vector<double> box_size = getBoxSize();
     return thrust::reduce(box_size.begin(), box_size.end(), 1.0, thrust::multiplies<double>());
 }
 
-double Particle::getPackingFraction() {
+
+template<typename ParticleType>
+double Particle<ParticleType>::getPackingFraction() {
     double box_area = getBoxArea();
     double area = getArea();
     return area / box_area;
 }
 
-double Particle::getDensity() {
+template<typename ParticleType>
+double Particle<ParticleType>::getDensity() {
     return getPackingFraction() - getOverlapFraction();
 }
 
-void Particle::scaleToPackingFraction(double packing_fraction) {
+
+template<typename ParticleType>
+void Particle<ParticleType>::scaleToPackingFraction(double packing_fraction) {
     double new_side_length = std::pow(getArea() / packing_fraction, 1.0 / N_DIM);
     double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
     scalePositions(new_side_length / side_length);
     setBoxSize(thrust::host_vector<double>(N_DIM, new_side_length));
 }
 
-double Particle::totalKineticEnergy() const {
+template<typename ParticleType>
+double Particle<ParticleType>::totalKineticEnergy() const {
     return thrust::reduce(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0, thrust::plus<double>());
 }
 
-double Particle::totalPotentialEnergy() const {
+template<typename ParticleType>
+double Particle<ParticleType>::totalPotentialEnergy() const {
     return thrust::reduce(d_potential_energy.begin(), d_potential_energy.end(), 0.0, thrust::plus<double>());
 }
 
-double Particle::totalEnergy() const {
+template<typename ParticleType>
+double Particle<ParticleType>::totalEnergy() const {
     return totalKineticEnergy() + totalPotentialEnergy();
 }
 
-void Particle::scalePositions(double scale_factor) {
+template<typename ParticleType>
+void Particle<ParticleType>::scalePositions(double scale_factor) {
     thrust::transform(d_positions.begin(), d_positions.end(), thrust::make_constant_iterator(scale_factor), d_positions.begin(), thrust::multiplies<double>());
 }
 
-void Particle::updatePositions(double dt) {
+template<typename ParticleType>
+void Particle<ParticleType>::updatePositions(double dt) {
     kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_last_positions_ptr, d_displacements_ptr, d_velocities_ptr, dt);
 }
 
-void Particle::updateVelocities(double dt) {
+template<typename ParticleType>
+void Particle<ParticleType>::updateVelocities(double dt) {
     kernelUpdateVelocities<<<dim_grid, dim_block>>>(d_velocities_ptr, d_forces_ptr, d_masses_ptr, dt);
 }
 
-double Particle::getMaxDisplacement() {
+template<typename ParticleType>
+double Particle<ParticleType>::getMaxDisplacement() {
     return thrust::reduce(d_displacements.begin(), d_displacements.end(), 0.0, thrust::maximum<double>());
 }
 
-void Particle::updateNeighborList() {
+template<typename ParticleType>
+void Particle<ParticleType>::updateNeighborList() {
     thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0);
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     syncNeighborList();
@@ -510,7 +593,8 @@ void Particle::updateNeighborList() {
     }
 }
 
-void Particle::checkForNeighborUpdate() {
+template<typename ParticleType>
+void Particle<ParticleType>::checkForNeighborUpdate() {
     double tolerance = 3.0;
     double max_displacement = getMaxDisplacement();
     if (tolerance * max_displacement > neighbor_cutoff) {
@@ -519,11 +603,13 @@ void Particle::checkForNeighborUpdate() {
     }
 }
 
-void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier) {
+template<typename ParticleType>
+void Particle<ParticleType>::setNeighborCutoff(double neighbor_cutoff_multiplier) {
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("min");
 }
 
-void Particle::printNeighborList() {
+template<typename ParticleType>
+void Particle<ParticleType>::printNeighborList() {
     thrust::host_vector<long> neighbor_list = getArray<long>("d_neighbor_list");
     thrust::host_vector<long> num_neighbors = getArray<long>("d_num_neighbors");
     for (long i = 0; i < n_particles; i++) {
@@ -534,22 +620,32 @@ void Particle::printNeighborList() {
     }
 }
 
-void Particle::zeroForceAndPotentialEnergy() {
+template<typename ParticleType>
+void Particle<ParticleType>::zeroForceAndPotentialEnergy() {
     thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
     thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
 }
 
-double Particle::calculateTemperature() {
+template<typename ParticleType>
+double Particle<ParticleType>::calculateTemperature() {
     std::cout << "dof: " << n_dof << std::endl;
     calculateKineticEnergy();
     return totalKineticEnergy() * 2.0 / n_dof;
 }
 
-double Particle::getTimeUnit() {
+template<typename ParticleType>
+double Particle<ParticleType>::getTimeUnit() {
     double average_mass = thrust::reduce(d_masses.begin(), d_masses.end()) / n_particles;
     return getDiameter("min") * std::sqrt(average_mass / getEnergyScale("c"));
 }
 
-void Particle::setMass(double mass) {
+template<typename ParticleType>
+void Particle<ParticleType>::setMass(double mass) {
     thrust::fill(d_masses.begin(), d_masses.end(), mass);
 }
+
+
+// Explicit template instantiation for specific particle types
+#include "../include/particle/disk.h"
+template class Particle<Disk>;
+template thrust::host_vector<double> Particle<Disk>::getArray<double>(const std::string& log_name);

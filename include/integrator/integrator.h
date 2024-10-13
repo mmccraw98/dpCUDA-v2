@@ -8,19 +8,22 @@
 #include <random>
 #include "../particle/particle.h"
 
+template <typename Derived>
 class Integrator {
 protected:
-    Particle& particle;  // Reference to Particle object
+    Particle<Derived>& particle;  // Reference to Particle object
 
 public:
     // Constructor accepting a reference to a Particle object
-    Integrator(Particle& particle);
+    Integrator(Particle<Derived>& particle) : particle(particle) {};
 
     // Virtual destructor to ensure proper cleanup in derived classes
-    virtual ~Integrator();
+    ~Integrator() {}
 
     // Pure virtual function for stepping the integrator
-    virtual void step() = 0;
+    void step() {
+        static_cast<Derived*>(this)->step();
+    }
 };
 
 #endif /* INTEGRATOR_H */

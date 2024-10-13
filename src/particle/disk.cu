@@ -21,11 +21,6 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
-Disk::Disk() {
-}
-
-Disk::~Disk() {
-}
 
 // ----------------------------------------------------------------------
 // --------------------- Overridden Methods -----------------------------

@@ -49,13 +49,14 @@ LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long nu
 LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name);
 LogGroupConfig config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name);
 
+template <typename ParticleType, typename IntegratorType>
 class BaseLogGroup {
 protected:
-    Orchestrator& orchestrator;
+    Orchestrator<ParticleType, IntegratorType>& orchestrator;
     std::vector<std::string> unmodified_log_names;
 
 public:
-    BaseLogGroup(LogGroupConfig config, Orchestrator& orchestrator);
+    BaseLogGroup(LogGroupConfig config, Orchestrator<ParticleType, IntegratorType>& orchestrator);
     virtual ~BaseLogGroup();
 
     LogGroupConfig config;
@@ -66,7 +67,8 @@ public:
 };
 
 
-class MacroLog : public BaseLogGroup {
+template <typename ParticleType, typename IntegratorType>
+class MacroLog : public BaseLogGroup<ParticleType, IntegratorType> {
 protected:
     std::vector<std::string> unmodified_log_names;
     std::string delimiter;
@@ -75,7 +77,7 @@ protected:
     long width;
 
 public:
-    MacroLog(LogGroupConfig config, Orchestrator& orchestrator);
+    MacroLog(LogGroupConfig config, Orchestrator<ParticleType, IntegratorType>& orchestrator);
     virtual ~MacroLog();
 
     bool log_name_is_modified(std::string log_name);
@@ -84,5 +86,6 @@ public:
     std::string get_modifier(std::string log_name);
 };
 
+#include "base_log_groups_impl.h"
 
 #endif /* BASE_LOG_GROUPS_H */

@@ -27,13 +27,36 @@ struct BidisperseDiskConfig : public BidisperseParticleConfig {
         j["type_name"] = type_name;
         return j;
     }
+    using ParticleType = Disk;
 };
 
-class Disk : public Particle {
-public:
-    Disk();
+// the derived class is no longer a header-only since it is not templated
 
-    virtual ~Disk();
+class Disk : public Particle<Disk> {
+public:
+    Disk() : Particle<Disk>() {}
+
+    ~Disk() {}
+
+    template <typename ConfigType>
+    void initializeFromConfig(const ConfigType& config) {
+        this->setSeed(config.seed);
+        this->setParticleCounts(config.n_particles, 0);
+        this->setKernelDimensions(config.dim_block);
+
+        // Handle dispersity and other disk-specific settings
+        if (config.dispersity_type == "bidisperse") {
+            this->setBiDispersity(config.size_ratio, config.count_ratio);
+        }
+        this->initializeBox(config.packing_fraction);
+
+        this->setRandomPositions();
+        this->setEnergyScale(config.e_c, "c");
+        this->setExponent(config.n_c, "c");
+        this->setMass(config.mass);
+        this->setNeighborCutoff(config.neighbor_cutoff);
+        this->updateNeighborList();
+    }
 
     std::string type_name = "Disk";
 
@@ -46,7 +69,7 @@ public:
      * 
      * @param dim_block The number of threads in the block (default is 256).
      */
-    void setKernelDimensions(long dim_block = 256) override;
+    void setKernelDimensions(long dim_block = 256);
 
     // ----------------------------------------------------------------------
     // ------------- Implementation of Pure Virtual Methods -----------------
@@ -57,21 +80,21 @@ public:
      * 
      * @return The total area of the particles.
      */
-    double getArea() const override;
+    double getArea() const;
 
     /**
      * @brief Get the fraction of the area involving the overlap between particles using the lense formula.
      * 
      * @return The overlap fraction of the particles.
      */
-    double getOverlapFraction() const override;
+    double getOverlapFraction() const;
     
     /**
      * @brief Calculate the forces and potential energies of the particles.
      * V = e / n * (1 - r / sigma) ^ n
      * 
      */
-    void calculateForces() override;
+    void calculateForces();
 
     /**
      * @brief Calculate the kinetic energy of the particles.

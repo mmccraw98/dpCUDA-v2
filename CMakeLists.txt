@@ -39,19 +39,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++fs")
 # Add source files for the executable
 add_executable(main_exec
     scripts/main.cpp
-    src/integrator/integrator.cu
-    src/integrator/nve.cu
     src/kernels/kernels.cu
-    src/particle/particle.cu
     src/particle/config.cu
+    src/particle/particle.cu
+    src/particle/particle_factory.cu
+    src/io/orchestrator.cu
     src/particle/disk.cu
     src/io/utils.cu
-    src/io/orchestrator.cu
-    src/io/base_log_groups.cu
-    src/io/console_log.cu
-    src/io/state_log.cu
-    src/io/energy_log.cu
-    src/io/io_manager.cu
 )
 
 # Link nlohmann_json to the main_exec target

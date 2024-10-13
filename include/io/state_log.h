@@ -5,7 +5,8 @@
 #include "utils.h"
 #include <iostream>
 
-class StateLog : public BaseLogGroup {
+template <typename ParticleType, typename IntegratorType>
+class StateLog : public BaseLogGroup<ParticleType, IntegratorType> {
 private:
     int precision = 3;
     std::string root_path;
@@ -13,11 +14,13 @@ private:
     std::string extension;
 
 public:
-    StateLog(LogGroupConfig config, Orchestrator& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension);
+    StateLog(LogGroupConfig config, Orchestrator<ParticleType, IntegratorType>& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension);
     ~StateLog();
 
     void write_header();
     void log(long step) final;
 };
 
+
+#include "state_log_impl.h"
 #endif /* STATE_LOG_H */

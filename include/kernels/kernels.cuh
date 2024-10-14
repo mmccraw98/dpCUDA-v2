@@ -31,7 +31,6 @@ extern __constant__ double d_n_l;  // exponent for the length energy
 
 extern __constant__ long* d_num_neighbors_ptr;  // pointer to the array that stores the number of neighbors for each particle
 extern __constant__ long* d_neighbor_list_ptr;  // pointer to the neighbor list array
-extern __constant__ long d_max_neighbors;  // maximum number of neighbors
 extern __constant__ long d_max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
 
 
@@ -323,8 +322,9 @@ __global__ void kernelCalculateTranslationalKineticEnergy(const double* velociti
 // ----------------------------------------------------------------------
 
 /**
- * @brief Calculate the interaction between two points - adds the force to the force array
- * V = e * (1 - r / sigma) ^ n
+ * @brief Calculate the result of the interaction between points 1 and 2 on point 1.  Adds the force to the force array.
+ * Total energy of the interaction: V = e / n * (1 - r / sigma) ^ n
+ * Energy for point 1 is 1/2 of the total.
  * 
  * @param point1 first point
  * @param point2 second point
@@ -337,7 +337,7 @@ inline __device__ double calcPointPointInteraction(const double* point1, const d
     double distance, delta_vec[N_DIM];
     double overlap = calcOverlapAndDeltaPBC(point1, point2, rad_sum, delta_vec, distance);
     if (overlap > 0) {
-        energy = d_e_c * pow(overlap, d_n_c) / d_n_c;
+        energy = d_e_c * pow(overlap, d_n_c) / d_n_c / 2;  // need to divide by 2 because the energy is for point 1
         #pragma unroll (N_DIM)
         for (long dim = 0; dim < d_n_dim; dim++) {
             force[dim] += d_e_c * pow(overlap, d_n_c - 1) * delta_vec[dim] / (rad_sum * distance);
@@ -377,7 +377,7 @@ __global__ void kernelCalcDiskForces(const double* positions, const double* radi
  * @return __device__ true if the neighbor is a valid neighbor, false otherwise
  */
 inline __device__ bool isParticleNeighbor(const long particle_id, const long neighbor_id, long& other_id) {
-    other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors + neighbor_id];
+    other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + neighbor_id];
     return (particle_id != other_id && other_id != -1);
 }
 

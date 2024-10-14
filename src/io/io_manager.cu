@@ -24,6 +24,17 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
                 make_dir(trajectory_dir_path, overwrite);  // may need to change function signature
             }
             log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path, indexed_file_prefix, state_file_extension));
+        
+        } else if (config.group_name == "init") {
+            if (system_dir_path.empty()) {
+                init_path(system_dir_path, system_dir_name);
+                make_dir(system_dir_path, overwrite);  // may need to change function signature
+            }
+            state_log = new StateLog(config, orchestrator, system_dir_path, "", state_file_extension);
+            state_log->write_state();
+
+        } else {
+            std::cerr << "ERROR: IOManager::IOManager:" << config.group_name << " is not a valid log group name" << std::endl;
         }
     }
 }
@@ -87,3 +98,11 @@ void IOManager::write_params() {
     }
     // TODO: write run params
 }
+
+// void IOManager::write_state() {
+//     if (state_log == nullptr) {
+//         std::cerr << "ERROR: IOManager::write_state: state_log is not initialized" << std::endl;
+//         return;
+//     }
+//     state_log->write_state();
+// }

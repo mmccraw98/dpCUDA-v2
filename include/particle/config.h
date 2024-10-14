@@ -14,7 +14,8 @@ struct BaseParticleConfig {
     double e_c;
     double n_c;
     double packing_fraction;
-    double neighbor_cutoff;
+    double neighbor_cutoff_multiplier;
+    double neighbor_displacement_multiplier;
     long dim_block;
     std::string type_name;
     std::string dispersity_type;
@@ -28,13 +29,15 @@ struct BaseParticleConfig {
      * @param e_c The energy constant.
      * @param n_c The number constant.
      * @param packing_fraction The packing fraction of the particles.
-     * @param neighbor_cutoff The neighbor cutoff distance.
+     * @param neighbor_cutoff_multiplier Particles within this multiple of the maximum particle diameter will be considered neighbors.
+     * @param neighbor_displacement_multiplier If the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated.
      * @param dim_block The number of threads in the block.
      */
     BaseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c, 
-                    double packing_fraction, double neighbor_cutoff, long dim_block)
+                    double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, long dim_block)
         : seed(seed), n_particles(n_particles), mass(mass), e_c(e_c), n_c(n_c), 
-        packing_fraction(packing_fraction), neighbor_cutoff(neighbor_cutoff), dim_block(dim_block) {}
+        packing_fraction(packing_fraction), neighbor_cutoff_multiplier(neighbor_cutoff_multiplier), 
+        neighbor_displacement_multiplier(neighbor_displacement_multiplier), dim_block(dim_block) {}
 
     virtual ~BaseParticleConfig() = default;
 
@@ -51,7 +54,8 @@ struct BaseParticleConfig {
             {"e_c", e_c},
             {"n_c", n_c},
             {"packing_fraction", packing_fraction},
-            {"neighbor_cutoff", neighbor_cutoff},
+            {"neighbor_cutoff_multiplier", neighbor_cutoff_multiplier},
+            {"neighbor_displacement_multiplier", neighbor_displacement_multiplier},
             {"dim_block", dim_block},
             {"type_name", type_name},
             {"dispersity_type", dispersity_type},
@@ -72,7 +76,8 @@ struct BaseParticleConfig {
             j.at("e_c").get<double>(),
             j.at("n_c").get<double>(),
             j.at("packing_fraction").get<double>(),
-            j.at("neighbor_cutoff").get<double>(),
+            j.at("neighbor_cutoff_multiplier").get<double>(),
+            j.at("neighbor_displacement_multiplier").get<double>(),
             j.at("dim_block").get<long>(),
         };
     }
@@ -94,14 +99,16 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
      * @param e_c The energy constant.
      * @param n_c The number constant.
      * @param packing_fraction The packing fraction of the particles.
-     * @param neighbor_cutoff The neighbor cutoff distance.
+     * @param neighbor_cutoff_multiplier Particles within this multiple of the maximum particle diameter will be considered neighbors.
+     * @param neighbor_displacement_multiplier If the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated.
+     * @param dim_block The number of threads in the block.
      * @param size_ratio The ratio of the radii of the large to small particles.
      * @param count_ratio The ratio of the number of large to small particles.
      */
     BidisperseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c,
-                            double packing_fraction, double neighbor_cutoff, long dim_block,
+                            double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, long dim_block,
                             double size_ratio, double count_ratio)
-        : BaseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff, dim_block),
+        : BaseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, dim_block),
         size_ratio(size_ratio), count_ratio(count_ratio) {
             dispersity_type = "Bidisperse";
         }
@@ -135,8 +142,8 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
         // Construct and return the subclass object
         return BidisperseParticleConfig(
             base_config.seed, base_config.n_particles, base_config.mass, base_config.e_c, 
-            base_config.n_c, base_config.packing_fraction, base_config.neighbor_cutoff, 
-            base_config.dim_block, size_ratio, count_ratio
+            base_config.n_c, base_config.packing_fraction, base_config.neighbor_cutoff_multiplier, 
+            base_config.neighbor_displacement_multiplier, base_config.dim_block, size_ratio, count_ratio
         );
     }
 };

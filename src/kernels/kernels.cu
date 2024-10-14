@@ -113,15 +113,22 @@ __global__ void kernelCalcDiskForces(const double* positions, const double* radi
 __global__ void kernelUpdateNeighborList(const double* positions, const double cutoff) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id < d_n_particles) {
+        // fill the neighbor list with -1 if it is not done prior to calling the kernel
+        // for (long neighbor_id = 0; neighbor_id < d_max_neighbors_allocated; neighbor_id++) {
+        //     d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + neighbor_id] = -1;
+        // }
+
         long added_neighbors = 0;
         double this_pos[N_DIM], other_pos[N_DIM];
         getPosition(particle_id, positions, this_pos);
         for (long other_id = 0; other_id < d_n_particles; other_id++) {
-            if (particle_id != other_id) {  // TODO CHECK THIS
+            if (particle_id != other_id) {
                 getPosition(other_id, positions, other_pos);
                 double distance = calcDistancePBC(this_pos, other_pos);
                 if (distance < cutoff) {
-                    d_neighbor_list_ptr[particle_id * d_max_neighbors + added_neighbors] = other_id;
+                    if (added_neighbors < d_max_neighbors_allocated) {  // important for overflow concerns
+                        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
+                    }
                     added_neighbors++;
                 }
             }

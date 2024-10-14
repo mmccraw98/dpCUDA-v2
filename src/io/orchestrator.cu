@@ -69,11 +69,13 @@ std::vector<long> Orchestrator::get_vector_size(const std::string& unmodified_lo
     if (unmodified_log_name == "something complicated") {
         // d > 2 here
     } else if (unmodified_log_name == "positions" || unmodified_log_name == "velocities" || unmodified_log_name == "forces") {
-        size = {particle.n_particles, N_DIM};  // n x d
-    } else if (unmodified_log_name == "something to do with vertices") {
-        // num_vertices x d
+        size = {particle.n_particles, N_DIM};
+    } else if (unmodified_log_name == "radii" || unmodified_log_name == "masses") {
+        size = {particle.n_particles, 1};
+    } else if (unmodified_log_name == "box_size") {
+        size = {N_DIM, 1};
     } else {
-        size = {particle.n_particles, 1};  // n x 1
+        std::cerr << "Orchestrator::get_vector_size: Unrecognized log name: " << unmodified_log_name << std::endl;
     }
     return size;
 }

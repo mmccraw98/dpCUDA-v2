@@ -9,6 +9,9 @@ LogGroupConfig config_from_names_lin(std::vector<std::string> log_names, long nu
     config.log_names = log_names;
     config.save_style = "lin";
     config.save_freq = static_cast<long>(num_steps / num_saves);
+    if (config.save_freq == 0) {
+        config.save_freq = 1;
+    }
     config.group_name = group_name;
     return config;
 }
@@ -18,6 +21,9 @@ LogGroupConfig config_from_names_log(std::vector<std::string> log_names, long nu
     config.log_names = log_names;
     config.save_style = "log";
     config.reset_save_decade = static_cast<long>(num_steps / num_saves);
+    if (config.reset_save_decade == 0) {
+        config.reset_save_decade = 1;
+    }
     config.min_save_decade = min_save_decade;
     config.group_name = group_name;
     return config;
@@ -28,6 +34,13 @@ LogGroupConfig config_from_names_lin_everyN(std::vector<std::string> log_names, 
     config.log_names = log_names;
     config.save_style = "lin";
     config.save_freq = save_freq;
+    config.group_name = group_name;
+    return config;
+}
+
+LogGroupConfig config_from_names(std::vector<std::string> log_names, std::string group_name) {
+    LogGroupConfig config;
+    config.log_names = log_names;
     config.group_name = group_name;
     return config;
 }

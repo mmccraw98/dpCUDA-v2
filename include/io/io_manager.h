@@ -57,11 +57,10 @@ public:
      */
     void write_integrator_config(std::filesystem::path path);
 
-    /**
-     * @brief Writes the current state of the system to a file
-     * @param step The current step of the simulation
-     */
-    void write_state(long step);
+    // /**
+    //  * @brief Writes the current state of the system to a file
+    //  */
+    // void write_state();
 
 private:
     Particle& particle;  // particle object
@@ -69,13 +68,14 @@ private:
     Orchestrator orchestrator;  // orchestrator object
     std::vector<BaseLogGroup*> log_groups;  // log groups
     std::vector<LogGroupConfig> log_configs;  // log configurations
+    StateLog* state_log = nullptr;
 
     bool overwrite;  // whether to overwrite existing files
 
     std::string root_path;  // root path for all output files
     
-    std::string energy_file_extension = ".csv";  // file extension for energy files
-    std::string state_file_extension = ".txt";  // file extension for state files
+    std::string energy_file_extension = ".dat";//".csv";  // file extension for energy files
+    std::string state_file_extension = ".dat";//".txt";  // file extension for state files
     std::string indexed_file_prefix = "t";  // indexed file prefix - trajectory/t{step}/state
     std::string energy_file_name = "energy";  // file name for energy files
     std::string system_dir_name = "system";  // directory name for system files

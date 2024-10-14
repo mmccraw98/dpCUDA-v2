@@ -47,7 +47,7 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     array_map["d_potential_energy"] = &d_potential_energy;
     array_map["d_kinetic_energy"]   = &d_kinetic_energy;
     array_map["d_neighbor_list"]    = &d_neighbor_list;
-    array_map["d_num_neighbors"]  = &d_num_neighbors;
+    array_map["d_num_neighbors"]    = &d_num_neighbors;
     return array_map;
 }
 
@@ -227,12 +227,7 @@ thrust::host_vector<double> Particle::getBoxSize() {
 }
 
 void Particle::syncNeighborList() {
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors, &this->max_neighbors, sizeof(this->max_neighbors));
-    if (cuda_err != cudaSuccess) {
-        std::cerr << "Particle::syncNeighborList: Error copying max_neighbors to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &this->max_neighbors_allocated, sizeof(this->max_neighbors_allocated));
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &this->max_neighbors_allocated, sizeof(this->max_neighbors_allocated));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNeighborList: Error copying max_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
@@ -427,13 +422,13 @@ void Particle::setBiDispersity(double size_ratio, double count_ratio) {
     }
     thrust::host_vector<double> radii(n_particles);
     long n_large = static_cast<long>(n_particles * count_ratio);
-    double r_large = size_ratio;
-    double r_small = 1.0;
+    double diam_large = size_ratio;
+    double diam_small = 1.0;
     for (long i = 0; i < n_large; i++) {
-        radii[i] = r_large / 2.0;
+        radii[i] = diam_large / 2.0;
     }
     for (long i = n_large; i < n_particles; i++) {
-        radii[i] = r_small / 2.0;
+        radii[i] = diam_small / 2.0;
     }
     setArray("d_radii", radii);
 }
@@ -489,34 +484,39 @@ double Particle::getMaxDisplacement() {
 }
 
 void Particle::updateNeighborList() {
-    thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0);
+    // TODO: can get rid of this if it is moved to the kernel, of course still need the sync if resizing
+    // ----------------
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     syncNeighborList();
+    // ----------------
+
     kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
-    // cudaDeviceSynchronize();  // necessary for communication
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
-    syncNeighborList();
+
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
         kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
-        // cudaDeviceSynchronize();
     }
 }
 
 void Particle::checkForNeighborUpdate() {
     double tolerance = 3.0;
     double max_displacement = getMaxDisplacement();
-    if (tolerance * max_displacement > neighbor_cutoff) {
+    if (tolerance * max_displacement > neighbor_displacement) {
         updateNeighborList();
         thrust::copy(d_positions.begin(), d_positions.end(), d_last_positions.begin());
+        thrust::fill(d_displacements.begin(), d_displacements.end(), 0.0);
     }
 }
 
-void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier) {
-    this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("min");
+void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
+    this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
+    this->neighbor_displacement = neighbor_displacement_multiplier * neighbor_cutoff;
+    this->max_neighbors_allocated = 4;
+    syncNeighborList();
 }
 
 void Particle::printNeighborList() {

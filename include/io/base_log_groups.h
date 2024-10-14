@@ -107,6 +107,15 @@ LogGroupConfig config_from_names_lin_everyN(std::vector<std::string> log_names, 
 
 
 /**
+ * @brief Create a LogGroupConfig for logging the particle state (particle radii, etc.).  Done only once.
+ * 
+ * @param log_names The names of the variables to log.
+ * @param group_name The name of the log group.
+ * @return The LogGroupConfig for logging the particle state.
+ */
+LogGroupConfig config_from_names(std::vector<std::string> log_names, std::string group_name);
+
+/**
  * @brief Base class for all log groups.
  * 
  * This class is the base class for all log groups.

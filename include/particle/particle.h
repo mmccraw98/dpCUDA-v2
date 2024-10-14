@@ -59,6 +59,7 @@ public:
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
     double n_c = -1, n_a = -1, n_b = -1, n_l = -1;  // exponents for the energy terms
     double neighbor_cutoff = -1;  // cutoff distance for the neighbor list
+    double neighbor_displacement = -1;  // displacement threshold after which the neighbor list is updated
     long max_neighbors = -1;  // maximum number of neighbors
     long max_neighbors_allocated = -1;  // maximum number of neighbors allocated for each particle
     long n_particles = -1;  // total number of particles
@@ -89,6 +90,12 @@ public:
      */
     template <typename T>
     thrust::host_vector<T> getArray(const std::string& array_name) {
+
+        if (array_name == "d_box_size") {  // I don't like this at all
+            thrust::host_vector<double> box_size = getBoxSize();
+            return box_size;
+        }
+
         auto array_map = getArrayMap();
         auto it = array_map.find(array_name);
         if (it != array_map.end()) {
@@ -439,8 +446,9 @@ public:
      * Length scale depends on the derived class, defaults to the minimum particle diameter.
      * 
      * @param neighbor_cutoff_multiplier The multiplier for the neighbor cutoff.
+     * @param neighbor_displacement_multiplier The multiplier for the neighbor displacement.
      */
-    virtual void setNeighborCutoff(double neighbor_cutoff_multiplier);
+    virtual void setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier);
 
     /**
      * @brief Print the neighbor list for the particles.  Useful for debugging.

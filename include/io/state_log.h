@@ -28,11 +28,23 @@ public:
     void write_header();
 
     /**
-     * @brief Log the current state of the system.
+     * @brief Write the all the vectors to their files in the root_path.
+     * 
+     * @param root_path The root path to write to.
+     */
+    void write_values(std::filesystem::path root_path);
+
+    /**
+     * @brief Log the current state of the system by writing all the vectors to their files in a subdirectory prefixed with the step.
      * 
      * @param step The current step.
      */
     void log(long step) final;
+
+    /**
+     * @brief Write the state of the system.  Used for saving initial conditions.
+     */
+    void write_state();
 };
 
 #endif /* STATE_LOG_H */

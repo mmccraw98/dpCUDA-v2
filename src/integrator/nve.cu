@@ -3,15 +3,13 @@
 #include <thrust/transform.h>
 #include <thrust/device_vector.h>
 
-// Constructor for NVEIntegrator
-NVE::NVE(Particle& particle, double dt) : Integrator(particle), dt(dt) {
+NVE::NVE(Particle& particle, const NVEConfig& config) : Integrator(particle, config), dt(config.dt) {
 }
 
 NVE::~NVE() {
 
 }
 
-// NVE step function implementation
 void NVE::step() {
     particle.updateVelocities(0.5 * dt);  // v(t+dt) = v(t) + dt / 2 * f(t) / m
     particle.updatePositions(dt);  // x(t+dt) = x(t) + dt * v(t+dt)

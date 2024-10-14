@@ -28,30 +28,32 @@ include_directories(
 find_package(nlohmann_json 3.2.0 REQUIRED)
 
 # CC compiler flags (G++)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP -flto")
 
 # NVCC compiler flags (CUDA compiler)
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize -MMD -MP")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize -MMD -MP -arch=sm_89")
 
 # Libraries for C++ (e.g., linking stdc++fs for filesystem support)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -lstdc++fs")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Add source files for the executable
 add_executable(main_exec
     scripts/main.cpp
-    src/integrator/integrator.cu
-    src/integrator/nve.cu
     src/kernels/kernels.cu
-    src/particle/particle.cu
     src/particle/config.cu
-    src/particle/disk.cu
-    src/io/utils.cu
+    src/particle/particle.cu
+    src/particle/particle_factory.cu
     src/io/orchestrator.cu
+    src/io/io_manager.cu
     src/io/base_log_groups.cu
     src/io/console_log.cu
-    src/io/state_log.cu
     src/io/energy_log.cu
-    src/io/io_manager.cu
+    src/io/orchestrator.cu
+    src/io/state_log.cu
+    src/integrator/integrator.cu
+    src/integrator/nve.cu
+    src/particle/disk.cu
+    src/io/utils.cu
 )
 
 # Link nlohmann_json to the main_exec target

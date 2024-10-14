@@ -3,6 +3,7 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
+#include "config.h"
 
 #include <unordered_map>
 #include <any>
@@ -13,17 +14,22 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
+/**
+ * @brief Base class for all particle types.
+ */
 class Particle {
 public:
     Particle();
     virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
 
+    virtual void initializeFromConfig(const BaseParticleConfig& config);
+
+    std::unique_ptr<BaseParticleConfig> config;
+
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
     // These are the values that need to be calculated before the log value is calculated
     std::vector<std::string> pre_req_calculations = {"KE", "T"};
-
-    std::string type_name;
 
     // Device vectors for particle data
     thrust::device_vector<double> d_positions;  // particle positions
@@ -130,13 +136,6 @@ public:
     // ----------------------------------------------------------------------
 
     /**
-     * @brief Get the type name of the particle.
-     * 
-     * @return The type name of the particle.
-     */
-    std::string getTypeName() const;
-
-    /**
      * @brief Set the seed for the random number generator.
      * 
      * @param seed The seed for the random number generator.
@@ -234,6 +233,12 @@ public:
      */
     void setEnergyScale(double e, std::string which);
 
+    /**
+     * @brief Get the energy scale for the particles.
+     * 
+     * @param which The type of energy scale to get ("c", "a", "b", or "l").
+     * @return The energy scale.
+     */
     double getEnergyScale(std::string which);
 
     /**
@@ -256,6 +261,12 @@ public:
      */
     void setExponent(double n, std::string which);
 
+    /**
+     * @brief Get the exponent for the energy terms.
+     * 
+     * @param which The type of exponent to get ("c", "a", "b", or "l").
+     * @return The exponent.
+     */
     double getExponent(std::string which);
 
     /**
@@ -459,8 +470,18 @@ public:
      */
     virtual double calculateTemperature();
 
+    /**
+     * @brief Get the time unit of the simulation.  Default is sigma * sqrt(mass / epsilon)
+     * 
+     * @return The time unit of the simulation.
+     */
     virtual double getTimeUnit();
 
+    /**
+     * @brief Uniformly set the mass of the particles.
+     * 
+     * @param mass The mass of the particles.
+     */
     virtual void setMass(double mass);
 
     // ----------------------------------------------------------------------

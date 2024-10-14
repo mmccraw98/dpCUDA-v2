@@ -30,7 +30,8 @@
 
 int main() {
 
-    // TODO: make a particle factory
+    // TODO: make a runparams object (base class that can be serialized / deserialized)
+
     // TODO: make the file io (input works with particle factory) (may need to make a particle method to construct values that are missing (some values can be derived from others))
     // TODO: make an arg parsing system with defaults and overrides
         // 1: from cli
@@ -48,37 +49,38 @@ int main() {
 
     // constructing the object
 
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.5, 1.5, 256, 1.4, 0.5);
-
-    write_json_to_file("/home/mmccraw/dev/dpCUDA/old/system/config.json", config.to_json());
-
+    // set seed to -1 to use the current time
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.5, 1.5, 256, 1.4, 0.5);  // TODO: make a config from a file
     auto particle = create_particle(config);
 
     // TODO: fix remove mean velocities
 
-
     particle->setRandomVelocities(1e-3);
 
     // make the integrator
-    double dt = 1e-2 * particle->getTimeUnit();
+    double dt_dimless = 1e-2;
+    NVEConfig nve_config(dt_dimless * particle->getTimeUnit());
+    NVE nve(*particle, nve_config);
 
-    NVE nve(*particle, dt);
+    long num_steps = 1e5;
+    long num_energy_saves = 1e2;
+    long num_state_saves = 1e1;
+    long min_state_save_decade = 1e1;
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin({"step", "TE", "KE", "PE", "T"}, 1e4, 100, "energy"),
-        config_from_names_lin_everyN({"step", "T", "TE/N"}, 1e2, "console")
+        config_from_names_lin({"step", "TE", "KE", "PE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        config_from_names_lin_everyN({"step", "T", "TE/N"}, 1e4, "console"),  // logs to the console
+        config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state")
     };
 
-    IOManager io_manager(*particle, nve, log_group_configs, "/home/mmccraw/dev/dpCUDA/old", false);
+    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/dpCUDA/old", false);
+    io_manager.write_params();
 
-    io_manager.write_log_configs("/home/mmccraw/dev/dpCUDA/old");
-
-    io_manager.log(0);
+    // io_manager.log(0);
 
 
     // TODO:
-    // make state log
     // make state loading function (static method to load the particle from the file)
         // from file(file, )
     // make restart file and init file
@@ -86,17 +88,13 @@ int main() {
     // add docstrings
     // may need to add an integrator get state method to allow integrator to save its variables
 
-    // long step = 0;
+    long step = 0;
 
-    // while (step < 1e4) {
-    //     nve.step();
-
-    //     // WRAP THIS IN SOME FUNCTION:
-
-    //     //////////////////////////////
-
-    //     step++;
-    // }
+    while (step < num_steps) {
+        nve.step();
+        io_manager.log(step);
+        step++;
+    }
 
     return 0;
 }

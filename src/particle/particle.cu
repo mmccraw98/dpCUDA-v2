@@ -2,6 +2,7 @@
 #include "../../include/functors.h"
 #include "../../include/particle/particle.h"
 #include "../../include/kernels/kernels.cuh"
+#include "../../include/particle/config.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -20,14 +21,15 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
-// Constructor
 Particle::Particle() {
 }
 
-// Destructor (virtual to allow proper cleanup in derived classes)
 Particle::~Particle() {
     clearDynamicVariables();
     clearGeometricVariables();
+}
+
+void Particle::initializeFromConfig(const BaseParticleConfig& config) {
 }
 
 // ----------------------------------------------------------------------
@@ -52,11 +54,6 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
 // ----------------------------------------------------------------------
 // -------------------- Universally Defined Methods ---------------------
 // ----------------------------------------------------------------------
-
-
-std::string Particle::getTypeName() const {
-    return type_name;
-}
 
 void Particle::setSeed(long seed) {
     if (seed == -1) {
@@ -403,7 +400,6 @@ void Particle::scaleVelocitiesToTemperature(double temperature) {
 }
 
 void Particle::setRandomVelocities(double temperature) {
-    // setRandomUniform(d_velocities, -1.0, 1.0);
     setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
     removeMeanVelocities();
     scaleVelocitiesToTemperature(temperature);
@@ -497,7 +493,7 @@ void Particle::updateNeighborList() {
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     syncNeighborList();
     kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
-    cudaDeviceSynchronize();  // necessary for communication
+    // cudaDeviceSynchronize();  // necessary for communication
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
     syncNeighborList();
     if (max_neighbors > max_neighbors_allocated) {
@@ -506,7 +502,7 @@ void Particle::updateNeighborList() {
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
         kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
-        cudaDeviceSynchronize();
+        // cudaDeviceSynchronize();
     }
 }
 
@@ -540,7 +536,6 @@ void Particle::zeroForceAndPotentialEnergy() {
 }
 
 double Particle::calculateTemperature() {
-    std::cout << "dof: " << n_dof << std::endl;
     calculateKineticEnergy();
     return totalKineticEnergy() * 2.0 / n_dof;
 }

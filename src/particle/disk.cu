@@ -64,12 +64,44 @@ void Disk::setKernelDimensions(long dim_block) {
 // ------------- Implementation of Pure Virtual Methods -----------------
 // ----------------------------------------------------------------------
 
+void Disk::initializeFromConfig(const BaseParticleConfig& config) {
+    // Determine the type of the config using dynamic cast
+    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
+        this->config = std::make_unique<BidisperseParticleConfig>(*bidisperse_config);
+    } else {
+        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+    }
+
+    this->setSeed(config.seed);
+    this->setParticleCounts(config.n_particles, 0);
+    this->setKernelDimensions(config.dim_block);
+
+    // Dynamic cast to check if config is BidisperseParticleConfig
+    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
+        // Handle bidisperse-specific fields
+        this->setBiDispersity(bidisperse_config->size_ratio, bidisperse_config->count_ratio);
+    } else {
+        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+    }
+    this->initializeBox(config.packing_fraction);
+
+    this->setRandomPositions();
+
+    // Handle common fields
+    this->setEnergyScale(config.e_c, "c");
+    this->setExponent(config.n_c, "c");
+    this->setMass(config.mass);
+    this->setNeighborCutoff(config.neighbor_cutoff);
+    this->updateNeighborList();
+}
+
+
 double Disk::getArea() const {
     return thrust::transform_reduce(d_radii.begin(), d_radii.end(), Square(), 0.0, thrust::plus<double>()) * PI;
 }
 
 double Disk::getOverlapFraction() const {
-    // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
+    std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
     // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
     // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;
     // std::cout << "FIXME: Implement getOverlapFraction" << std::endl;

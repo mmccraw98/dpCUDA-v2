@@ -13,29 +13,42 @@
 #include <thrust/host_vector.h>
 #include <nlohmann/json.hpp>
 
-
+/**
+ * @brief Configuration for a bidisperse system of disk particles.
+ */
 struct BidisperseDiskConfig : public BidisperseParticleConfig {
-    std::string type_name = "Disk";
 
+    /**
+     * @brief Constructor for the bidisperse disk configuration.
+     * 
+     * @param seed The seed for the random number generator.
+     * @param n_particles The number of particles.
+     * @param mass The mass of the particles.
+     * @param e_c The energy constant.
+     * @param n_c The number constant.
+     * @param packing_fraction The packing fraction of the particles.
+     * @param neighbor_cutoff The cutoff distance for the neighbor list.
+     * @param dim_block The number of threads in the block.
+     * @param size_ratio The ratio of the sizes of the two particle types.
+     * @param count_ratio The ratio of the counts of the two particle types.
+     */
     BidisperseDiskConfig(long seed, long n_particles, double mass, double e_c, double n_c,
                             double packing_fraction, double neighbor_cutoff, long dim_block,
                             double size_ratio, double count_ratio)
-        : BidisperseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff, dim_block, size_ratio, count_ratio) {}
-
-    nlohmann::json to_json() const override {
-        nlohmann::json j = BidisperseParticleConfig::to_json();  // Call base class serialization
-        j["type_name"] = type_name;
-        return j;
-    }
+        : BidisperseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff, dim_block, size_ratio, count_ratio) {
+            type_name = "Disk";
+        }
 };
 
+
+/**
+ * @brief Soft repulsive disk particle class.
+ */
 class Disk : public Particle {
 public:
     Disk();
 
     virtual ~Disk();
-
-    std::string type_name = "Disk";
 
     // ----------------------------------------------------------------------
     // --------------------- Overridden Methods -----------------------------
@@ -51,7 +64,9 @@ public:
     // ----------------------------------------------------------------------
     // ------------- Implementation of Pure Virtual Methods -----------------
     // ----------------------------------------------------------------------
-    
+
+    void initializeFromConfig(const BaseParticleConfig& config) override;
+
     /**
      * @brief Get the total area of the particles by summing the squares of the radii.
      * 

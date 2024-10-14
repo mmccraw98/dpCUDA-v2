@@ -10,12 +10,13 @@ StateLog::~StateLog() {
 }
 
 void StateLog::log(long step) {
+    std::filesystem::path timestep_root_path = std::filesystem::path(root_path) / (indexed_file_prefix + std::to_string(step));
+    make_dir(timestep_root_path.string(), true);
+
     for (int i = 0; i < config.log_names.size(); i++) {
         thrust::host_vector<double> value = orchestrator.get_vector_value<double>(config.log_names[i]);
         std::vector<long> size = orchestrator.get_vector_size(config.log_names[i]);
-
-        std::filesystem::path file_path = std::filesystem::path(root_path) / (indexed_file_prefix + std::to_string(step)) / (config.log_names[i] + extension);
-
+        std::filesystem::path file_path = timestep_root_path / (config.log_names[i] + extension);
         write_array_to_file(
             file_path.string(),
             value,

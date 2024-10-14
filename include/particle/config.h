@@ -1,8 +1,12 @@
 #ifndef PARTICLE_CONFIG_H
 #define PARTICLE_CONFIG_H
 
+#include <iostream>
 #include <nlohmann/json.hpp>
 
+/**
+ * @brief Base class for particle configuration.
+ */
 struct BaseParticleConfig {
     long seed;
     long n_particles;
@@ -15,7 +19,18 @@ struct BaseParticleConfig {
     std::string type_name;
     std::string dispersity_type;
     
-    // Constructor
+    /**
+     * @brief Constructor for the base particle configuration.
+     * 
+     * @param seed The seed for the random number generator.
+     * @param n_particles The number of particles.
+     * @param mass The mass of the particles.
+     * @param e_c The energy constant.
+     * @param n_c The number constant.
+     * @param packing_fraction The packing fraction of the particles.
+     * @param neighbor_cutoff The neighbor cutoff distance.
+     * @param dim_block The number of threads in the block.
+     */
     BaseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c, 
                     double packing_fraction, double neighbor_cutoff, long dim_block)
         : seed(seed), n_particles(n_particles), mass(mass), e_c(e_c), n_c(n_c), 
@@ -23,7 +38,11 @@ struct BaseParticleConfig {
 
     virtual ~BaseParticleConfig() = default;
 
-    // Serialize to JSON using nlohmann::json
+    /**
+     * @brief Serialize the particle configuration to a JSON object.
+     * 
+     * @return The JSON object.
+     */
     virtual nlohmann::json to_json() const {
         return nlohmann::json{
             {"seed", seed},
@@ -34,10 +53,17 @@ struct BaseParticleConfig {
             {"packing_fraction", packing_fraction},
             {"neighbor_cutoff", neighbor_cutoff},
             {"dim_block", dim_block},
+            {"type_name", type_name},
+            {"dispersity_type", dispersity_type},
         };
     }
 
-    // Deserialize from JSON using nlohmann::json
+    /**
+     * @brief Deserialize the particle configuration from a JSON object.
+     * 
+     * @param j The JSON object.
+     * @return The particle configuration.
+     */
     static BaseParticleConfig from_json(const nlohmann::json& j) {
         return BaseParticleConfig{
             j.at("seed").get<long>(),
@@ -52,28 +78,52 @@ struct BaseParticleConfig {
     }
 };
 
+/**
+ * @brief Configuration for bidisperse particles.
+ */
 struct BidisperseParticleConfig : public BaseParticleConfig {
-    double size_ratio;
-    double count_ratio;
-    std::string dispersity_type = "bidisperse";
+    double size_ratio;  // The ratio of the radii of the large to small particles
+    double count_ratio; // The ratio of the number of large to small particles
 
-    // Constructor for the subclass, calling the base class constructor
+    /**
+     * @brief Constructor for the bidisperse particle configuration.
+     * 
+     * @param seed The seed for the random number generator.
+     * @param n_particles The number of particles.
+     * @param mass The mass of the particles.
+     * @param e_c The energy constant.
+     * @param n_c The number constant.
+     * @param packing_fraction The packing fraction of the particles.
+     * @param neighbor_cutoff The neighbor cutoff distance.
+     * @param size_ratio The ratio of the radii of the large to small particles.
+     * @param count_ratio The ratio of the number of large to small particles.
+     */
     BidisperseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c,
                             double packing_fraction, double neighbor_cutoff, long dim_block,
                             double size_ratio, double count_ratio)
         : BaseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff, dim_block),
-        size_ratio(size_ratio), count_ratio(count_ratio) {}
+        size_ratio(size_ratio), count_ratio(count_ratio) {
+            dispersity_type = "Bidisperse";
+        }
 
-    // Override to_json to serialize additional fields
+    /**
+     * @brief Serialize the bidisperse particle configuration to a JSON object.
+     * 
+     * @return The JSON object.
+     */
     nlohmann::json to_json() const override {
         nlohmann::json j = BaseParticleConfig::to_json();  // Call base class serialization
         j["size_ratio"] = size_ratio;
         j["count_ratio"] = count_ratio;
-        j["dispersity_type"] = dispersity_type;
         return j;
     }
 
-    // Static method to deserialize and create a BidisperseParticleConfig instance
+    /**
+     * @brief Deserialize the bidisperse particle configuration from a JSON object.
+     * 
+     * @param j The JSON object.
+     * @return The bidisperse particle configuration.
+     */
     static BidisperseParticleConfig from_json(const nlohmann::json& j) {
         // Call base class deserialization
         BaseParticleConfig base_config = BaseParticleConfig::from_json(j);

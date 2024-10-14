@@ -12,42 +12,88 @@
 #include <iostream>
 #include <filesystem>
 
+/**
+ * @brief Manages all input and output operations
+ */
 class IOManager {
-public:  // TODO: pass a config
-    IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path = "", bool overwrite = true);
+public:
+    /**
+     * @brief Constructor for IOManager
+     * @param log_configs The configuration for each log group
+     * @param particle The particle object
+     * @param integrator The integrator object
+     * @param root_path The root path for all output files
+     * @param overwrite Whether to overwrite existing files
+     */
+    IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root_path = "", bool overwrite = true);
     ~IOManager();
+
+    /**
+     * @brief Logs the current state of the system using all log groups
+     * @param step The current step of the simulation
+     */
     void log(long step);
-    void write_params(std::filesystem::path);
-    void write_log_configs(std::filesystem::path);
-    void write_particle_config(std::filesystem::path);
+
+    /**
+     * @brief Writes the parameters of the system to a file
+     */
+    void write_params();
+
+    /**
+     * @brief Writes the log configurations to a file
+     * @param path The path to write the log configurations to
+     */
+    void write_log_configs(std::filesystem::path path);
+
+    /**
+     * @brief Writes the particle configurations to a file
+     * @param path The path to write the particle configurations to
+     */
+    void write_particle_config(std::filesystem::path path);
+    
+    /**
+     * @brief Writes the integrator configurations to a file
+     * @param path The path to write the integrator configurations to
+     */
+    void write_integrator_config(std::filesystem::path path);
+
+    /**
+     * @brief Writes the current state of the system to a file
+     * @param step The current step of the simulation
+     */
+    void write_state(long step);
 
 private:
-    Particle& particle;
-    Integrator& integrator;
-    Orchestrator orchestrator;
-    std::vector<BaseLogGroup*> log_groups;
-    std::vector<LogGroupConfig> log_configs;
+    Particle& particle;  // particle object
+    Integrator* integrator;  // integrator object
+    Orchestrator orchestrator;  // orchestrator object
+    std::vector<BaseLogGroup*> log_groups;  // log groups
+    std::vector<LogGroupConfig> log_configs;  // log configurations
 
-    bool overwrite;
+    bool overwrite;  // whether to overwrite existing files
 
-    std::string root_path;
+    std::string root_path;  // root path for all output files
     
-    std::string energy_file_extension = ".csv";
-    std::string state_file_extension = ".txt";
-    std::string indexed_file_prefix = "t";
-    std::string energy_file_name = "energy";
-    std::string system_dir_name = "system";
-    std::string trajectory_dir_name = "trajectories";
+    std::string energy_file_extension = ".csv";  // file extension for energy files
+    std::string state_file_extension = ".txt";  // file extension for state files
+    std::string indexed_file_prefix = "t";  // indexed file prefix - trajectory/t{step}/state
+    std::string energy_file_name = "energy";  // file name for energy files
+    std::string system_dir_name = "system";  // directory name for system files
+    std::string trajectory_dir_name = "trajectories";  // directory name for trajectory files
     std::string restart_dir_name = "restart";  // saves what is needed to restart, continuously overwrite with any updates
     std::string init_dir_name = "init";  // saves the initial configuration
     
-    // TODO: these will probably be defined in some config if resuming a run
-    std::filesystem::path energy_file_path;
-    std::filesystem::path system_dir_path;
-    std::filesystem::path trajectory_dir_path;
-    std::filesystem::path restart_dir_path;
-    std::filesystem::path init_dir_path;
+    std::filesystem::path energy_file_path;  // path to energy file
+    std::filesystem::path system_dir_path;  // path to system directory
+    std::filesystem::path trajectory_dir_path;  // path to trajectory directory
+    std::filesystem::path restart_dir_path;  // path to restart directory
+    std::filesystem::path init_dir_path;  // path to init directory
 
+    /**
+     * @brief Initializes the path for a directory
+     * @param path The path to initialize
+     * @param path_name The name of the path
+     */
     void init_path(std::filesystem::path& path, const std::string& path_name);
 };
 

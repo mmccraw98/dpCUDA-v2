@@ -2,7 +2,7 @@
 #include <iostream>
 #include <filesystem>
 
-IOManager::IOManager(Particle& particle, Integrator& integrator, std::vector<LogGroupConfig> log_configs, std::string root_path, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, &integrator), root_path(root_path), overwrite(overwrite), log_configs(log_configs) {
+IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), overwrite(overwrite), log_configs(log_configs) {
     // probably validate root_path if it is not empty
 
     for (auto& config : log_configs) {
@@ -25,14 +25,6 @@ IOManager::IOManager(Particle& particle, Integrator& integrator, std::vector<Log
             }
             log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path, indexed_file_prefix, state_file_extension));
         }
-    }
-
-    
-
-    long num_log_groups = log_groups.size();
-    for (long i = 0; i < num_log_groups; i++) {
-        // std::cout << log_groups[i]->config.to_json().dump(4) << std::endl;
-        std::cout << log_groups[i]->config.group_name << std::endl;
     }
 }
 
@@ -71,10 +63,27 @@ void IOManager::log(long step) {
 
 void IOManager::write_log_configs(std::filesystem::path path) {
     for (auto& config : log_configs) {
-        std::cout << config.to_json().dump(4) << std::endl;
+        write_json_to_file(path / (config.group_name + "_log_config.json"), config.to_json());
     }
 }
 
 void IOManager::write_particle_config(std::filesystem::path path) {
-    // std::cout << particle.config.to_json().dump(4) << std::endl;
+    write_json_to_file(path / "particle_config.json", particle.config->to_json());
+}
+
+void IOManager::write_integrator_config(std::filesystem::path path) {
+    write_json_to_file(path / "integrator_config.json", integrator->config.to_json());
+}
+
+void IOManager::write_params() {
+    if (system_dir_path.empty()) {
+        init_path(system_dir_path, system_dir_name);
+        make_dir(system_dir_path, overwrite);  // may need to change function signature
+    }
+    write_log_configs(system_dir_path);
+    write_particle_config(system_dir_path);
+    if (integrator != nullptr) {
+        write_integrator_config(system_dir_path);
+    }
+    // TODO: write run params
 }

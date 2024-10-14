@@ -60,10 +60,6 @@ void BaseLogGroup::update_log_status(long step) {
     }
 }
 
-
-
-
-
 MacroLog::MacroLog(LogGroupConfig config, Orchestrator& orchestrator) : BaseLogGroup(config, orchestrator) {
     unmodified_log_names = get_unmodified_log_names();
 }

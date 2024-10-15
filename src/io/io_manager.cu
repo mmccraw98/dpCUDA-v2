@@ -73,9 +73,11 @@ void IOManager::log(long step) {
 }
 
 void IOManager::write_log_configs(std::filesystem::path path) {
+    nlohmann::json all_configs_json;
     for (auto& config : log_configs) {
-        write_json_to_file(path / (config.group_name + "_log_config.json"), config.to_json());
+        all_configs_json[config.group_name] = config.to_json();
     }
+    write_json_to_file(path / "log_configs.json", all_configs_json);
 }
 
 void IOManager::write_particle_config(std::filesystem::path path) {

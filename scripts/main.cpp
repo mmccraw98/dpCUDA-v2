@@ -70,7 +70,7 @@ int main() {
     
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.1, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: fix remove mean velocities
@@ -90,11 +90,11 @@ int main() {
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        // config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
-        config_from_names_lin({"positions", "velocities"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names_lin({"positions", "velocities"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
     // TODO: for some reason, box size is N-d when saved.  not good!
 
@@ -102,6 +102,8 @@ int main() {
 
     IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-10-14/debugging-dpcuda2", true);
     io_manager.write_params();
+
+    // add a start time and an end time to the io manager, should be added to the config file - the end time will be used to determine if the program finished (if empty,it didnt finish)
 
     // io_manager.log(0);
 

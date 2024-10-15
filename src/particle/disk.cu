@@ -92,7 +92,7 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     this->setExponent(config.n_c, "c");
     this->setMass(config.mass);
     this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    this->updateNeighborList();
+    this->initializeNeighborList();
 }
 
 

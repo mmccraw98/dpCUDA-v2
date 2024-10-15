@@ -442,6 +442,11 @@ public:
     virtual void updateNeighborList();
 
     /**
+     * @brief Initialize and calculate the neighbor list for the particles.
+     */
+    virtual void initializeNeighborList();
+
+    /**
      * @brief Set the neighbor cutoff for the particles based on some multiple of a defined length scale.
      * Length scale depends on the derived class, defaults to the minimum particle diameter.
      * 

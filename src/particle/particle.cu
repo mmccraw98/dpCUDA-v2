@@ -487,7 +487,7 @@ void Particle::updateNeighborList() {
     // TODO: can get rid of this if it is moved to the kernel, of course still need the sync if resizing
     // ----------------
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-    syncNeighborList();
+    // syncNeighborList();
     // ----------------
 
     kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
@@ -495,6 +495,9 @@ void Particle::updateNeighborList() {
 
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
+
+        std::cout << "Particle::updateNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
+
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
@@ -512,11 +515,22 @@ void Particle::checkForNeighborUpdate() {
     }
 }
 
+void Particle::initializeNeighborList() {
+    d_neighbor_list.resize(n_particles * max_neighbors_allocated);
+    d_num_neighbors.resize(n_particles);
+    thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0L);
+    thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+    syncNeighborList();
+    updateNeighborList();
+}
+
 void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
     this->neighbor_displacement = neighbor_displacement_multiplier * neighbor_cutoff;
     this->max_neighbors_allocated = 4;
-    syncNeighborList();
+
+    thrust::host_vector<double> box_size = getBoxSize();
+    std::cout << "Particle::setNeighborCutoff: Neighbor cutoff set to " << neighbor_cutoff << " and neighbor displacement set to " << neighbor_displacement << " box length: " << box_size[0] << std::endl;
 }
 
 void Particle::printNeighborList() {

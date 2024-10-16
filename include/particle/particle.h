@@ -26,6 +26,9 @@ public:
 
     std::unique_ptr<BaseParticleConfig> config;
 
+    // Function pointer for the neighbor list update method
+    void (Particle::*updateNeighborListPtr)();
+
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
     // These are the values that need to be calculated before the log value is calculated
@@ -43,6 +46,10 @@ public:
     thrust::device_vector<double> d_kinetic_energy;  // kinetic energy of the particles
     thrust::device_vector<long> d_neighbor_list;  // neighbor list for the particles
     thrust::device_vector<long> d_num_neighbors;  // number of neighbors for each particle
+    thrust::device_vector<long> d_cell_index;  // stores the index of the cell that each particle is in
+    thrust::device_vector<long> d_sorted_cell_index;  // stores the cell indices sorted in ascending order
+    thrust::device_vector<long> d_particle_index;  // stores the particle index for each cell - trivial until sorting is applied
+    thrust::device_vector<long> d_cell_start;  // stores the starting particle index for each cell
 
     // Pointers to the device arrays
     double* d_positions_ptr;
@@ -54,6 +61,10 @@ public:
     double* d_masses_ptr;
     double* d_potential_energy_ptr;
     double* d_kinetic_energy_ptr;
+    long* d_cell_index_ptr;
+    long* d_sorted_cell_index_ptr;
+    long* d_particle_index_ptr;
+    long* d_cell_start_ptr;
 
     // Simulation parameters
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
@@ -67,6 +78,9 @@ public:
     long n_dof = -1;  // number of degrees of freedom
     long seed = -1;  // random number generator seed
     long dim_grid = -1, dim_block = -1, dim_vertex_grid = -1;  // dimensions for the CUDA kernels
+    long n_cells = -1;  // number of cells in the simulation box
+    long n_cells_dim = -1;  // number of cells in each dimension
+    double cell_size = -1;  // size of the cells
 
     // ----------------------------------------------------------------------
     // ----------------------- Template Methods -----------------------------
@@ -141,6 +155,13 @@ public:
     // ----------------------------------------------------------------------
     // -------------------- Universally Defined Methods ---------------------
     // ----------------------------------------------------------------------
+
+    /**
+     * @brief Set the neighbor list update method for the particles.
+     * 
+     * @param method_name The name of the method to use for updating the neighbor list: "cell", "verlet", or "none".
+     */
+    void setNeighborListUpdateMethod(std::string method_name);
 
     /**
      * @brief Set the seed for the random number generator.
@@ -447,6 +468,26 @@ public:
     virtual void initializeNeighborList();
 
     /**
+     * @brief Initialize and calculate the cell list for the particles.
+     */
+    virtual void initializeCellList();
+
+    /**
+     * @brief Synchronize the cell list sizes to the device constant memory.
+     */
+    virtual void syncCellList();
+
+    /**
+     * @brief Update the cell list for the particles.
+     */
+    virtual void updateCellList();
+
+    /**
+     * @brief Update the neighbor list using the cell list.
+     */
+    virtual void updateCellNeighborList();
+
+    /**
      * @brief Set the neighbor cutoff for the particles based on some multiple of a defined length scale.
      * Length scale depends on the derived class, defaults to the minimum particle diameter.
      * 
@@ -459,6 +500,13 @@ public:
      * @brief Print the neighbor list for the particles.  Useful for debugging.
      */
     virtual void printNeighborList();
+
+    /**
+     * @brief Set the cell size for the cell list.
+     * 
+     * @param cell_size_multiplier The multiplier for the cell size.
+     */
+    virtual void setCellSize(double cell_size_multiplier);
 
     /**
      * @brief Zero out the force and potential energy arrays.

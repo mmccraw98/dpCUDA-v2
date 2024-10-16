@@ -70,7 +70,8 @@ int main() {
     
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, 256, 1.4, 0.5);
+    double cell_size_multiplier = 5.0;  // cells will be roughly this multiple of the maximum particle diameter
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "verlet", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: fix remove mean velocities

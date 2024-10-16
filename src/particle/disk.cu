@@ -85,13 +85,19 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     }
     this->initializeBox(config.packing_fraction);
 
+    // TODO: make this a config - position initialization config: zero, random, etc.
     this->setRandomPositions();
 
-    // Handle common fields
     this->setEnergyScale(config.e_c, "c");
     this->setExponent(config.n_c, "c");
     this->setMass(config.mass);
+
+    this->setNeighborListUpdateMethod(config.neighbor_list_update_method);
     this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+    if (config.neighbor_list_update_method == "cell") {
+        this->setCellSize(config.cell_size_multiplier);
+        this->initializeCellList();
+    }
     this->initializeNeighborList();
 }
 

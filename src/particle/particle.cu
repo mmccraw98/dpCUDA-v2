@@ -38,22 +38,42 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
 
 std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     std::unordered_map<std::string, std::any> array_map;
-    array_map["d_positions"]        = &d_positions;
-    array_map["d_last_positions"]   = &d_last_positions;
-    array_map["d_velocities"]       = &d_velocities;
-    array_map["d_forces"]           = &d_forces;
-    array_map["d_radii"]            = &d_radii;
-    array_map["d_masses"]           = &d_masses;
-    array_map["d_potential_energy"] = &d_potential_energy;
-    array_map["d_kinetic_energy"]   = &d_kinetic_energy;
-    array_map["d_neighbor_list"]    = &d_neighbor_list;
-    array_map["d_num_neighbors"]    = &d_num_neighbors;
+    array_map["d_positions"]          = &d_positions;
+    array_map["d_last_positions"]     = &d_last_positions;
+    array_map["d_displacements"]      = &d_displacements;
+    array_map["d_velocities"]         = &d_velocities;
+    array_map["d_forces"]             = &d_forces;
+    array_map["d_radii"]              = &d_radii;
+    array_map["d_masses"]             = &d_masses;
+    array_map["d_potential_energy"]   = &d_potential_energy;
+    array_map["d_kinetic_energy"]     = &d_kinetic_energy;
+    array_map["d_neighbor_list"]      = &d_neighbor_list;
+    array_map["d_num_neighbors"]      = &d_num_neighbors;
+    array_map["d_cell_index"]         = &d_cell_index;
+    array_map["d_sorted_cell_index"]  = &d_sorted_cell_index;
+    array_map["d_particle_index"]     = &d_particle_index;
+    array_map["d_cell_start"]         = &d_cell_start;
     return array_map;
 }
 
 // ----------------------------------------------------------------------
 // -------------------- Universally Defined Methods ---------------------
 // ----------------------------------------------------------------------
+
+void Particle::setNeighborListUpdateMethod(std::string method_name) {
+    if (method_name == "cell") {
+        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to cell" << std::endl;
+        this->updateNeighborListPtr = &Particle::updateCellNeighborList;
+    } else if (method_name == "verlet") {
+        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to verlet" << std::endl;
+        this->updateNeighborListPtr = &Particle::updateNeighborList;
+    } else if (method_name == "none") {
+        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to none" << std::endl;
+        throw std::invalid_argument("Particle::setNeighborListUpdateMethod: 'none' neighbor list update method not implemented: " + method_name);
+    } else {
+        throw std::invalid_argument("Particle::setNeighborListUpdateMethod: Invalid method name: " + method_name);
+    }
+}
 
 void Particle::setSeed(long seed) {
     if (seed == -1) {
@@ -192,6 +212,10 @@ void Particle::clearDynamicVariables() {
     d_kinetic_energy.clear();
     d_neighbor_list.clear();
     d_num_neighbors.clear();
+    d_cell_index.clear();
+    d_sorted_cell_index.clear();
+    d_particle_index.clear();
+    d_cell_start.clear();
 
     // Clear the pointers
     d_positions_ptr = nullptr;
@@ -203,6 +227,10 @@ void Particle::clearDynamicVariables() {
     d_masses_ptr = nullptr;
     d_potential_energy_ptr = nullptr;
     d_kinetic_energy_ptr = nullptr;
+    d_cell_index_ptr = nullptr;
+    d_sorted_cell_index_ptr = nullptr;
+    d_particle_index_ptr = nullptr;
+    d_cell_start_ptr = nullptr;
 }
 
 void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
@@ -484,20 +512,12 @@ double Particle::getMaxDisplacement() {
 }
 
 void Particle::updateNeighborList() {
-    // TODO: can get rid of this if it is moved to the kernel, of course still need the sync if resizing
-    // ----------------
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-    // syncNeighborList();
-    // ----------------
-
     kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
-
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
-
         std::cout << "Particle::updateNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
-
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
@@ -509,7 +529,7 @@ void Particle::checkForNeighborUpdate() {
     double tolerance = 3.0;
     double max_displacement = getMaxDisplacement();
     if (tolerance * max_displacement > neighbor_displacement) {
-        updateNeighborList();
+        (this->*updateNeighborListPtr)();
         thrust::copy(d_positions.begin(), d_positions.end(), d_last_positions.begin());
         thrust::fill(d_displacements.begin(), d_displacements.end(), 0.0);
     }
@@ -541,6 +561,77 @@ void Particle::printNeighborList() {
         for (long j = 0; j < num_neighbors[i]; j++) {
             std::cout << "\t\tNeighbor " << j << " of particle " << i << " is " << neighbor_list[i * max_neighbors + j] << std::endl;
         }
+    }
+}
+
+void Particle::setCellSize(double cell_size_multiplier) {
+    long min_num_cells_dim = 4;  // if there are fewer than 4 cells in one axis, the cell list probably wont work
+    double trial_cell_size = cell_size_multiplier * getDiameter("max");
+    thrust::host_vector<double> box_size = getBoxSize();
+    n_cells_dim = static_cast<long>(std::floor(box_size[0] / trial_cell_size));
+    n_cells = n_cells_dim * n_cells_dim;
+    if (n_cells_dim < min_num_cells_dim) {
+        throw std::runtime_error("Particle::setCellSize: fewer than " + std::to_string(min_num_cells_dim) + " cells in one dimension");
+    }
+    cell_size = box_size[0] / n_cells_dim;
+    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << std::endl;
+    syncCellList();
+}
+
+void Particle::initializeCellList() {
+    d_cell_index.resize(n_particles);
+    d_sorted_cell_index.resize(n_particles);
+    d_particle_index.resize(n_particles);
+    d_cell_start.resize(n_cells + 1);
+
+    thrust::fill(d_cell_index.begin(), d_cell_index.end(), -1L);
+    thrust::fill(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), -1L);
+    thrust::fill(d_particle_index.begin(), d_particle_index.end(), -1L);
+    thrust::fill(d_cell_start.begin(), d_cell_start.end(), -1L);
+
+    d_cell_index_ptr = thrust::raw_pointer_cast(d_cell_index.data());
+    d_sorted_cell_index_ptr = thrust::raw_pointer_cast(d_sorted_cell_index.data());
+    d_particle_index_ptr = thrust::raw_pointer_cast(d_particle_index.data());
+    d_cell_start_ptr = thrust::raw_pointer_cast(d_cell_start.data());
+}
+
+void Particle::syncCellList() {
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_n_cells, &n_cells, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncCellList: Error copying n_cells to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_n_cells_dim, &n_cells_dim, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncCellList: Error copying n_cells_dim to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_cell_size, &cell_size, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncCellList: Error copying cell_size to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::updateCellList() {
+    d_cell_start[n_cells] = n_particles;
+    kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_ptr, d_cell_index_ptr, d_particle_index_ptr);
+    thrust::sort_by_key(d_cell_index.begin(), d_cell_index.end(), d_particle_index.begin());
+    kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_cell_index_ptr, d_cell_start_ptr);
+}
+
+void Particle::updateCellNeighborList() {
+    updateCellList();
+    thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+    kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
+    max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
+    if (max_neighbors > max_neighbors_allocated) {
+        max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
+        std::cout << "Particle::updateCellNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
+        d_neighbor_list.resize(n_particles * max_neighbors_allocated);
+        thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+        syncCellList();
+        kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
     }
 }
 

@@ -33,6 +33,9 @@ extern __constant__ long* d_num_neighbors_ptr;  // pointer to the array that sto
 extern __constant__ long* d_neighbor_list_ptr;  // pointer to the neighbor list array
 extern __constant__ long d_max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
 
+extern __constant__ long d_n_cells;  // number of cells in the simulation box
+extern __constant__ long d_n_cells_dim;  // number of cells in each dimension
+extern __constant__ double d_cell_size;  // size of the cells
 
 // ----------------------------------------------------------------------
 // -------------------------- General Purpose ---------------------------
@@ -389,5 +392,42 @@ inline __device__ bool isParticleNeighbor(const long particle_id, const long nei
  */
 __global__ void kernelUpdateNeighborList(const double* positions, const double cutoff);
 
+/**
+ * @brief Get the cell index for a particle
+ * 
+ * @param positions pointer to the array of positions of the particles
+ * @param cell_index pointer to the array of cell indices of the particles
+ * @param particle_index pointer to the array of particle indices of the particles
+ */
+__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* particle_index);
+
+/**
+ * @brief Get the first particle index for each cell
+ * 
+ * @param cell_index pointer to the array of cell indices of the particles sorted in ascending cell id order
+ * @param cell_start pointer to the array of first particle indices for each cell
+ */
+__global__ void kernelGetFirstParticleIndexForCell(const long* cell_index, long* cell_start);
+
+
+/**
+ * @brief Get the range of particle indices for a cell
+ * 
+ * @param cell_id id of the cell
+ * @param cell_start pointer to the array of first particle indices for each cell
+ * @param start start index of the cell
+ * @param end end index of the cell
+ */
+inline __device__ void getCellIndexRange(const long cell_id, const long* cell_start, long& start, long& end) {
+	start = cell_start[cell_id];
+	long next_id = cell_start[cell_id + 1];
+	while (cell_start[next_id] == -1) {
+		next_id++;
+	}
+	end = next_id;
+}
+
+
+__global__ void kernelUpdateCellNeighborList(const double* positions, const double cutoff, const long* cell_index, const long* particle_index, const long* cell_start);
 
 #endif /* KERNELS_CUH_ */

@@ -96,6 +96,14 @@ public:
     std::unordered_map<std::string, std::any> getArrayMap();
 
     /**
+     * @brief Get the type of the array.
+     * 
+     * @param array_name The name of the array.
+     * @return The type of the array.
+     */
+    std::string getArrayType(const std::string& array_name);
+
+    /**
      * @brief Get a host array from a device array.
      * 
      * @tparam T The type of the array.

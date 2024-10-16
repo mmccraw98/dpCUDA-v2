@@ -136,27 +136,28 @@ __global__ void kernelUpdateNeighborList(const double* positions, const double c
     }
 }
 
-__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* particle_index) {
+__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* sorted_cell_index, long* particle_index) {
 	long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id < d_n_particles) {
         double this_pos[N_DIM];
         getPosition(particle_id, positions, this_pos);
-        long x_index = floor(this_pos[0] / d_cell_size);
-        long y_index = floor(this_pos[1] / d_cell_size);
+        long x_index = getPBCCellIndex(this_pos[0]);
+        long y_index = getPBCCellIndex(this_pos[1]);
         cell_index[particle_id] = x_index + y_index * d_n_cells_dim;
+        sorted_cell_index[particle_id] = cell_index[particle_id];
         particle_index[particle_id] = particle_id;
     }
 }
 
-__global__ void kernelGetFirstParticleIndexForCell(const long* cell_index, long* cell_start) {
+__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start) {
     long cell_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (cell_id < d_n_cells) {
         for (long particle_id = 0; particle_id < d_n_particles; particle_id++) {
-            if (cell_index[particle_id] == cell_id) {
+            if (sorted_cell_index[particle_id] == cell_id) {
                 cell_start[cell_id] = particle_id;
                 break;
             }
-            if (cell_index[particle_id] > cell_id) {
+            if (sorted_cell_index[particle_id] > cell_id) {
                 cell_start[cell_id] = -1L;
                 break;
             }
@@ -176,9 +177,12 @@ __global__ void kernelUpdateCellNeighborList(const double* positions, const doub
         long start_id, end_id;
         for (long cell_y_offset = -1; cell_y_offset <= 1; cell_y_offset++) {
             for (long cell_x_offset = -1; cell_x_offset <= 1; cell_x_offset++) {
-                long neighbor_cell_id = (cell_x + cell_x_offset) % d_n_cells_dim + ((cell_y + cell_y_offset) % d_n_cells_dim) * d_n_cells_dim;
+                long x_index = mod(cell_x + cell_x_offset, d_n_cells_dim);
+                long y_index = mod(cell_y + cell_y_offset, d_n_cells_dim);
+                long neighbor_cell_id = x_index + y_index * d_n_cells_dim;
                 getCellIndexRange(neighbor_cell_id, cell_start, start_id, end_id);
-                for (long other_id = start_id; other_id < end_id; other_id++) {
+                for (long neighbor_id = start_id; neighbor_id < end_id; neighbor_id++) {
+                    long other_id = particle_index[neighbor_id];
                     if (particle_id != other_id) {
                         getPosition(other_id, positions, other_pos);
                         double distance = calcDistancePBC(this_pos, other_pos);

@@ -56,6 +56,27 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     return array_map;
 }
 
+std::string Particle::getArrayType(const std::string& array_name) {
+    std::unordered_map<std::string, std::string> array_type_map;
+    array_type_map["d_positions"]          = "double";
+    array_type_map["d_last_positions"]     = "double";
+    array_type_map["d_displacements"]      = "double";
+    array_type_map["d_velocities"]         = "double";
+    array_type_map["d_forces"]             = "double";
+    array_type_map["d_radii"]              = "double";
+    array_type_map["d_masses"]             = "double";
+    array_type_map["d_potential_energy"]   = "double";
+    array_type_map["d_kinetic_energy"]     = "double";
+    array_type_map["d_box_size"]           = "double";
+    array_type_map["d_neighbor_list"]      = "long";
+    array_type_map["d_num_neighbors"]      = "long";
+    array_type_map["d_cell_index"]         = "long";
+    array_type_map["d_sorted_cell_index"]  = "long";
+    array_type_map["d_particle_index"]     = "long";
+    array_type_map["d_cell_start"]         = "long";
+    return array_type_map[array_name];
+}
+
 // ----------------------------------------------------------------------
 // -------------------- Universally Defined Methods ---------------------
 // ----------------------------------------------------------------------
@@ -615,9 +636,10 @@ void Particle::syncCellList() {
 
 void Particle::updateCellList() {
     d_cell_start[n_cells] = n_particles;
-    kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_ptr, d_cell_index_ptr, d_particle_index_ptr);
-    thrust::sort_by_key(d_cell_index.begin(), d_cell_index.end(), d_particle_index.begin());
-    kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_cell_index_ptr, d_cell_start_ptr);
+    kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_ptr, d_cell_index_ptr, d_sorted_cell_index_ptr, d_particle_index_ptr);
+    thrust::sort_by_key(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), d_particle_index.begin());
+    // TODO: this is a kernel over cells - could probably be parallelized better
+    kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_sorted_cell_index_ptr, d_cell_start_ptr);
 }
 
 void Particle::updateCellNeighborList() {
@@ -630,7 +652,7 @@ void Particle::updateCellNeighborList() {
         std::cout << "Particle::updateCellNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-        syncCellList();
+        syncNeighborList();
         kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
     }
 }

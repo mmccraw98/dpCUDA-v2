@@ -11,16 +11,31 @@ StateLog::~StateLog() {
 
 void StateLog::write_values(std::filesystem::path root_path) {
     for (int i = 0; i < config.log_names.size(); i++) {
-        thrust::host_vector<double> value = orchestrator.get_vector_value<double>(config.log_names[i]);
+        std::string array_type = orchestrator.get_array_type(config.log_names[i]);
         std::vector<long> size = orchestrator.get_vector_size(config.log_names[i]);
         std::filesystem::path file_path = root_path / (config.log_names[i] + extension);
-        write_array_to_file(
-            file_path.string(),
-            value,
-            size[0],
-            size[1],
-            precision
-        );
+
+        if (array_type == "double") {
+            thrust::host_vector<double> value = orchestrator.get_vector_value<double>(config.log_names[i]);
+            write_array_to_file(
+                file_path.string(),
+                value,
+                size[0],
+                size[1],
+                precision
+            );
+        } else if (array_type == "long") {
+            thrust::host_vector<long> value = orchestrator.get_vector_value<long>(config.log_names[i]);
+            write_array_to_file(
+                file_path.string(),
+                value,
+                size[0],
+                size[1],
+                precision
+            );
+        } else {
+            std::cerr << "StateLog::write_values: Array type not recognized: " << array_type << std::endl;
+        }
     }
 }
 

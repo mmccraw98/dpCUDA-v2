@@ -42,6 +42,17 @@ extern __constant__ double d_cell_size;  // size of the cells
 // ----------------------------------------------------------------------
 
 /**
+ * @brief Modulo operation with non-negative result
+ * 
+ * @param a number to be moduloed
+ * @param b modulo
+ * @return __device__ non-negative result of the modulo operation
+ */
+inline __device__ long mod(long a, long b) {
+    return (a % b + b) % b;  // Ensures non-negative result
+}
+
+/**
  * @brief X1 - X2 with periodic boundary conditions in the specified dimension
  * 
  * @param x1 position of the first vertex
@@ -393,21 +404,35 @@ inline __device__ bool isParticleNeighbor(const long particle_id, const long nei
 __global__ void kernelUpdateNeighborList(const double* positions, const double cutoff);
 
 /**
+ * @brief Get the PBC cell index for a particle
+ * 
+ * @param pos position of the particle
+ * @param cell_size size of the cells
+ * @param n_cells_dim number of cells in each dimension
+ * @return __device__ PBC cell index for the particle
+ */
+inline __device__ long getPBCCellIndex(const double pos) {
+    long index = (long)floor(pos / d_cell_size);  // Unwrapped cell index
+    return (index % d_n_cells_dim + d_n_cells_dim) % d_n_cells_dim;  // Proper PBC wrapping
+}
+
+/**
  * @brief Get the cell index for a particle
  * 
  * @param positions pointer to the array of positions of the particles
  * @param cell_index pointer to the array of cell indices of the particles
+ * @param sorted_cell_index pointer to the array of cell indices of the particles which will eventually be sorted in ascending cell id order
  * @param particle_index pointer to the array of particle indices of the particles
  */
-__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* particle_index);
+__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* sorted_cell_index, long* particle_index);
 
 /**
  * @brief Get the first particle index for each cell
  * 
- * @param cell_index pointer to the array of cell indices of the particles sorted in ascending cell id order
+ * @param sorted_cell_index pointer to the array of cell indices of the particles sorted in ascending cell id order
  * @param cell_start pointer to the array of first particle indices for each cell
  */
-__global__ void kernelGetFirstParticleIndexForCell(const long* cell_index, long* cell_start);
+__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start);
 
 
 /**

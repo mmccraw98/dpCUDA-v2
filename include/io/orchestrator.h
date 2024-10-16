@@ -98,6 +98,15 @@ public:
     thrust::host_vector<T> get_vector_value(const std::string& unmodified_log_name) {
         return particle.getArray<T>("d_" + unmodified_log_name);
     }
+
+    /**
+     * @brief Gets the type of an array
+     * @param array_name The name of the array
+     * @return The type of the array
+     */
+    std::string get_array_type(const std::string& array_name) {
+        return particle.getArrayType("d_" + array_name);
+    }
 };
 
 #endif /* ORCHESTRATOR_H */

@@ -232,60 +232,6 @@ inline __device__ void calcNormalVector(const double* segment, double* segment_n
 	segment_normal[1] = -segment[0];
 }
 
-/**
- * @brief Calculate the overlap between two points
- * 
- * @param point1 first point
- * @param point2 second point
- * @param rad_sum sum of the radii of the two points
- * @return __device__ overlap between the two points
- */
-inline __device__ double calcOverlapPBC(const double* point1, const double* point2, const double rad_sum) {
-	return (1 - calcDistancePBC(point1, point2) / rad_sum);
-}
-
-/**
- * @brief Calculate the overlap between two points and return the distance vector (R_12 = point1 - point2)
- * 
- * @param point1 first point
- * @param point2 second point
- * @param rad_sum sum of the radii of the two points
- * @param distance distance between the two points
- * @param delta_vec distance vector to be modified by the function (delta_vec = point1 - point2)
- * @return __device__ overlap between the two points
- */
-inline __device__ double calcOverlapAndDeltaPBC(const double* point1, const double* point2, const double rad_sum, double* delta_vec, double& distance) {
-    distance = calcDeltaAndDistancePBC(point1, point2, delta_vec);
-    return (1 - distance / rad_sum);
-}
-
-/**
- * @brief Extract the position of a particle (or vertex) from the positions array and store it in pos
- * 
- * @param id particle id
- * @param positions positions of the particles
- * @param pos position of the particle
- */
-inline __device__ void getPosition(const long id, const double* positions, double* pos) {
-	#pragma unroll (N_DIM)
-	for (long dim = 0; dim < d_n_dim; dim++) {
-		pos[dim] = positions[id * d_n_dim + dim];
-	}
-}
-
-/**
- * @brief Get the position and radius of a particle or vertex
- * 
- * @param id id of the particle or vertex
- * @param positions pointer to the array of positions
- * @param radii pointer to the array of radii
- * @param pos position of the particle or vertex
- * @param rad radius of the particle or vertex
- */
-inline __device__ void getPositionAndRadius(const long id, const double* positions, const double* radii, double* pos, double& rad) {
-    getPosition(id, positions, pos);
-    rad = radii[id];
-}
 
 // ----------------------------------------------------------------------
 // ----------------------- Dynamics and Updates -------------------------
@@ -301,7 +247,7 @@ inline __device__ void getPositionAndRadius(const long id, const double* positio
  * @param velocities The velocities of the particles.
  * @param dt The time step.
  */
-__global__ void kernelUpdatePositions(double* positions, const double* last_positions, double* displacements, double* velocities, const double dt);
+__global__ void kernelUpdatePositions(double* positions_x, double* positions_y, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, double* velocities_x, double* velocities_y, const double dt);
 
 /**
  * @brief Update the velocities of the particles using an explicit Euler method.
@@ -311,7 +257,7 @@ __global__ void kernelUpdatePositions(double* positions, const double* last_posi
  * @param masses The masses of the particles.
  * @param dt The time step.
  */
-__global__ void kernelUpdateVelocities(double* velocities, double* forces, const double* masses, const double dt);
+__global__ void kernelUpdateVelocities(double* velocities_x, double* velocities_y, const double* forces_x, const double* forces_y, const double* masses, const double dt);
 
 
 /**
@@ -322,6 +268,8 @@ __global__ void kernelUpdateVelocities(double* velocities, double* forces, const
 __global__ void kernelRemoveMeanVelocities(double* velocities);
 
 
+__global__ void kernelZeroForceAndPotentialEnergy(double* forces_x, double* forces_y, double* potential_energy);
+
 /**
  * @brief Calculate the translational kinetic energy of the particles.
  * 
@@ -329,7 +277,9 @@ __global__ void kernelRemoveMeanVelocities(double* velocities);
  * @param masses The masses of the particles.
  * @param kinetic_energy The kinetic energy of the particles.
  */
-__global__ void kernelCalculateTranslationalKineticEnergy(const double* velocities, const double* masses, double* kinetic_energy);
+__global__ void kernelCalculateTranslationalKineticEnergy(
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ masses, double* __restrict__ kinetic_energy);
 
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
@@ -346,17 +296,34 @@ __global__ void kernelCalculateTranslationalKineticEnergy(const double* velociti
  * @param force force on the first point
  * @return __device__ interaction energy between the two points
  */
-inline __device__ double calcPointPointInteraction(const double* point1, const double* point2, const double rad_sum, double* force) {
-    double energy = 0.0;
-    double distance, delta_vec[N_DIM];
-    double overlap = calcOverlapAndDeltaPBC(point1, point2, rad_sum, delta_vec, distance);
-    if (overlap > 0) {
-        energy = d_e_c * pow(overlap, d_n_c) / d_n_c / 2;  // need to divide by 2 because the energy is for point 1
-        #pragma unroll (N_DIM)
-        for (long dim = 0; dim < d_n_dim; dim++) {
-            force[dim] += d_e_c * pow(overlap, d_n_c - 1) * delta_vec[dim] / (rad_sum * distance);
-        }
+inline __device__ double calcPointPointInteraction(
+    const double pos_x, const double pos_y, const double rad,
+    const double other_x, const double other_y, const double other_rad,
+    double& force_x, double& force_y) 
+{
+    double dx = pbcDistance(pos_x, other_x, 0);
+    double dy = pbcDistance(pos_y, other_y, 1);
+    double rad_sum = rad + other_rad;
+    double distance_sq = dx * dx + dy * dy;
+
+    if (distance_sq >= rad_sum * rad_sum) {
+        force_x = 0.0;
+        force_y = 0.0;
+        return 0.0;
     }
+
+    double distance = sqrt(distance_sq);
+    double overlap = 1.0 - (distance / rad_sum);
+    double overlap_pow = pow(overlap, d_n_c - 1);
+
+    // Calculate potential energy
+    double energy = d_e_c * overlap * overlap_pow / (2.0 * d_n_c);
+
+    // Calculate force magnitude and components
+    double force_mag = d_e_c * overlap_pow / (rad_sum * distance);
+    force_x = force_mag * dx;
+    force_y = force_mag * dy;
+
     return energy;
 }
 
@@ -375,7 +342,7 @@ inline __device__ double calcPointPointInteraction(const double* point1, const d
  * @param forces Pointer to the array of forces on the particles.
  * @param potential_energy Pointer to the array of potential energies of the particles.
  */
-__global__ void kernelCalcDiskForces(const double* positions, const double* radii, double* forces, double* potential_energy);
+__global__ void kernelCalcDiskForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy);
 
 
 // ----------------------------------------------------------------------
@@ -383,29 +350,19 @@ __global__ void kernelCalcDiskForces(const double* positions, const double* radi
 // ----------------------------------------------------------------------
 
 
-inline __device__ bool isWithinCutoffSquared(const double* segment1, const double* segment2, double cutoff_sq) {
-    double dist_dim, distance_sq = 0.;
-    #pragma unroll (N_DIM)
-    for (long dim = 0; dim < d_n_dim; dim++) {
-        dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
-        distance_sq += dist_dim * dist_dim;
-        if (distance_sq >= cutoff_sq) return false;  // Early exit
-    }
-    return true;
+inline __device__ bool isWithinCutoffSquared(
+    double pos1_x, double pos1_y, 
+    double pos2_x, double pos2_y, 
+    double cutoff_sq) 
+{
+    double dx = pbcDistance(pos1_x, pos2_x, 0);
+    double dy = pbcDistance(pos1_y, pos2_y, 1);
+    double dist_sq = dx * dx + dy * dy;
+
+    // Early exit if the distance already exceeds cutoff
+    return dist_sq < cutoff_sq;
 }
 
-/**
- * @brief Check if a neighbor is a valid neighbor and get its true id
- * 
- * @param particle_id id of the particle
- * @param neighbor_id id of the neighbor
- * @param other_id the true id of the neighbor
- * @return __device__ true if the neighbor is a valid neighbor, false otherwise
- */
-inline __device__ bool isParticleNeighbor(const long particle_id, const long neighbor_id, long& other_id) {
-    other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + neighbor_id];
-    return (particle_id != other_id && other_id != -1);
-}
 
 /**
  * @brief Update the neighbor list for all the particles.
@@ -413,7 +370,11 @@ inline __device__ bool isParticleNeighbor(const long particle_id, const long nei
  * @param positions The positions of the particles.
  * @param cutoff The cutoff distance for the neighbor list.
  */
-__global__ void kernelUpdateNeighborList(const double* positions, const double cutoff);
+__global__ void kernelUpdateNeighborList(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y, 
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
+    double* __restrict__ neigh_displacements_sq,
+    const double cutoff);
 
 /**
  * @brief Get the PBC cell index for a particle
@@ -423,9 +384,9 @@ __global__ void kernelUpdateNeighborList(const double* positions, const double c
  * @param n_cells_dim number of cells in each dimension
  * @return __device__ PBC cell index for the particle
  */
-inline __device__ long getPBCCellIndex(const double pos) {
-    long index = (long)floor(pos / d_cell_size);  // Unwrapped cell index
-    return (index % d_n_cells_dim + d_n_cells_dim) % d_n_cells_dim;  // Proper PBC wrapping
+inline __device__ long getPBCCellIndex(double pos) {
+    long index = __double2ll_rd(pos / d_cell_size);  // Efficient floor operation
+    return (index + d_n_cells_dim) % d_n_cells_dim;  // Ensure positive wrapping
 }
 
 /**
@@ -436,7 +397,9 @@ inline __device__ long getPBCCellIndex(const double pos) {
  * @param sorted_cell_index pointer to the array of cell indices of the particles which will eventually be sorted in ascending cell id order
  * @param particle_index pointer to the array of particle indices of the particles
  */
-__global__ void kernelGetCellIndexForParticle(const double* positions, long* cell_index, long* sorted_cell_index, long* particle_index);
+__global__ void kernelGetCellIndexForParticle(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    long* __restrict__ cell_index, long* __restrict__ sorted_cell_index, long* __restrict__ particle_index);
 
 /**
  * @brief Get the first particle index for each cell
@@ -447,24 +410,23 @@ __global__ void kernelGetCellIndexForParticle(const double* positions, long* cel
 __global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start, const long width_offset, const long width);
 
 
-/**
- * @brief Get the range of particle indices for a cell
- * 
- * @param cell_id id of the cell
- * @param cell_start pointer to the array of first particle indices for each cell
- * @param start start index of the cell
- * @param end end index of the cell
- */
-inline __device__ void getCellIndexRange(const long cell_id, const long* cell_start, long& start, long& end) {
-	start = cell_start[cell_id];
-	long next_id = cell_start[cell_id + 1];
-	while (cell_start[next_id] == -1) {
-		next_id++;
-	}
-	end = next_id;
-}
+__global__ void kernelUpdateCellNeighborList(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    const double cutoff, const long* __restrict__ cell_index, 
+    const long* __restrict__ particle_index, const long* __restrict__ cell_start, double* __restrict__ cell_displacements_sq);
 
-
-__global__ void kernelUpdateCellNeighborList(const double* positions, const double cutoff, const long* cell_index, const long* particle_index, const long* cell_start);
+__global__ void kernelReorderParticleData(
+	const long* __restrict__ particle_index,
+	const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+	const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+	const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+	const double* __restrict__ masses, const double* __restrict__ radii,
+	double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
+	double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
+	double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
+	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
+	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+	double* __restrict__ cell_displacements_sq);
 
 #endif /* KERNELS_CUH_ */

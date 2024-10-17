@@ -30,15 +30,16 @@ struct BidisperseDiskConfig : public BidisperseParticleConfig {
      * @param neighbor_cutoff_multiplier Particles within this multiple of the maximum particle diameter will be considered neighbors.
      * @param neighbor_displacement_multiplier If the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated.
      * @param cell_size_multiplier The multiplier for the cell size.
+     * @param cell_displacement_multiplier The multiplier for the cell displacement.
      * @param neighbor_list_update_method The method for updating the neighbor list.
      * @param dim_block The number of threads in the block.
      * @param size_ratio The ratio of the sizes of the two particle types.
      * @param count_ratio The ratio of the counts of the two particle types.
      */
     BidisperseDiskConfig(long seed, long n_particles, double mass, double e_c, double n_c,
-                            double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, std::string neighbor_list_update_method, long dim_block,
+                            double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, double cell_displacement_multiplier, std::string neighbor_list_update_method, long dim_block,
                             double size_ratio, double count_ratio)
-        : BidisperseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, neighbor_list_update_method, dim_block, size_ratio, count_ratio) {
+        : BidisperseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, neighbor_list_update_method, dim_block, size_ratio, count_ratio) {
             type_name = "Disk";
         }
 };

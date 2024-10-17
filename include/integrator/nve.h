@@ -65,8 +65,7 @@ public:
     /**
      * @brief Advance the state of the system by one time step using the Velocity-Verlet algorithm.
      */
-    void step() override {}
-    void step(long i);
+    void step() override;
 };
 
 #endif /* NVE_H */

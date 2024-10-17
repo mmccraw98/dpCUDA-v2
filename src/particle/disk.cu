@@ -95,10 +95,12 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     this->setNeighborListUpdateMethod(config.neighbor_list_update_method);
     this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
     if (config.neighbor_list_update_method == "cell") {
-        this->setCellSize(config.cell_size_multiplier);
+        this->setCellSize(config.cell_size_multiplier, config.cell_displacement_multiplier);
         this->initializeCellList();
     }
+    std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;
     this->initializeNeighborList();
+    std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
 }
 
 
@@ -116,9 +118,9 @@ double Disk::getOverlapFraction() const {
 }
 
 void Disk::calculateForces() {
-    kernelCalcDiskForces<<<dim_grid, dim_block>>>(d_positions_ptr, d_radii_ptr, d_forces_ptr, d_potential_energy_ptr);
+    kernelCalcDiskForces<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_radii_ptr, d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
 }
 
 void Disk::calculateKineticEnergy() {
-    kernelCalculateTranslationalKineticEnergy<<<dim_grid, dim_block>>>(d_velocities_ptr, d_masses_ptr, d_kinetic_energy_ptr);
+    kernelCalculateTranslationalKineticEnergy<<<dim_grid, dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
 }

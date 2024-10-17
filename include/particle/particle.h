@@ -28,6 +28,7 @@ public:
 
     // Function pointer for the neighbor list update method
     void (Particle::*updateNeighborListPtr)();
+    void (Particle::*checkForNeighborUpdatePtr)();
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
@@ -35,13 +36,34 @@ public:
     std::vector<std::string> pre_req_calculations = {"KE", "T"};
 
     // Device vectors for particle data
-    thrust::device_vector<double> d_positions;  // particle positions
-    thrust::device_vector<double> d_last_positions;  // particle positions at the last neighbor list update
-    thrust::device_vector<double> d_displacements;  // displacement between current and last positions
-    thrust::device_vector<double> d_velocities;  // particle velocities
-    thrust::device_vector<double> d_forces;  // forces on the particles
+    thrust::device_vector<double> d_positions_x;  // particle positions
+    thrust::device_vector<double> d_positions_y;  // particle positions
+    thrust::device_vector<double> d_last_neigh_positions_x;  // particle positions at the last neighbor list update
+    thrust::device_vector<double> d_last_neigh_positions_y;  // particle positions at the last neighbor list update
+    thrust::device_vector<double> d_last_cell_positions_x;  // particle positions at the last cell list update
+    thrust::device_vector<double> d_last_cell_positions_y;  // particle positions at the last cell list update
+
+    thrust::device_vector<double> d_neigh_displacements_sq;  // squared displacement between current and last positions for neighbor list update
+    thrust::device_vector<double> d_cell_displacements_sq;  // squared displacement between current and last positions for cell list update
+
+    thrust::device_vector<double> d_velocities_x;  // particle velocities
+    thrust::device_vector<double> d_velocities_y;  // particle velocities
+    thrust::device_vector<double> d_forces_x;  // forces on the particles
+    thrust::device_vector<double> d_forces_y;  // forces on the particles
+
+    thrust::device_vector<double> d_temp_positions_x;  // temporary positions for the particles
+    thrust::device_vector<double> d_temp_positions_y;  // temporary positions for the particles
+    thrust::device_vector<double> d_temp_forces_x;  // temporary forces for the particles
+    thrust::device_vector<double> d_temp_forces_y;  // temporary forces for the particles
+    thrust::device_vector<double> d_temp_velocities_x;  // temporary velocities for the particles
+    thrust::device_vector<double> d_temp_velocities_y;  // temporary velocities for the particles
+
+
     thrust::device_vector<double> d_radii;  // particle radii
     thrust::device_vector<double> d_masses;  // particle masses
+    thrust::device_vector<double> d_temp_masses;  // temporary masses for the particles
+    thrust::device_vector<double> d_temp_radii;  // temporary radii for the particles
+
     thrust::device_vector<double> d_potential_energy;  // potential energy of the particles
     thrust::device_vector<double> d_kinetic_energy;  // kinetic energy of the particles
     thrust::device_vector<long> d_neighbor_list;  // neighbor list for the particles
@@ -52,11 +74,19 @@ public:
     thrust::device_vector<long> d_cell_start;  // stores the starting particle index for each cell
 
     // Pointers to the device arrays
-    double* d_positions_ptr;
-    double* d_last_positions_ptr;
-    double* d_displacements_ptr;
-    double* d_velocities_ptr;
-    double* d_forces_ptr;
+    double* d_positions_x_ptr;
+    double* d_positions_y_ptr;
+    double* d_last_neigh_positions_x_ptr;
+    double* d_last_neigh_positions_y_ptr;
+    double* d_last_cell_positions_x_ptr;
+    double* d_last_cell_positions_y_ptr;
+    double* d_neigh_displacements_sq_ptr;
+    double* d_cell_displacements_sq_ptr;
+    double* d_velocities_x_ptr;
+    double* d_velocities_y_ptr;
+    double* d_forces_x_ptr;
+    double* d_forces_y_ptr;
+
     double* d_radii_ptr;
     double* d_masses_ptr;
     double* d_potential_energy_ptr;
@@ -65,12 +95,21 @@ public:
     long* d_sorted_cell_index_ptr;
     long* d_particle_index_ptr;
     long* d_cell_start_ptr;
+    double* d_temp_positions_x_ptr;
+    double* d_temp_positions_y_ptr;
+    double* d_temp_forces_x_ptr;
+    double* d_temp_forces_y_ptr;
+    double* d_temp_velocities_x_ptr;
+    double* d_temp_velocities_y_ptr;
+    double* d_temp_masses_ptr;
+    double* d_temp_radii_ptr;
 
     // Simulation parameters
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
     double n_c = -1, n_a = -1, n_b = -1, n_l = -1;  // exponents for the energy terms
     double neighbor_cutoff = -1;  // cutoff distance for the neighbor list
     double neighbor_displacement = -1;  // displacement threshold after which the neighbor list is updated
+    double cell_displacement = -1;  // displacement threshold after which the cell list is updated
     long max_neighbors = -1;  // maximum number of neighbors
     long max_neighbors_allocated = -1;  // maximum number of neighbors allocated for each particle
     long n_particles = -1;  // total number of particles
@@ -454,16 +493,33 @@ public:
     virtual void updateVelocities(double dt);
 
     /**
-     * @brief Get the maximum displacement of the particles since the last neighbor list update.
+     * @brief Get the maximum squared displacement of the particles since the last neighbor list update.
      * 
-     * @return The maximum displacement.
+     * @return The maximum squared displacement.
      */
-    virtual double getMaxDisplacement();
+    virtual double getMaxSquaredNeighborDisplacement();
 
     /**
-     * @brief Check if the neighbor list of the particles needs to be updated (if maximum displacement is greater than the neighbor cutoff).
+     * @brief Get the maximum squared displacement of the particles since the last cell list update.
+     * 
+     * @return The maximum squared displacement.
+     */
+    virtual double getMaxSquaredCellDisplacement();
+
+    /**
+     * @brief Check if the neighbor list of the particles needs to be updated (if maximum squared displacement is greater than the neighbor cutoff squared).
+     */
+    virtual void checkNeighbors();
+
+    /**
+     * @brief Check if the neighbor list of the particles needs to be updated using the Verlet criterion.
      */
     virtual void checkForNeighborUpdate();
+
+    /**
+     * @brief Check if the cell list of the particles needs to be updated using the Verlet criterion.
+     */
+    virtual void checkForCellUpdate();
 
     /**
      * @brief Calculate the neighbor list for the particles.
@@ -491,6 +547,11 @@ public:
     virtual void updateCellList();
 
     /**
+     * @brief Reorder the particle data in global memory to match the cell list.
+     */
+    virtual void reorderParticleData();
+
+    /**
      * @brief Update the neighbor list using the cell list.
      */
     virtual void updateCellNeighborList();
@@ -513,8 +574,9 @@ public:
      * @brief Set the cell size for the cell list.
      * 
      * @param cell_size_multiplier The multiplier for the cell size.
+     * @param cell_displacement_multiplier The multiplier for the cell displacement.
      */
-    virtual void setCellSize(double cell_size_multiplier);
+    virtual void setCellSize(double cell_size_multiplier, double cell_displacement_multiplier);
 
     /**
      * @brief Zero out the force and potential energy arrays.

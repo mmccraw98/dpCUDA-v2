@@ -21,6 +21,16 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+#define CUDA_CHECK(call)                                                    \
+    {                                                                       \
+        cudaError_t err = call;                                             \
+        if (err != cudaSuccess) {                                           \
+            std::cerr << "CUDA error in " << __FILE__ << " at line "        \
+                      << __LINE__ << ": " << cudaGetErrorString(err) << "\n"; \
+            std::exit(EXIT_FAILURE);                                        \
+        }                                                                   \
+    }
+
 Particle::Particle() {
 }
 
@@ -38,11 +48,18 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
 
 std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     std::unordered_map<std::string, std::any> array_map;
-    array_map["d_positions"]          = &d_positions;
-    array_map["d_last_positions"]     = &d_last_positions;
-    array_map["d_displacements"]      = &d_displacements;
-    array_map["d_velocities"]         = &d_velocities;
-    array_map["d_forces"]             = &d_forces;
+    array_map["d_positions_x"]          = &d_positions_x;
+    array_map["d_positions_y"]          = &d_positions_y;
+    array_map["d_last_neigh_positions_x"]     = &d_last_neigh_positions_x;
+    array_map["d_last_neigh_positions_y"]     = &d_last_neigh_positions_y;
+    array_map["d_last_cell_positions_x"]     = &d_last_cell_positions_x;
+    array_map["d_last_cell_positions_y"]     = &d_last_cell_positions_y;
+    array_map["d_neigh_displacements_sq"]      = &d_neigh_displacements_sq;
+    array_map["d_cell_displacements_sq"]      = &d_cell_displacements_sq;
+    array_map["d_velocities_x"]         = &d_velocities_x;
+    array_map["d_velocities_y"]         = &d_velocities_y;
+    array_map["d_forces_x"]             = &d_forces_x;
+    array_map["d_forces_y"]             = &d_forces_y;
     array_map["d_radii"]              = &d_radii;
     array_map["d_masses"]             = &d_masses;
     array_map["d_potential_energy"]   = &d_potential_energy;
@@ -58,11 +75,18 @@ std::unordered_map<std::string, std::any> Particle::getArrayMap() {
 
 std::string Particle::getArrayType(const std::string& array_name) {
     std::unordered_map<std::string, std::string> array_type_map;
-    array_type_map["d_positions"]          = "double";
-    array_type_map["d_last_positions"]     = "double";
-    array_type_map["d_displacements"]      = "double";
-    array_type_map["d_velocities"]         = "double";
-    array_type_map["d_forces"]             = "double";
+    array_type_map["d_positions_x"]          = "double";
+    array_type_map["d_positions_y"]          = "double";
+    array_type_map["d_last_neigh_positions_x"]     = "double";
+    array_type_map["d_last_neigh_positions_y"]     = "double";
+    array_type_map["d_last_cell_positions_x"]     = "double";
+    array_type_map["d_last_cell_positions_y"]     = "double";
+    array_type_map["d_neigh_displacements_sq"]      = "double";
+    array_type_map["d_cell_displacements_sq"]      = "double";
+    array_type_map["d_velocities_x"]         = "double";
+    array_type_map["d_velocities_y"]         = "double";
+    array_type_map["d_forces_x"]             = "double";
+    array_type_map["d_forces_y"]             = "double";
     array_type_map["d_radii"]              = "double";
     array_type_map["d_masses"]             = "double";
     array_type_map["d_potential_energy"]   = "double";
@@ -85,9 +109,11 @@ void Particle::setNeighborListUpdateMethod(std::string method_name) {
     if (method_name == "cell") {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to cell" << std::endl;
         this->updateNeighborListPtr = &Particle::updateCellNeighborList;
+        this->checkForNeighborUpdatePtr = &Particle::checkForCellUpdate;
     } else if (method_name == "verlet") {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to verlet" << std::endl;
         this->updateNeighborListPtr = &Particle::updateNeighborList;
+        this->checkForNeighborUpdatePtr = &Particle::checkForNeighborUpdate;
     } else if (method_name == "none") {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to none" << std::endl;
         throw std::invalid_argument("Particle::setNeighborListUpdateMethod: 'none' neighbor list update method not implemented: " + method_name);
@@ -180,27 +206,57 @@ void Particle::syncKernelDimensions() {
 
 void Particle::initDynamicVariables() {
     // Resize the device vectors
-    d_positions.resize(n_particles * N_DIM);
-    d_last_positions.resize(n_particles * N_DIM);
-    d_displacements.resize(n_particles * N_DIM);
-    d_velocities.resize(n_particles * N_DIM);
-    d_forces.resize(n_particles * N_DIM);
+    d_positions_x.resize(n_particles);
+    d_positions_y.resize(n_particles);
+    d_last_neigh_positions_x.resize(n_particles);
+    d_last_neigh_positions_y.resize(n_particles);
+    d_last_cell_positions_x.resize(n_particles);
+    d_last_cell_positions_y.resize(n_particles);
+    d_neigh_displacements_sq.resize(n_particles);
+    d_cell_displacements_sq.resize(n_particles);
+    d_velocities_x.resize(n_particles);
+    d_velocities_y.resize(n_particles);
+    d_forces_x.resize(n_particles);
+    d_forces_y.resize(n_particles);
     d_radii.resize(n_particles);
     d_masses.resize(n_particles);
     d_potential_energy.resize(n_particles);
     d_kinetic_energy.resize(n_particles);
     d_neighbor_list.resize(n_particles);
     d_num_neighbors.resize(n_particles);
+    d_temp_positions_x.resize(n_particles);
+    d_temp_positions_y.resize(n_particles);
+    d_temp_forces_x.resize(n_particles);
+    d_temp_forces_y.resize(n_particles);
+    d_temp_velocities_x.resize(n_particles);
+    d_temp_velocities_y.resize(n_particles);
+    d_temp_masses.resize(n_particles);
+    d_temp_radii.resize(n_particles);
 
-    thrust::fill(d_positions.begin(), d_positions.end(), 0.0);
-    thrust::fill(d_last_positions.begin(), d_last_positions.end(), 0.0);
-    thrust::fill(d_displacements.begin(), d_displacements.end(), 0.0);
-    thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
-    thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
+    thrust::fill(d_positions_x.begin(), d_positions_x.end(), 0.0);
+    thrust::fill(d_positions_y.begin(), d_positions_y.end(), 0.0);
+    thrust::fill(d_last_neigh_positions_x.begin(), d_last_neigh_positions_x.end(), 0.0);
+    thrust::fill(d_last_neigh_positions_y.begin(), d_last_neigh_positions_y.end(), 0.0);
+    thrust::fill(d_last_cell_positions_x.begin(), d_last_cell_positions_x.end(), 0.0);
+    thrust::fill(d_last_cell_positions_y.begin(), d_last_cell_positions_y.end(), 0.0);
+    thrust::fill(d_neigh_displacements_sq.begin(), d_neigh_displacements_sq.end(), 0.0);
+    thrust::fill(d_cell_displacements_sq.begin(), d_cell_displacements_sq.end(), 0.0);
+    thrust::fill(d_velocities_x.begin(), d_velocities_x.end(), 0.0);
+    thrust::fill(d_velocities_y.begin(), d_velocities_y.end(), 0.0);
+    thrust::fill(d_forces_x.begin(), d_forces_x.end(), 0.0);
+    thrust::fill(d_forces_y.begin(), d_forces_y.end(), 0.0);
     thrust::fill(d_radii.begin(), d_radii.end(), 0.0);
     thrust::fill(d_masses.begin(), d_masses.end(), 0.0);
     thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
     thrust::fill(d_kinetic_energy.begin(), d_kinetic_energy.end(), 0.0);
+    thrust::fill(d_temp_positions_x.begin(), d_temp_positions_x.end(), 0.0);
+    thrust::fill(d_temp_positions_y.begin(), d_temp_positions_y.end(), 0.0);
+    thrust::fill(d_temp_forces_x.begin(), d_temp_forces_x.end(), 0.0);
+    thrust::fill(d_temp_forces_y.begin(), d_temp_forces_y.end(), 0.0);
+    thrust::fill(d_temp_velocities_x.begin(), d_temp_velocities_x.end(), 0.0);
+    thrust::fill(d_temp_velocities_y.begin(), d_temp_velocities_y.end(), 0.0);
+    thrust::fill(d_temp_masses.begin(), d_temp_masses.end(), 0.0);
+    thrust::fill(d_temp_radii.begin(), d_temp_radii.end(), 0.0);
 
     // max_neighbors = 0;
     // max_neighbors_allocated = 0;
@@ -209,24 +265,46 @@ void Particle::initDynamicVariables() {
 
 
     // Cast the raw pointers
-    d_positions_ptr = thrust::raw_pointer_cast(&d_positions[0]);
-    d_last_positions_ptr = thrust::raw_pointer_cast(&d_last_positions[0]);
-    d_displacements_ptr = thrust::raw_pointer_cast(&d_displacements[0]);
-    d_velocities_ptr = thrust::raw_pointer_cast(&d_velocities[0]);
-    d_forces_ptr = thrust::raw_pointer_cast(&d_forces[0]);
+    d_positions_x_ptr = thrust::raw_pointer_cast(&d_positions_x[0]);
+    d_positions_y_ptr = thrust::raw_pointer_cast(&d_positions_y[0]);
+    d_last_neigh_positions_x_ptr = thrust::raw_pointer_cast(&d_last_neigh_positions_x[0]);
+    d_last_neigh_positions_y_ptr = thrust::raw_pointer_cast(&d_last_neigh_positions_y[0]);
+    d_last_cell_positions_x_ptr = thrust::raw_pointer_cast(&d_last_cell_positions_x[0]);
+    d_last_cell_positions_y_ptr = thrust::raw_pointer_cast(&d_last_cell_positions_y[0]);
+    d_neigh_displacements_sq_ptr = thrust::raw_pointer_cast(&d_neigh_displacements_sq[0]);
+    d_cell_displacements_sq_ptr = thrust::raw_pointer_cast(&d_cell_displacements_sq[0]);
+    d_velocities_x_ptr = thrust::raw_pointer_cast(&d_velocities_x[0]);
+    d_velocities_y_ptr = thrust::raw_pointer_cast(&d_velocities_y[0]);
+    d_forces_x_ptr = thrust::raw_pointer_cast(&d_forces_x[0]);
+    d_forces_y_ptr = thrust::raw_pointer_cast(&d_forces_y[0]);
     d_radii_ptr = thrust::raw_pointer_cast(&d_radii[0]);
     d_masses_ptr = thrust::raw_pointer_cast(&d_masses[0]);
     d_potential_energy_ptr = thrust::raw_pointer_cast(&d_potential_energy[0]);
     d_kinetic_energy_ptr = thrust::raw_pointer_cast(&d_kinetic_energy[0]);
+    d_temp_positions_x_ptr = thrust::raw_pointer_cast(&d_temp_positions_x[0]);
+    d_temp_positions_y_ptr = thrust::raw_pointer_cast(&d_temp_positions_y[0]);
+    d_temp_forces_x_ptr = thrust::raw_pointer_cast(&d_temp_forces_x[0]);
+    d_temp_forces_y_ptr = thrust::raw_pointer_cast(&d_temp_forces_y[0]);
+    d_temp_velocities_x_ptr = thrust::raw_pointer_cast(&d_temp_velocities_x[0]);
+    d_temp_velocities_y_ptr = thrust::raw_pointer_cast(&d_temp_velocities_y[0]);
+    d_temp_masses_ptr = thrust::raw_pointer_cast(&d_temp_masses[0]);
+    d_temp_radii_ptr = thrust::raw_pointer_cast(&d_temp_radii[0]);
 }
 
 void Particle::clearDynamicVariables() {
     // Clear the device vectors
-    d_positions.clear();
-    d_last_positions.clear();
-    d_displacements.clear();
-    d_velocities.clear();
-    d_forces.clear();
+    d_positions_x.clear();
+    d_positions_y.clear();
+    d_last_neigh_positions_x.clear();
+    d_last_neigh_positions_y.clear();
+    d_neigh_displacements_sq.clear();
+    d_cell_displacements_sq.clear();
+    d_last_cell_positions_x.clear();
+    d_last_cell_positions_y.clear();
+    d_velocities_x.clear();
+    d_velocities_y.clear();
+    d_forces_x.clear();
+    d_forces_y.clear();
     d_radii.clear();
     d_masses.clear();
     d_potential_energy.clear();
@@ -237,13 +315,28 @@ void Particle::clearDynamicVariables() {
     d_sorted_cell_index.clear();
     d_particle_index.clear();
     d_cell_start.clear();
+    d_temp_positions_x.clear();
+    d_temp_positions_y.clear();
+    d_temp_forces_x.clear();
+    d_temp_forces_y.clear();
+    d_temp_velocities_x.clear();
+    d_temp_velocities_y.clear();
+    d_temp_masses.clear();
+    d_temp_radii.clear();
 
     // Clear the pointers
-    d_positions_ptr = nullptr;
-    d_last_positions_ptr = nullptr;
-    d_displacements_ptr = nullptr;
-    d_velocities_ptr = nullptr;
-    d_forces_ptr = nullptr;
+    d_positions_x_ptr = nullptr;
+    d_positions_y_ptr = nullptr;
+    d_last_neigh_positions_x_ptr = nullptr;
+    d_last_neigh_positions_y_ptr = nullptr;
+    d_last_cell_positions_x_ptr = nullptr;
+    d_last_cell_positions_y_ptr = nullptr;
+    d_neigh_displacements_sq_ptr = nullptr;
+    d_cell_displacements_sq_ptr = nullptr;
+    d_velocities_x_ptr = nullptr;
+    d_velocities_y_ptr = nullptr;
+    d_forces_x_ptr = nullptr;
+    d_forces_y_ptr = nullptr;
     d_radii_ptr = nullptr;
     d_masses_ptr = nullptr;
     d_potential_energy_ptr = nullptr;
@@ -252,6 +345,14 @@ void Particle::clearDynamicVariables() {
     d_sorted_cell_index_ptr = nullptr;
     d_particle_index_ptr = nullptr;
     d_cell_start_ptr = nullptr;
+    d_temp_positions_x_ptr = nullptr;
+    d_temp_positions_y_ptr = nullptr;
+    d_temp_forces_x_ptr = nullptr;
+    d_temp_forces_y_ptr = nullptr;
+    d_temp_velocities_x_ptr = nullptr;
+    d_temp_velocities_y_ptr = nullptr;
+    d_temp_masses_ptr = nullptr;
+    d_temp_radii_ptr = nullptr;
 }
 
 void Particle::setBoxSize(const thrust::host_vector<double>& box_size) {
@@ -429,7 +530,8 @@ void Particle::setRandomNormal(thrust::device_vector<double>& values, double mea
 
 void Particle::setRandomPositions() {
     thrust::host_vector<double> box_size = getBoxSize();
-    setRandomUniform(d_positions, 0.0, box_size[0]);
+    setRandomUniform(d_positions_x, 0.0, box_size[0]);
+    setRandomUniform(d_positions_y, 0.0, box_size[1]);
 }
 
 void Particle::removeMeanVelocities() {
@@ -440,11 +542,14 @@ void Particle::removeMeanVelocities() {
 
 void Particle::scaleVelocitiesToTemperature(double temperature) {
     double current_temp = calculateTemperature();
-    thrust::transform(d_velocities.begin(), d_velocities.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities.begin(), thrust::multiplies<double>());
+    // TODO: this should be a single kernel
+    thrust::transform(d_velocities_x.begin(), d_velocities_x.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities_x.begin(), thrust::multiplies<double>());
+    thrust::transform(d_velocities_y.begin(), d_velocities_y.end(), thrust::make_constant_iterator(std::sqrt(temperature / current_temp)), d_velocities_y.begin(), thrust::multiplies<double>());
 }
 
 void Particle::setRandomVelocities(double temperature) {
-    setRandomNormal(d_velocities, 0.0, std::sqrt(temperature));
+    setRandomNormal(d_velocities_x, 0.0, std::sqrt(temperature));
+    setRandomNormal(d_velocities_y, 0.0, std::sqrt(temperature));
     removeMeanVelocities();
     scaleVelocitiesToTemperature(temperature);
     // thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
@@ -517,24 +622,33 @@ double Particle::totalEnergy() const {
 }
 
 void Particle::scalePositions(double scale_factor) {
-    thrust::transform(d_positions.begin(), d_positions.end(), thrust::make_constant_iterator(scale_factor), d_positions.begin(), thrust::multiplies<double>());
+    thrust::transform(d_positions_x.begin(), d_positions_x.end(), thrust::make_constant_iterator(scale_factor), d_positions_x.begin(), thrust::multiplies<double>());
+    thrust::transform(d_positions_y.begin(), d_positions_y.end(), thrust::make_constant_iterator(scale_factor), d_positions_y.begin(), thrust::multiplies<double>());
 }
 
 void Particle::updatePositions(double dt) {
-    kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_ptr, d_last_positions_ptr, d_displacements_ptr, d_velocities_ptr, dt);
+    if (isnan(d_positions_x[0])) {
+        std::cout << "Particle::updatePositions: NaN in positions for particle 0: pos_x=" << d_positions_x[0] << ", pos_y=" << d_positions_y[0] << std::endl;
+        exit(EXIT_SUCCESS);
+    }
+    kernelUpdatePositions<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_neigh_positions_x_ptr, d_last_neigh_positions_y_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, d_neigh_displacements_sq_ptr, d_cell_displacements_sq_ptr, d_velocities_x_ptr, d_velocities_y_ptr, dt);
 }
 
 void Particle::updateVelocities(double dt) {
-    kernelUpdateVelocities<<<dim_grid, dim_block>>>(d_velocities_ptr, d_forces_ptr, d_masses_ptr, dt);
+    kernelUpdateVelocities<<<dim_grid, dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_forces_x_ptr, d_forces_y_ptr, d_masses_ptr, dt);
 }
 
-double Particle::getMaxDisplacement() {
-    return thrust::reduce(d_displacements.begin(), d_displacements.end(), 0.0, thrust::maximum<double>());
+double Particle::getMaxSquaredNeighborDisplacement() {
+    return thrust::reduce(d_neigh_displacements_sq.begin(), d_neigh_displacements_sq.end(), 0.0, thrust::maximum<double>());
+}
+
+double Particle::getMaxSquaredCellDisplacement() {
+    return thrust::reduce(d_cell_displacements_sq.begin(), d_cell_displacements_sq.end(), 0.0, thrust::maximum<double>());
 }
 
 void Particle::updateNeighborList() {
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-    kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
+    kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_neigh_positions_x_ptr, d_last_neigh_positions_y_ptr, d_neigh_displacements_sq_ptr, neighbor_cutoff);
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
@@ -542,18 +656,34 @@ void Particle::updateNeighborList() {
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
-        kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff);
+        kernelUpdateNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_neigh_positions_x_ptr, d_last_neigh_positions_y_ptr, d_neigh_displacements_sq_ptr, neighbor_cutoff);
     }
+}
+
+void Particle::checkNeighbors() {
+    // std::cout << "Particle::checkNeighbors: Checking neighbors" << std::endl;
+    (this->*checkForNeighborUpdatePtr)();
 }
 
 void Particle::checkForNeighborUpdate() {
     double tolerance = 3.0;
-    double max_displacement = getMaxDisplacement();
-    if (tolerance * max_displacement > neighbor_displacement) {
-        (this->*updateNeighborListPtr)();
-        thrust::copy(d_positions.begin(), d_positions.end(), d_last_positions.begin());
-        thrust::fill(d_displacements.begin(), d_displacements.end(), 0.0);
+    double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
+    // std::cout << "Particle::checkForNeighborUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement << std::endl;
+    if (tolerance * max_squared_neighbor_displacement > neighbor_displacement) {
+        // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
+        updateNeighborList();
     }
+}
+
+void Particle::checkForCellUpdate() {
+    double tolerance = 3.0;
+    double max_squared_cell_displacement = getMaxSquaredCellDisplacement();
+    // std::cout << "Particle::checkForCellUpdate: Max squared cell displacement: " << tolerance * max_squared_cell_displacement << " vs " << cell_displacement << std::endl;
+    if (tolerance * max_squared_cell_displacement > cell_displacement) {
+        // std::cout << "Particle::checkForCellUpdate: Updating cell list" << std::endl;
+        updateCellList();
+    }
+    checkForNeighborUpdate();
 }
 
 void Particle::initializeNeighborList() {
@@ -562,7 +692,7 @@ void Particle::initializeNeighborList() {
     thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0L);
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     syncNeighborList();
-    (this->*updateNeighborListPtr)();
+    updateNeighborList();
 }
 
 void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
@@ -585,7 +715,7 @@ void Particle::printNeighborList() {
     }
 }
 
-void Particle::setCellSize(double cell_size_multiplier) {
+void Particle::setCellSize(double cell_size_multiplier, double cell_displacement_multiplier) {
     long min_num_cells_dim = 4;  // if there are fewer than 4 cells in one axis, the cell list probably wont work
     double trial_cell_size = cell_size_multiplier * getDiameter("max");
     thrust::host_vector<double> box_size = getBoxSize();
@@ -595,7 +725,8 @@ void Particle::setCellSize(double cell_size_multiplier) {
         throw std::runtime_error("Particle::setCellSize: fewer than " + std::to_string(min_num_cells_dim) + " cells in one dimension");
     }
     cell_size = box_size[0] / n_cells_dim;
-    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << std::endl;
+    cell_displacement = cell_displacement_multiplier * cell_size;
+    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement << std::endl;
     syncCellList();
 }
 
@@ -605,6 +736,7 @@ void Particle::initializeCellList() {
     d_particle_index.resize(n_particles);
     d_cell_start.resize(n_cells + 1);
 
+    // TODO: this should be a single kernel
     thrust::fill(d_cell_index.begin(), d_cell_index.end(), -1L);
     thrust::fill(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), -1L);
     thrust::fill(d_particle_index.begin(), d_particle_index.end(), -1L);
@@ -614,6 +746,8 @@ void Particle::initializeCellList() {
     d_sorted_cell_index_ptr = thrust::raw_pointer_cast(d_sorted_cell_index.data());
     d_particle_index_ptr = thrust::raw_pointer_cast(d_particle_index.data());
     d_cell_start_ptr = thrust::raw_pointer_cast(d_cell_start.data());
+
+    updateCellList();
 }
 
 void Particle::syncCellList() {
@@ -634,21 +768,51 @@ void Particle::syncCellList() {
     }
 }
 
+void Particle::reorderParticleData() {
+    // std::cout << "\tParticle::reorderParticleData: Reordering particle data" << std::endl;
+    // do the initial sorting with thrust for convenience
+    thrust::sort_by_key(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), d_particle_index.begin());
+    // reorder the data by copying into temporary arrays
+    // dont bother reordering the displacements, last positions, or energies
+    // now print something to see if the ptrs are correct
+    kernelReorderParticleData<<<dim_grid, dim_block>>>(d_particle_index_ptr, d_positions_x_ptr, d_positions_y_ptr, d_forces_x_ptr, d_forces_y_ptr, d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_radii_ptr, d_temp_positions_x_ptr, d_temp_positions_y_ptr, d_temp_forces_x_ptr, d_temp_forces_y_ptr, d_temp_velocities_x_ptr, d_temp_velocities_y_ptr, d_temp_masses_ptr, d_temp_radii_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, d_cell_displacements_sq_ptr);
+
+    // swap the pointers
+    thrust::swap(d_positions_x_ptr, d_temp_positions_x_ptr);
+    thrust::swap(d_positions_y_ptr, d_temp_positions_y_ptr);
+    thrust::swap(d_forces_x_ptr, d_temp_forces_x_ptr);
+    thrust::swap(d_forces_y_ptr, d_temp_forces_y_ptr);
+    thrust::swap(d_velocities_x_ptr, d_temp_velocities_x_ptr);
+    thrust::swap(d_velocities_y_ptr, d_temp_velocities_y_ptr);
+    thrust::swap(d_masses_ptr, d_temp_masses_ptr);
+    thrust::swap(d_radii_ptr, d_temp_radii_ptr);
+
+    assert(d_positions_x_ptr != d_temp_positions_x_ptr);
+    assert(d_positions_y_ptr != d_temp_positions_y_ptr);
+    assert(d_forces_x_ptr != d_temp_forces_x_ptr);
+    assert(d_forces_y_ptr != d_temp_forces_y_ptr);
+    assert(d_velocities_x_ptr != d_temp_velocities_x_ptr);
+    assert(d_velocities_y_ptr != d_temp_velocities_y_ptr);
+    assert(d_masses_ptr != d_temp_masses_ptr);
+    assert(d_radii_ptr != d_temp_radii_ptr);
+}
+
 void Particle::updateCellList() {
     d_cell_start[n_cells] = n_particles;
-    kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_ptr, d_cell_index_ptr, d_sorted_cell_index_ptr, d_particle_index_ptr);
-    thrust::sort_by_key(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), d_particle_index.begin());
+    kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_cell_index_ptr, d_sorted_cell_index_ptr, d_particle_index_ptr);
+
+    reorderParticleData();
+
     // TODO: this is a kernel over cells - could probably be parallelized better
     long width_offset = 2;
     long width = n_particles / n_cells;
     kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_sorted_cell_index_ptr, d_cell_start_ptr, width_offset, width);
 }
 
+// TODO: look into better ways to structure the grid and block sizes
 void Particle::updateCellNeighborList() {
-    updateCellList();
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-    // TODO: this is the last thing that needs to be revised, it takes about 11% of the total GPU time
-    kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
+    kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_cell_displacements_sq_ptr);
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
@@ -656,13 +820,13 @@ void Particle::updateCellNeighborList() {
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
-        kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
+        kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_cell_displacements_sq_ptr);
     }
 }
 
+// TODO: this should be a single kernel
 void Particle::zeroForceAndPotentialEnergy() {
-    thrust::fill(d_forces.begin(), d_forces.end(), 0.0);
-    thrust::fill(d_potential_energy.begin(), d_potential_energy.end(), 0.0);
+    kernelZeroForceAndPotentialEnergy<<<dim_grid, dim_block>>>(d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
 }
 
 double Particle::calculateTemperature() {

@@ -71,17 +71,29 @@ int main() {
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double cell_size_multiplier = 5.0;  // cells will be roughly this multiple of the maximum particle diameter
-    BidisperseDiskConfig config(0, 1024 * 8, 1.0, 1.0, 2.0, 0.5, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "cell", 256, 1.4, 0.5);
+    double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
+    BidisperseDiskConfig config(0, 256, 1.0, 1.0, 2.0, 0.2, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "verlet", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: check if switching to SoA gives a performance boost
 
+    // TODO: move the cuda check to functors
+
+    // TODO: reorganize the particle code
+
     // TODO: intelligently set the cell sizing based on particle diameter and expected cell occupancy (density is global, so can only specify the number of particles per cell)
+    // TODO: make the number of cells a power of 2 - why is this important?  ask chatgpt
 
     // TODO: fix remove mean velocities
     // TODO: around or above 500k particles, there is an out of bounds error somewhere - probably the array needs to laid out differently
     // TODO: add unit tests and integration tests (nve energy conservation etc.)
 
+    // TODO: improve particle configs - shouldnt have to replicate all the values for each particle
+
+    // TODO: improve the io and orchestration stuff
+
+    // TODO: add high performance animation support in dptools
+    
     particle->setRandomVelocities(1e-2);
 
     // make the integrator
@@ -98,7 +110,8 @@ int main() {
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
-        config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
+        // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
+        config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
         // config_from_names_lin({"positions", "velocities", "cell_index", "sorted_cell_index", "particle_index", "cell_start", "num_neighbors", "neighbor_list"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions", "velocities"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
@@ -129,7 +142,8 @@ int main() {
     auto start = std::chrono::high_resolution_clock::now();
 
     while (step < num_steps) {
-        nve.step(step);
+        nve.step();
+        // std::cout << "Step: " << step << std::endl;
         io_manager.log(step);
         step++;
     }

@@ -639,7 +639,9 @@ void Particle::updateCellList() {
     kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_ptr, d_cell_index_ptr, d_sorted_cell_index_ptr, d_particle_index_ptr);
     thrust::sort_by_key(d_sorted_cell_index.begin(), d_sorted_cell_index.end(), d_particle_index.begin());
     // TODO: this is a kernel over cells - could probably be parallelized better
-    kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_sorted_cell_index_ptr, d_cell_start_ptr);
+    long width_offset = 2;
+    long width = n_particles / n_cells;
+    kernelGetFirstParticleIndexForCell<<<dim_grid, dim_block>>>(d_sorted_cell_index_ptr, d_cell_start_ptr, width_offset, width);
 }
 
 void Particle::updateCellNeighborList() {

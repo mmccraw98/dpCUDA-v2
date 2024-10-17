@@ -149,18 +149,73 @@ __global__ void kernelGetCellIndexForParticle(const double* positions, long* cel
     }
 }
 
-__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start) {
+__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start, const long width_offset, const long width) {
+    // this takes 10% of the gpu time
+    // long cell_id = blockIdx.x * blockDim.x + threadIdx.x;
+    // if (cell_id < d_n_cells) {
+    //     for (long particle_id = 0; particle_id < d_n_particles; particle_id++) {
+    //         if (sorted_cell_index[particle_id] == cell_id) {
+    //             cell_start[cell_id] = particle_id;
+    //             break;
+    //         }
+    //         if (sorted_cell_index[particle_id] > cell_id) {
+    //             cell_start[cell_id] = -1L;
+    //             break;
+    //         }
+    //     }
+    // }
+
+    // binary search version
     long cell_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (cell_id < d_n_cells) {
-        for (long particle_id = 0; particle_id < d_n_particles; particle_id++) {
-            if (sorted_cell_index[particle_id] == cell_id) {
-                cell_start[cell_id] = particle_id;
+        if (cell_id == 0 && sorted_cell_index[0] == cell_id) {
+            cell_start[cell_id] = 0;
+            return;
+        }
+
+        // expand left
+        long left = max(0L, (cell_id - width_offset) * width);
+        while (left > 0 && sorted_cell_index[left] > cell_id) {
+            left = max(0L, left - width);
+        }
+
+        // expand right
+        long right = min(d_n_particles - 1, (cell_id + width_offset - 1) * width);
+        while (right < d_n_particles - 1 && sorted_cell_index[right] < cell_id) {
+            right = min(d_n_particles - 1, right + width);
+        }
+
+        // binary search to find an occurance of i
+        long mid;
+        bool found = false;
+        while (left <= right) {
+            mid = (left + right) / 2;
+            if (sorted_cell_index[mid] == cell_id) {
+                found = true;
                 break;
+            } else if (sorted_cell_index[mid] < cell_id) {
+                left = mid + 1;
+            } else {
+                right = mid - 1;
             }
-            if (sorted_cell_index[particle_id] > cell_id) {
-                cell_start[cell_id] = -1L;
-                break;
+        }
+
+        if (found) {
+            // find the leftmost occurance of cell_id using another binary search
+            right = mid;
+            while (sorted_cell_index[left] == cell_id) {
+                left -= width;
             }
+
+            while (left < right) {
+                mid = (left + right) / 2;
+                if (sorted_cell_index[mid] == cell_id) {
+                    right = mid;
+                } else {
+                    left = mid + 1;
+                }
+            }
+            cell_start[cell_id] = left;
         }
     }
 }

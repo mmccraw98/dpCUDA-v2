@@ -70,8 +70,8 @@ int main() {
     
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
-    double cell_size_multiplier = 3.0;  // cells will be roughly this multiple of the maximum particle diameter
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "cell", 256, 1.4, 0.5);
+    double cell_size_multiplier = 5.0;  // cells will be roughly this multiple of the maximum particle diameter
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.5, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: fix remove mean velocities
@@ -91,12 +91,12 @@ int main() {
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        // config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
         // config_from_names_lin({"positions", "velocities", "cell_index", "sorted_cell_index", "particle_index", "cell_start", "num_neighbors", "neighbor_list"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "velocities"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names_lin({"positions", "velocities"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
     // TODO: for some reason, box size is N-d when saved.  not good!
 

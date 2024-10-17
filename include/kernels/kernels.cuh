@@ -432,7 +432,7 @@ __global__ void kernelGetCellIndexForParticle(const double* positions, long* cel
  * @param sorted_cell_index pointer to the array of cell indices of the particles sorted in ascending cell id order
  * @param cell_start pointer to the array of first particle indices for each cell
  */
-__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start);
+__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start, const long width_offset, const long width);
 
 
 /**

@@ -562,7 +562,7 @@ void Particle::initializeNeighborList() {
     thrust::fill(d_num_neighbors.begin(), d_num_neighbors.end(), 0L);
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
     syncNeighborList();
-    updateNeighborList();
+    (this->*updateNeighborListPtr)();
 }
 
 void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
@@ -647,6 +647,7 @@ void Particle::updateCellList() {
 void Particle::updateCellNeighborList() {
     updateCellList();
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
+    // TODO: this is the last thing that needs to be revised, it takes about 11% of the total GPU time
     kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr);
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {

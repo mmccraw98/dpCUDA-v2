@@ -382,6 +382,18 @@ __global__ void kernelCalcDiskForces(const double* positions, const double* radi
 // --------------------- Contacts and Neighbors -------------------------
 // ----------------------------------------------------------------------
 
+
+inline __device__ bool isWithinCutoffSquared(const double* segment1, const double* segment2, double cutoff_sq) {
+    double dist_dim, distance_sq = 0.;
+    #pragma unroll (N_DIM)
+    for (long dim = 0; dim < d_n_dim; dim++) {
+        dist_dim = pbcDistance(segment1[dim], segment2[dim], dim);
+        distance_sq += dist_dim * dist_dim;
+        if (distance_sq >= cutoff_sq) return false;  // Early exit
+    }
+    return true;
+}
+
 /**
  * @brief Check if a neighbor is a valid neighbor and get its true id
  * 

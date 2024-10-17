@@ -119,12 +119,12 @@ __global__ void kernelUpdateNeighborList(const double* positions, const double c
     if (particle_id < d_n_particles) {
         long added_neighbors = 0;
         double this_pos[N_DIM], other_pos[N_DIM];
+        double cutoff_sq = cutoff * cutoff;
         getPosition(particle_id, positions, this_pos);
         for (long other_id = 0; other_id < d_n_particles; other_id++) {
             if (particle_id != other_id) {
                 getPosition(other_id, positions, other_pos);
-                double distance = calcDistancePBC(this_pos, other_pos);
-                if (distance < cutoff) {
+                if (isWithinCutoffSquared(this_pos, other_pos, cutoff_sq)) {
                     if (added_neighbors < d_max_neighbors_allocated) {  // important for overflow concerns
                         d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
                     }
@@ -220,7 +220,44 @@ __global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index
     }
 }
 
+
 __global__ void kernelUpdateCellNeighborList(const double* positions, const double cutoff, const long* cell_index, const long* particle_index, const long* cell_start) {
+    // old version
+    // long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    // if (particle_id < d_n_particles) {
+    //     long added_neighbors = 0;
+    //     double this_pos[N_DIM], other_pos[N_DIM];
+    //     getPosition(particle_id, positions, this_pos);
+    //     long cell_id = cell_index[particle_id];
+    //     long cell_x = cell_id % d_n_cells_dim;
+    //     long cell_y = cell_id / d_n_cells_dim;
+    //     long start_id, end_id;
+    //     for (long cell_y_offset = -1; cell_y_offset <= 1; cell_y_offset++) {
+    //         for (long cell_x_offset = -1; cell_x_offset <= 1; cell_x_offset++) {
+    //             long x_index = mod(cell_x + cell_x_offset, d_n_cells_dim);
+    //             long y_index = mod(cell_y + cell_y_offset, d_n_cells_dim);
+    //             long neighbor_cell_id = x_index + y_index * d_n_cells_dim;
+    //             getCellIndexRange(neighbor_cell_id, cell_start, start_id, end_id);
+    //             for (long neighbor_id = start_id; neighbor_id < end_id; neighbor_id++) {
+    //                 long other_id = particle_index[neighbor_id];
+    //                 if (particle_id != other_id) {
+    //                     getPosition(other_id, positions, other_pos);
+    //                     double distance = calcDistancePBC(this_pos, other_pos);
+    //                     if (distance < cutoff) {
+    //                         if (added_neighbors < d_max_neighbors_allocated) {  // important for overflow concerns
+    //                             d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
+    //                         }
+    //                         added_neighbors++;
+    //                     }
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     d_num_neighbors_ptr[particle_id] = added_neighbors;
+    // }
+
+
+    // trying to be more efficient
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id < d_n_particles) {
         long added_neighbors = 0;
@@ -229,19 +266,25 @@ __global__ void kernelUpdateCellNeighborList(const double* positions, const doub
         long cell_id = cell_index[particle_id];
         long cell_x = cell_id % d_n_cells_dim;
         long cell_y = cell_id / d_n_cells_dim;
-        long start_id, end_id;
+        double cutoff_sq = cutoff * cutoff;
         for (long cell_y_offset = -1; cell_y_offset <= 1; cell_y_offset++) {
             for (long cell_x_offset = -1; cell_x_offset <= 1; cell_x_offset++) {
                 long x_index = mod(cell_x + cell_x_offset, d_n_cells_dim);
                 long y_index = mod(cell_y + cell_y_offset, d_n_cells_dim);
                 long neighbor_cell_id = x_index + y_index * d_n_cells_dim;
-                getCellIndexRange(neighbor_cell_id, cell_start, start_id, end_id);
+
+                // Get the index of the first particle in the neighbor cell
+                long start_id = cell_start[neighbor_cell_id];
+                if (start_id == -1) continue;  // no particles in the cell
+                // Get the index of the last particle in the neighbor cell using the cell_start of the next cell
+                long end_id = cell_start[neighbor_cell_id + 1];
+
+                // Loop through all particles in the neighbor cell
                 for (long neighbor_id = start_id; neighbor_id < end_id; neighbor_id++) {
                     long other_id = particle_index[neighbor_id];
                     if (particle_id != other_id) {
                         getPosition(other_id, positions, other_pos);
-                        double distance = calcDistancePBC(this_pos, other_pos);
-                        if (distance < cutoff) {
+                        if (isWithinCutoffSquared(this_pos, other_pos, cutoff_sq)) {
                             if (added_neighbors < d_max_neighbors_allocated) {  // important for overflow concerns
                                 d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
                             }
@@ -253,4 +296,5 @@ __global__ void kernelUpdateCellNeighborList(const double* positions, const doub
         }
         d_num_neighbors_ptr[particle_id] = added_neighbors;
     }
+
 }

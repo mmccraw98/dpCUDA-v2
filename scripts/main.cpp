@@ -71,10 +71,16 @@ int main() {
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double cell_size_multiplier = 5.0;  // cells will be roughly this multiple of the maximum particle diameter
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.5, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 1024 * 8, 1.0, 1.0, 2.0, 0.5, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
+    // TODO: check if switching to SoA gives a performance boost
+
+    // TODO: intelligently set the cell sizing based on particle diameter and expected cell occupancy (density is global, so can only specify the number of particles per cell)
+
     // TODO: fix remove mean velocities
+    // TODO: around or above 500k particles, there is an out of bounds error somewhere - probably the array needs to laid out differently
+    // TODO: add unit tests and integration tests (nve energy conservation etc.)
 
     particle->setRandomVelocities(1e-2);
 
@@ -98,7 +104,6 @@ int main() {
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
-    // TODO: for some reason, box size is N-d when saved.  not good!
 
     // TODO: do something if there is data in the folder already
 

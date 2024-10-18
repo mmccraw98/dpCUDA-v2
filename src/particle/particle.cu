@@ -682,8 +682,15 @@ void Particle::checkForCellUpdate() {
     if (tolerance * max_squared_cell_displacement > cell_displacement) {
         // std::cout << "Particle::checkForCellUpdate: Updating cell list" << std::endl;
         updateCellList();
+        updateCellNeighborList();
+    } else {
+        double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
+        // std::cout << "Particle::checkForCellUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement << std::endl;
+        if (tolerance * max_squared_neighbor_displacement > neighbor_displacement) {
+            // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
+            updateCellNeighborList();
+        }
     }
-    checkForNeighborUpdate();
 }
 
 void Particle::initializeNeighborList() {
@@ -812,7 +819,7 @@ void Particle::updateCellList() {
 // TODO: look into better ways to structure the grid and block sizes
 void Particle::updateCellNeighborList() {
     thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
-    kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_cell_displacements_sq_ptr);
+    kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_neigh_positions_x_ptr, d_last_neigh_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_neigh_displacements_sq_ptr);
     max_neighbors = thrust::reduce(d_num_neighbors.begin(), d_num_neighbors.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
@@ -820,7 +827,7 @@ void Particle::updateCellNeighborList() {
         d_neighbor_list.resize(n_particles * max_neighbors_allocated);
         thrust::fill(d_neighbor_list.begin(), d_neighbor_list.end(), -1L);
         syncNeighborList();
-        kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_cell_positions_x_ptr, d_last_cell_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_cell_displacements_sq_ptr);
+        kernelUpdateCellNeighborList<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_last_neigh_positions_x_ptr, d_last_neigh_positions_y_ptr, neighbor_cutoff, d_cell_index_ptr, d_particle_index_ptr, d_cell_start_ptr, d_neigh_displacements_sq_ptr);
     }
 }
 

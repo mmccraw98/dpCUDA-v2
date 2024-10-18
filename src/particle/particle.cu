@@ -48,33 +48,62 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
 
 std::unordered_map<std::string, std::any> Particle::getArrayMap() {
     std::unordered_map<std::string, std::any> array_map;
-    array_map["d_positions_x"]          = &d_positions_x;
-    array_map["d_positions_y"]          = &d_positions_y;
-    array_map["d_last_neigh_positions_x"]     = &d_last_neigh_positions_x;
-    array_map["d_last_neigh_positions_y"]     = &d_last_neigh_positions_y;
-    array_map["d_last_cell_positions_x"]     = &d_last_cell_positions_x;
-    array_map["d_last_cell_positions_y"]     = &d_last_cell_positions_y;
-    array_map["d_neigh_displacements_sq"]      = &d_neigh_displacements_sq;
-    array_map["d_cell_displacements_sq"]      = &d_cell_displacements_sq;
-    array_map["d_velocities_x"]         = &d_velocities_x;
-    array_map["d_velocities_y"]         = &d_velocities_y;
-    array_map["d_forces_x"]             = &d_forces_x;
-    array_map["d_forces_y"]             = &d_forces_y;
-    array_map["d_radii"]              = &d_radii;
-    array_map["d_masses"]             = &d_masses;
-    array_map["d_potential_energy"]   = &d_potential_energy;
-    array_map["d_kinetic_energy"]     = &d_kinetic_energy;
-    array_map["d_neighbor_list"]      = &d_neighbor_list;
-    array_map["d_num_neighbors"]      = &d_num_neighbors;
-    array_map["d_cell_index"]         = &d_cell_index;
-    array_map["d_sorted_cell_index"]  = &d_sorted_cell_index;
-    array_map["d_particle_index"]     = &d_particle_index;
-    array_map["d_cell_start"]         = &d_cell_start;
+    if (switched) {
+    // if (1==2) {
+        array_map["d_particle_index"] = &d_particle_index;
+        array_map["d_positions_x"]          = &d_temp_positions_x;
+        array_map["d_positions_y"]          = &d_temp_positions_y;
+        array_map["d_last_neigh_positions_x"]     = &d_last_neigh_positions_x;
+        array_map["d_last_neigh_positions_y"]     = &d_last_neigh_positions_y;
+        array_map["d_last_cell_positions_x"]     = &d_last_cell_positions_x;
+        array_map["d_last_cell_positions_y"]     = &d_last_cell_positions_y;
+        array_map["d_neigh_displacements_sq"]      = &d_neigh_displacements_sq;
+        array_map["d_cell_displacements_sq"]      = &d_cell_displacements_sq;
+        array_map["d_velocities_x"]         = &d_temp_velocities_x;
+        array_map["d_velocities_y"]         = &d_temp_velocities_y;
+        array_map["d_forces_x"]             = &d_temp_forces_x;
+        array_map["d_forces_y"]             = &d_temp_forces_y;
+        array_map["d_radii"]              = &d_temp_radii;
+        array_map["d_masses"]             = &d_temp_masses;
+        array_map["d_potential_energy"]   = &d_potential_energy;
+        array_map["d_kinetic_energy"]     = &d_kinetic_energy;
+        array_map["d_neighbor_list"]      = &d_neighbor_list;
+        array_map["d_num_neighbors"]      = &d_num_neighbors;
+        array_map["d_cell_index"]         = &d_cell_index;
+        array_map["d_sorted_cell_index"]  = &d_sorted_cell_index;
+        array_map["d_particle_index"]     = &d_particle_index;
+        array_map["d_cell_start"]         = &d_cell_start;
+    } else {
+        array_map["d_particle_index"] = &d_particle_index;
+        array_map["d_positions_x"]          = &d_positions_x;
+        array_map["d_positions_y"]          = &d_positions_y;
+        array_map["d_last_neigh_positions_x"]     = &d_last_neigh_positions_x;
+        array_map["d_last_neigh_positions_y"]     = &d_last_neigh_positions_y;
+        array_map["d_last_cell_positions_x"]     = &d_last_cell_positions_x;
+        array_map["d_last_cell_positions_y"]     = &d_last_cell_positions_y;
+        array_map["d_neigh_displacements_sq"]      = &d_neigh_displacements_sq;
+        array_map["d_cell_displacements_sq"]      = &d_cell_displacements_sq;
+        array_map["d_velocities_x"]         = &d_velocities_x;
+        array_map["d_velocities_y"]         = &d_velocities_y;
+        array_map["d_forces_x"]             = &d_forces_x;
+        array_map["d_forces_y"]             = &d_forces_y;
+        array_map["d_radii"]              = &d_radii;
+        array_map["d_masses"]             = &d_masses;
+        array_map["d_potential_energy"]   = &d_potential_energy;
+        array_map["d_kinetic_energy"]     = &d_kinetic_energy;
+        array_map["d_neighbor_list"]      = &d_neighbor_list;
+        array_map["d_num_neighbors"]      = &d_num_neighbors;
+        array_map["d_cell_index"]         = &d_cell_index;
+        array_map["d_sorted_cell_index"]  = &d_sorted_cell_index;
+        array_map["d_particle_index"]     = &d_particle_index;
+        array_map["d_cell_start"]         = &d_cell_start;
+    }
     return array_map;
 }
 
 std::string Particle::getArrayType(const std::string& array_name) {
     std::unordered_map<std::string, std::string> array_type_map;
+    array_type_map["d_particle_index"] = "long";
     array_type_map["d_positions_x"]          = "double";
     array_type_map["d_positions_y"]          = "double";
     array_type_map["d_last_neigh_positions_x"]     = "double";
@@ -806,9 +835,13 @@ void Particle::reorderParticleData() {
     assert(d_velocities_y_ptr != d_temp_velocities_y_ptr);
     assert(d_masses_ptr != d_temp_masses_ptr);
     assert(d_radii_ptr != d_temp_radii_ptr);
+
+    switched = !switched;
 }
 
 void Particle::updateCellList() {
+    num_rebuilds++;
+
     d_cell_start[n_cells] = n_particles;
     kernelGetCellIndexForParticle<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_cell_index_ptr, d_sorted_cell_index_ptr, d_particle_index_ptr);
 

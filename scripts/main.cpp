@@ -68,12 +68,14 @@ int main() {
     // set seed to -1 to use the current time
     // TODO: make a config from a file
     
-    double neighbor_cutoff_multiplier = 2.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+    double neighbor_cutoff_multiplier = 10.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
+    double neighbor_displacement_multiplier = 0.05;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double cell_size_multiplier = 5.0;  // cells will be roughly this multiple of the maximum particle diameter
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
     BidisperseDiskConfig config(0, 512, 1.0, 1.0, 2.0, 0.5, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
+
+    // TODO: fix makefile to track changes in header files
 
     // TODO: check if switching to SoA gives a performance boost
 
@@ -128,7 +130,7 @@ int main() {
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
         // config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
         // config_from_names_lin({"positions", "velocities", "cell_index", "sorted_cell_index", "particle_index", "cell_start", "num_neighbors", "neighbor_list"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "sorted_cell_index", "cell_start"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names({"radii", "masses", "positions_x", "positions_y", "velocities_x", "velocities_y", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
@@ -152,6 +154,7 @@ int main() {
     // may need to add an integrator get state method to allow integrator to save its variables
 
     long step = 0;
+    bool switched = false;
 
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
@@ -161,6 +164,13 @@ int main() {
         // std::cout << "Step: " << step << std::endl;
         io_manager.log(step);
         step++;
+        if (particle->switched != switched) {
+            std::cout << "Switched on step: " << step << std::endl;
+            switched = particle->switched;
+        }
+        if (particle->num_rebuilds > 10) {
+            break;
+        }
     }
 
     // stop the timer

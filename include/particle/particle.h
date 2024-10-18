@@ -73,6 +73,9 @@ public:
     thrust::device_vector<long> d_particle_index;  // stores the particle index for each cell - trivial until sorting is applied
     thrust::device_vector<long> d_cell_start;  // stores the starting particle index for each cell
 
+    long num_rebuilds = 0;
+    bool switched = false;
+
     // Pointers to the device arrays
     double* d_positions_x_ptr;
     double* d_positions_y_ptr;

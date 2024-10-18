@@ -238,17 +238,17 @@ __global__ void kernelUpdateNeighborList(
 
     // Iterate over all other particles
     for (long other_id = 0; other_id < d_n_particles; other_id++) {
-        if (particle_id != other_id) {
-            double other_x = positions_x[other_id];
-            double other_y = positions_y[other_id];
+        if (particle_id == other_id) continue; // Skip self
 
-            // Check if within cutoff using early exit
-            if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
-                if (added_neighbors < d_max_neighbors_allocated) {
-                    d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
-                }
-                added_neighbors++;
+        double other_x = positions_x[other_id];
+        double other_y = positions_y[other_id];
+
+        // Check if within cutoff using early exit
+        if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
+            if (added_neighbors < d_max_neighbors_allocated) {
+                d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
             }
+            added_neighbors++;
         }
     }
     last_neigh_positions_x[particle_id] = pos_x;
@@ -418,12 +418,7 @@ __global__ void kernelUpdateCellNeighborList(
                 double other_x = positions_x[other_id];
                 double other_y = positions_y[other_id];
 
-                // Calculate squared distance and apply cutoff check
-                double dx = pos_x - other_x;
-                double dy = pos_y - other_y;
-                double dist_sq = dx * dx + dy * dy;
-
-                if (dist_sq < cutoff_sq) {
+                if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
                     if (added_neighbors < d_max_neighbors_allocated) {
                         d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
                     }

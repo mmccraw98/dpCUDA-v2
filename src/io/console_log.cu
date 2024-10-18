@@ -28,6 +28,9 @@ void ConsoleLog::log(long step) {
     last_header_log += 1;
     std::ostringstream out;
     for (int i = 0; i < config.log_names.size(); i++) {
+
+
+
         double value = orchestrator.get_value<double>(unmodified_log_names[i], step);
         if (log_name_is_modified(config.log_names[i])) {
             std::string modifier = get_modifier(config.log_names[i]);

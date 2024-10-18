@@ -96,6 +96,11 @@ public:
      */
     template <typename T>
     thrust::host_vector<T> get_vector_value(const std::string& unmodified_log_name) {
+
+        if (pre_req_calculation_status.find(unmodified_log_name) != pre_req_calculation_status.end()) {
+            handle_pre_req_calculations(unmodified_log_name);
+        }
+
         return particle.getArray<T>("d_" + unmodified_log_name);
     }
 

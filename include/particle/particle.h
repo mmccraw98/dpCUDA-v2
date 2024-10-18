@@ -33,7 +33,7 @@ public:
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
     // These are the values that need to be calculated before the log value is calculated
-    std::vector<std::string> pre_req_calculations = {"KE", "T"};
+    std::vector<std::string> pre_req_calculations = {"KE", "T", "kinetic_energy"};
 
     // Device vectors for particle data
     thrust::device_vector<double> d_positions_x;  // particle positions
@@ -108,8 +108,8 @@ public:
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
     double n_c = -1, n_a = -1, n_b = -1, n_l = -1;  // exponents for the energy terms
     double neighbor_cutoff = -1;  // cutoff distance for the neighbor list
-    double neighbor_displacement = -1;  // displacement threshold after which the neighbor list is updated
-    double cell_displacement = -1;  // displacement threshold after which the cell list is updated
+    double neighbor_displacement_threshold_sq = -1;  // displacement threshold squared after which the neighbor list is updated
+    double cell_displacement_threshold_sq = -1;  // displacement threshold squared after which the cell list is updated
     long max_neighbors = -1;  // maximum number of neighbors
     long max_neighbors_allocated = -1;  // maximum number of neighbors allocated for each particle
     long n_particles = -1;  // total number of particles
@@ -368,8 +368,9 @@ public:
      * @param values The device vector.
      * @param min The minimum value.
      * @param max The maximum value.
+     * @param seed_offset The offset for the random number generator seed.
      */
-    void setRandomUniform(thrust::device_vector<double>& values, double min, double max);
+    void setRandomUniform(thrust::device_vector<double>& values, double min, double max, long seed_offset = 0);
 
     /**
      * @brief Fill a device vector with random normal values.
@@ -378,7 +379,7 @@ public:
      * @param mean The mean value.
      * @param stddev The standard deviation.
      */
-    void setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev);
+    void setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev, long seed_offset = 0);
 
     /**
      * @brief Set the particle positions to random uniform values within the box size.

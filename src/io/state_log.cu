@@ -11,9 +11,14 @@ StateLog::~StateLog() {
 
 void StateLog::write_values(std::filesystem::path root_path) {
     for (int i = 0; i < config.log_names.size(); i++) {
+        
+        
+
+
         std::string array_type = orchestrator.get_array_type(config.log_names[i]);
         std::vector<long> size = orchestrator.get_vector_size(config.log_names[i]);
         std::filesystem::path file_path = root_path / (config.log_names[i] + extension);
+
 
         if (array_type == "double") {
             thrust::host_vector<double> value = orchestrator.get_vector_value<double>(config.log_names[i]);

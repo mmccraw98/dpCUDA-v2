@@ -316,7 +316,7 @@ inline __device__ double calcPointPointInteraction(
     double overlap = 1.0 - (distance / rad_sum);
     double overlap_pow = pow(overlap, d_n_c - 1);
 
-    // Calculate potential energy
+    // Calculate potential energy (half of it goes to point 1 and half to point 2)
     double energy = d_e_c * overlap * overlap_pow / (2.0 * d_n_c);
 
     // Calculate force magnitude and components

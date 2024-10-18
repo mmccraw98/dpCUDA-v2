@@ -517,21 +517,20 @@ void Particle::initializeBox(double packing_fraction) {
     scaleToPackingFraction(packing_fraction);
 }
 
-void Particle::setRandomUniform(thrust::device_vector<double>& values, double min, double max) {
-    thrust::counting_iterator<long> index_sequence_begin(seed);
+void Particle::setRandomUniform(thrust::device_vector<double>& values, double min, double max, long seed_offset) {
+    thrust::counting_iterator<long> index_sequence_begin(seed + seed_offset);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomUniform(min, max, seed));
 }
 
-void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev) {
-    std::cout << "Set: This does not work yet" << std::endl;
-    thrust::counting_iterator<long> index_sequence_begin(seed);
+void Particle::setRandomNormal(thrust::device_vector<double>& values, double mean, double stddev, long seed_offset) {
+    thrust::counting_iterator<long> index_sequence_begin(seed + seed_offset);
     thrust::transform(index_sequence_begin, index_sequence_begin + values.size(), values.begin(), RandomNormal(mean, stddev, seed));
 }
 
 void Particle::setRandomPositions() {
     thrust::host_vector<double> box_size = getBoxSize();
-    setRandomUniform(d_positions_x, 0.0, box_size[0]);
-    setRandomUniform(d_positions_y, 0.0, box_size[1]);
+    setRandomUniform(d_positions_x, 0.0, box_size[0], 0);
+    setRandomUniform(d_positions_y, 0.0, box_size[1], 1);
 }
 
 void Particle::removeMeanVelocities() {
@@ -548,8 +547,8 @@ void Particle::scaleVelocitiesToTemperature(double temperature) {
 }
 
 void Particle::setRandomVelocities(double temperature) {
-    setRandomNormal(d_velocities_x, 0.0, std::sqrt(temperature));
-    setRandomNormal(d_velocities_y, 0.0, std::sqrt(temperature));
+    setRandomNormal(d_velocities_x, 0.0, std::sqrt(temperature), 0);
+    setRandomNormal(d_velocities_y, 0.0, std::sqrt(temperature), 1);
     removeMeanVelocities();
     scaleVelocitiesToTemperature(temperature);
     // thrust::fill(d_velocities.begin(), d_velocities.end(), 0.0);
@@ -668,28 +667,33 @@ void Particle::checkNeighbors() {
 void Particle::checkForNeighborUpdate() {
     double tolerance = 3.0;
     double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-    // std::cout << "Particle::checkForNeighborUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement << std::endl;
-    if (tolerance * max_squared_neighbor_displacement > neighbor_displacement) {
+    // std::cout << "Particle::checkForNeighborUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement_threshold_sq << std::endl;
+    if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
         // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
         updateNeighborList();
     }
 }
 
 void Particle::checkForCellUpdate() {
+    bool weeeeee = false;
     double tolerance = 3.0;
     double max_squared_cell_displacement = getMaxSquaredCellDisplacement();
-    // std::cout << "Particle::checkForCellUpdate: Max squared cell displacement: " << tolerance * max_squared_cell_displacement << " vs " << cell_displacement << std::endl;
-    if (tolerance * max_squared_cell_displacement > cell_displacement) {
+    // std::cout << "Particle::checkForCellUpdate: Max squared cell displacement: " << tolerance * max_squared_cell_displacement << " vs " << cell_displacement_threshold_sq << std::endl;
+    if (tolerance * max_squared_cell_displacement > cell_displacement_threshold_sq) {
         // std::cout << "Particle::checkForCellUpdate: Updating cell list" << std::endl;
         updateCellList();
         updateCellNeighborList();
+        weeeeee = true;
     } else {
         double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-        // std::cout << "Particle::checkForCellUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement << std::endl;
-        if (tolerance * max_squared_neighbor_displacement > neighbor_displacement) {
+        // std::cout << "Particle::checkForCellUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement_threshold_sq << std::endl;
+        if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
             // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
             updateCellNeighborList();
         }
+    }
+    if (weeeeee) {
+        // exit(EXIT_SUCCESS);
     }
 }
 
@@ -704,11 +708,11 @@ void Particle::initializeNeighborList() {
 
 void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
-    this->neighbor_displacement = neighbor_displacement_multiplier * neighbor_cutoff;
+    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * neighbor_cutoff, 2);
     this->max_neighbors_allocated = 4;
 
     thrust::host_vector<double> box_size = getBoxSize();
-    std::cout << "Particle::setNeighborCutoff: Neighbor cutoff set to " << neighbor_cutoff << " and neighbor displacement set to " << neighbor_displacement << " box length: " << box_size[0] << std::endl;
+    std::cout << "Particle::setNeighborCutoff: Neighbor cutoff set to " << neighbor_cutoff << " and neighbor displacement set to " << neighbor_displacement_threshold_sq << " box length: " << box_size[0] << std::endl;
 }
 
 void Particle::printNeighborList() {
@@ -732,8 +736,8 @@ void Particle::setCellSize(double cell_size_multiplier, double cell_displacement
         throw std::runtime_error("Particle::setCellSize: fewer than " + std::to_string(min_num_cells_dim) + " cells in one dimension");
     }
     cell_size = box_size[0] / n_cells_dim;
-    cell_displacement = cell_displacement_multiplier * cell_size;
-    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement << std::endl;
+    cell_displacement_threshold_sq = std::pow(cell_displacement_multiplier * cell_size, 2);
+    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement_threshold_sq << std::endl;
     syncCellList();
 }
 

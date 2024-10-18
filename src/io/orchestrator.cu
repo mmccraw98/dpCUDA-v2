@@ -28,6 +28,11 @@
 Orchestrator::Orchestrator(Particle& particle, Integrator* integrator) : particle(particle), integrator(integrator) {
     init_pre_req_calculation_status();
     has_integrator = integrator != nullptr;
+
+    std::cout << "Orchestrator::Orchestrator: Getting radii and neighbor list" << std::endl;
+    auto radii = get_vector_value<double>("radii");
+    auto neighbor_list = get_vector_value<long>("neighbor_list");
+
 }
 
 Orchestrator::~Orchestrator() {
@@ -42,10 +47,11 @@ void Orchestrator::init_pre_req_calculation_status() {
 
 void Orchestrator::handle_pre_req_calculations(const std::string& log_name) {
     // some variables have pre-req calculations, they are defined here
-    if (log_name == "KE" || log_name == "TE" || log_name == "T") {  // i.e. to get KE, TE, or T, we first need to determine the kinetic energy
-        if (!pre_req_calculation_status["KE"]) {
+    if (log_name == "KE" || log_name == "TE" || log_name == "T" || log_name == "kinetic_energy") {  // i.e. to get KE, TE, or T, we first need to determine the kinetic energy
+        if (!pre_req_calculation_status["KE"] || !pre_req_calculation_status["kinetic_energy"]) {
             particle.calculateKineticEnergy();
             pre_req_calculation_status["KE"] = true;
+            pre_req_calculation_status["kinetic_energy"] = true;
         }
     }
     // fill in others here...
@@ -68,8 +74,8 @@ std::vector<long> Orchestrator::get_vector_size(const std::string& unmodified_lo
     std::vector<long> size;
     if (unmodified_log_name == "something complicated") {
         // d > 2 here
-    } else if (unmodified_log_name == "positions" || unmodified_log_name == "velocities" || unmodified_log_name == "forces") {
-        size = {particle.n_particles, N_DIM};
+    } else if (unmodified_log_name == "positions_x" || unmodified_log_name == "positions_y" || unmodified_log_name == "velocities_x" || unmodified_log_name == "velocities_y" || unmodified_log_name == "forces_x" || unmodified_log_name == "forces_y" || unmodified_log_name == "potential_energy" || unmodified_log_name == "kinetic_energy") {
+        size = {particle.n_particles, 1};
     } else if (unmodified_log_name == "radii" || unmodified_log_name == "masses") {
         size = {particle.n_particles, 1};
     } else if (unmodified_log_name == "cell_index" || unmodified_log_name == "sorted_cell_index" || unmodified_log_name == "particle_index" || unmodified_log_name == "cell_start" || unmodified_log_name == "num_neighbors" || unmodified_log_name == "neighbor_list") {

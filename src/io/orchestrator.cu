@@ -78,7 +78,7 @@ std::vector<long> Orchestrator::get_vector_size(const std::string& unmodified_lo
         size = {particle.n_particles, 1};
     } else if (unmodified_log_name == "radii" || unmodified_log_name == "masses") {
         size = {particle.n_particles, 1};
-    } else if (unmodified_log_name == "cell_index" || unmodified_log_name == "sorted_cell_index" || unmodified_log_name == "particle_index" || unmodified_log_name == "cell_start" || unmodified_log_name == "num_neighbors" || unmodified_log_name == "neighbor_list") {
+    } else if (unmodified_log_name == "cell_index" || unmodified_log_name == "sorted_cell_index" || unmodified_log_name == "particle_index" || unmodified_log_name == "cell_start" || unmodified_log_name == "num_neighbors" || unmodified_log_name == "neighbor_list" || unmodified_log_name == "static_particle_index") {
         thrust::host_vector<long> temp = particle.getArray<long>("d_" + unmodified_log_name);  // yeah i dont like this at all.  in fact, i dislike all of the io stuff
         size = {static_cast<long>(temp.size()), 1};
     } else if (unmodified_log_name == "box_size") {

@@ -70,7 +70,8 @@ public:
     thrust::device_vector<long> d_num_neighbors;  // number of neighbors for each particle
     thrust::device_vector<long> d_cell_index;  // stores the index of the cell that each particle is in
     thrust::device_vector<long> d_sorted_cell_index;  // stores the cell indices sorted in ascending order
-    thrust::device_vector<long> d_particle_index;  // stores the particle index for each cell - trivial until sorting is applied
+    thrust::device_vector<long> d_particle_index;  // stores the particle index for each cell used for sorting
+    thrust::device_vector<long> d_static_particle_index;  // stores the persistent particle index for the data arrays - used for tracking particles through reordering
     thrust::device_vector<long> d_cell_start;  // stores the starting particle index for each cell
 
     long num_rebuilds = 0;
@@ -97,6 +98,7 @@ public:
     long* d_cell_index_ptr;
     long* d_sorted_cell_index_ptr;
     long* d_particle_index_ptr;
+    long* d_static_particle_index_ptr;
     long* d_cell_start_ptr;
     double* d_temp_positions_x_ptr;
     double* d_temp_positions_y_ptr;
@@ -238,6 +240,8 @@ public:
      * @param n_particles The number of particles.
      */
     void setNumParticles(long n_particles);
+
+    virtual void resetLastPositions();
 
     /**
      * @brief Set the degrees of freedom.  Specific values depend on the derived class.

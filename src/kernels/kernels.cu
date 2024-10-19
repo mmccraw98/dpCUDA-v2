@@ -54,7 +54,7 @@ __global__ void kernelUpdatePositions(
     if (isnan(positions_x[particle_id]) || isnan(positions_y[particle_id])) {
         printf("NaN in positions for particle %ld: pos_x=%f, pos_y=%f\n", 
                particle_id, positions_x[particle_id], positions_y[particle_id]);
-        positions_x[10000000000] += 10000000;
+        // positions_x[10000000000] += 10000000;
     }
 
 
@@ -76,7 +76,7 @@ __global__ void kernelUpdatePositions(
     neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
 
     if (isnan(neigh_displacements_sq[particle_id])) {
-        printf("NaN detected in displacement: dx=%f, dy=%f, particle_id=%ld\n", dx_neigh, dy_neigh, particle_id);
+        printf("NaN detected in neighbor displacement for particle %ld: dx=%f, dy=%f\n", particle_id, dx_neigh, dy_neigh);
     }
 
     // Calculate squared displacement for cell list
@@ -85,7 +85,7 @@ __global__ void kernelUpdatePositions(
     cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
 
     if (isnan(cell_displacements_sq[particle_id])) {
-        printf("NaN detected in displacement: dx=%f, dy=%f, particle_id=%ld\n", dx_cell, dy_cell, particle_id);
+        printf("NaN detected in cell displacement for particle %ld: dx=%f, dy=%f\n", particle_id, dx_cell, dy_cell);
     }
 
     if (cell_displacements_sq[particle_id] == 0.0) {
@@ -180,8 +180,14 @@ __global__ void kernelCalcDiskForces(
     const double* __restrict__ radii, double* __restrict__ forces_x, 
     double* __restrict__ forces_y, double* __restrict__ potential_energy) 
 {
+
+    // TODO: could probably make this faster by copying the relevant data into shared memory
+
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
+
+    long num_neighbors = d_num_neighbors_ptr[particle_id];
+    if (num_neighbors == 0) return;
 
     double pos_x = positions_x[particle_id];
     double pos_y = positions_y[particle_id];
@@ -189,7 +195,7 @@ __global__ void kernelCalcDiskForces(
     double force_acc_x = 0.0, force_acc_y = 0.0;
     double energy = 0.0;
 
-    for (long n = 0; n < d_num_neighbors_ptr[particle_id]; n++) {
+    for (long n = 0; n < num_neighbors; n++) {
         long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
         if (other_id == -1 || other_id == particle_id) continue;
 
@@ -260,8 +266,7 @@ __global__ void kernelUpdateNeighborList(
 
 __global__ void kernelGetCellIndexForParticle(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y, 
-    long* __restrict__ cell_index, long* __restrict__ sorted_cell_index, 
-    long* __restrict__ particle_index) 
+    long* __restrict__ cell_index, long* __restrict__ particle_index) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;  // Early exit to avoid unnecessary nesting
@@ -279,63 +284,74 @@ __global__ void kernelGetCellIndexForParticle(
 
     // Store results directly to global memory
     cell_index[particle_id] = linear_cell_id;
-    sorted_cell_index[particle_id] = linear_cell_id;
-    particle_index[particle_id] = particle_id;
+    particle_index[particle_id] = particle_id;  // reassign the particle index to the particle id, but not the static particle index
 }
 
-__global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index, long* cell_start, const long width_offset, const long width) {
+__global__ void kernelGetFirstParticleIndexForCell(const long* __restrict__ cell_index, long* __restrict__ cell_start, const long width_offset, const long width) {
     long cell_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (cell_id >= d_n_cells) return;
 
-    if (cell_id == 0 && sorted_cell_index[0] == cell_id) {
-        cell_start[cell_id] = 0;
-        return;
-    }
-
-    // expand left
-    long left = max(0L, (cell_id - width_offset) * width);
-    while (left > 0 && sorted_cell_index[left] > cell_id) {
-        left = max(0L, left - width);
-    }
-
-    // expand right
-    long right = min(d_n_particles - 1, (cell_id + width_offset - 1) * width);
-    while (right < d_n_particles - 1 && sorted_cell_index[right] < cell_id) {
-        right = min(d_n_particles - 1, right + width);
-    }
-
-    // binary search to find an occurance of i
-    long mid;
-    bool found = false;
-    while (left <= right) {
-        mid = (left + right) / 2;
-        if (sorted_cell_index[mid] == cell_id) {
-            found = true;
-            break;
-        } else if (sorted_cell_index[mid] < cell_id) {
-            left = mid + 1;
-        } else {
-            right = mid - 1;
+    for (long i = 0; i < d_n_particles; i++) {
+        if (cell_index[i] == cell_id) {
+            cell_start[cell_id] = i;
+            return;
         }
     }
+    cell_start[cell_id] = -1;
 
-    if (found) {
-        // find the leftmost occurance of cell_id using another binary search
-        right = mid;
-        while (sorted_cell_index[left] == cell_id) {
-            left -= width;
-        }
+    // if (cell_id == 0 && cell_index[0] == cell_id) {
+    //     cell_start[cell_id] = 0;
+    //     return;
+    // }
 
-        while (left < right) {
-            mid = (left + right) / 2;
-            if (sorted_cell_index[mid] == cell_id) {
-                right = mid;
-            } else {
-                left = mid + 1;
-            }
-        }
-        cell_start[cell_id] = left;
-    }
+    // // expand left
+    // long left = max(0L, (cell_id - width_offset) * width);
+    // while (left > 0 && cell_index[left] > cell_id) {
+    //     left = max(0L, left - width);
+    // }
+
+    // // expand right
+    // long right = min(d_n_particles - 1, (cell_id + width_offset - 1) * width);
+    // while (right < d_n_particles - 1 && cell_index[right] < cell_id) {
+    //     right = min(d_n_particles - 1, right + width);
+    // }
+
+    // // binary search to find an occurance of i
+    // long mid;
+    // bool found = false;
+    // while (left <= right) {
+    //     mid = (left + right) / 2;
+    //     if (cell_index[mid] == cell_id) {
+    //         found = true;
+    //         break;
+    //     } else if (cell_index[mid] < cell_id) {
+    //         left = mid + 1;
+    //     } else {
+    //         right = mid - 1;
+    //     }
+    // }
+
+    // if (found) {
+    //     while (cell_index[left] == cell_id && left > 0) {
+    //         left--;
+    //     }
+    //     cell_start[cell_id] = left;
+    //     // // find the leftmost occurance of cell_id using another binary search
+    //     // right = mid;
+    //     // while (cell_index[left] == cell_id) {
+    //     //     left -= width;
+    //     // }
+
+    //     // while (left < right) {
+    //     //     mid = (left + right) / 2;
+    //     //     if (cell_index[mid] == cell_id) {
+    //     //         right = mid;
+    //     //     } else {
+    //     //         left = mid + 1;
+    //     //     }
+    //     // }
+    //     // cell_start[cell_id] = left;
+    // }
 
     // other option
 // __global__ void kernelGetFirstParticleIndexForCell(
@@ -377,8 +393,8 @@ __global__ void kernelGetFirstParticleIndexForCell(const long* sorted_cell_index
 __global__ void kernelUpdateCellNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
-    const double cutoff, const long* __restrict__ cell_index, 
-    const long* __restrict__ particle_index, const long* __restrict__ cell_start, double* __restrict__ neigh_displacements_sq) 
+    const double cutoff, const long* __restrict__ cell_index,
+    const long* __restrict__ cell_start, double* __restrict__ neigh_displacements_sq) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -405,22 +421,27 @@ __global__ void kernelUpdateCellNeighborList(
 
             // Get the particle range for this neighbor cell
             long start_id = cell_start[neighbor_cell_id];
-            long end_id = cell_start[neighbor_cell_id + 1];
-
             if (start_id == -1) continue;  // No particles in this cell
+
+            long end_id = cell_start[neighbor_cell_id + 1];
+            while (end_id == -1) {  // this is a hack to deal with the fact that some cells are empty
+                neighbor_cell_id++;
+                end_id = cell_start[neighbor_cell_id + 1];
+            }
+
 
             // Loop over particles in the neighboring cell
             for (long neighbor_id = start_id; neighbor_id < end_id; neighbor_id++) {
-                long other_id = particle_index[neighbor_id];
-                if (particle_id == other_id) continue;  // Skip self
+
+                if (particle_id == neighbor_id) continue;  // Skip self
 
                 // Load neighbor particle positions directly
-                double other_x = positions_x[other_id];
-                double other_y = positions_y[other_id];
+                double other_x = positions_x[neighbor_id];
+                double other_y = positions_y[neighbor_id];
 
                 if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
                     if (added_neighbors < d_max_neighbors_allocated) {
-                        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = other_id;
+                        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = neighbor_id;
                     }
                     added_neighbors++;
                 }
@@ -428,40 +449,54 @@ __global__ void kernelUpdateCellNeighborList(
         }
     }
 
-    // Update the number of neighbors for this particle
+    // Update the number of neighbors for this particle and reset the neighbor displacements
     d_num_neighbors_ptr[particle_id] = added_neighbors;
     neigh_displacements_sq[particle_id] = 0.0;
     last_neigh_positions_x[particle_id] = pos_x;
     last_neigh_positions_y[particle_id] = pos_y;
 }
 
+// TODO: add __restrict__ back
 __global__ void kernelReorderParticleData(
-	const long* __restrict__ particle_index,
-	const double* __restrict__ positions_x, const double* __restrict__ positions_y,
-	const double* __restrict__ forces_x, const double* __restrict__ forces_y,
-	const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
-	const double* __restrict__ masses, const double* __restrict__ radii,
-	double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
-	double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
-	double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
-	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
-	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
-	double* __restrict__ cell_displacements_sq) {
+	const long* particle_index,
+	const double* positions_x, const double* positions_y,
+	const double* forces_x, const double* forces_y,
+	const double* velocities_x, const double* velocities_y,
+	const double* masses, const double* radii,
+	double* temp_positions_x, double* temp_positions_y,
+	double* temp_forces_x, double* temp_forces_y,
+	double* temp_velocities_x, double* temp_velocities_y,
+	double* temp_masses, double* temp_radii,
+	double* last_cell_positions_x, double* last_cell_positions_y,
+	double* cell_displacements_sq) {
 
+    // This is the new index of the particle in the sorted list
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
 
-    long index = particle_index[particle_id];
+    // This is the old index of the particle in the unsorted list
+    long old_particle_id = particle_index[particle_id];
 
-    temp_positions_x[index] = positions_x[particle_id];
-    temp_positions_y[index] = positions_y[particle_id];
-    temp_forces_x[index] = forces_x[particle_id];
-    temp_forces_y[index] = forces_y[particle_id];
-    temp_velocities_x[index] = velocities_x[particle_id];
-    temp_velocities_y[index] = velocities_y[particle_id];
-    temp_masses[index] = masses[particle_id];
-    temp_radii[index] = radii[particle_id];
-    last_cell_positions_x[index] = positions_x[particle_id];
-    last_cell_positions_y[index] = positions_y[particle_id];
-    cell_displacements_sq[index] = 0.0;
+    if (old_particle_id == -1) {
+        printf("old_particle_id == -1\n");
+    }
+
+    // Copy the data from the old index to the new index
+    temp_positions_x[particle_id] = positions_x[old_particle_id];
+    temp_positions_y[particle_id] = positions_y[old_particle_id];
+    temp_forces_x[particle_id] = forces_x[old_particle_id];
+    temp_forces_y[particle_id] = forces_y[old_particle_id];
+    temp_velocities_x[particle_id] = velocities_x[old_particle_id];
+    temp_velocities_y[particle_id] = velocities_y[old_particle_id];
+    temp_masses[particle_id] = masses[old_particle_id];
+    temp_radii[particle_id] = radii[old_particle_id];
+
+    // Reset the last cell positions and cell displacements since the cell list has been rebuilt
+    last_cell_positions_x[particle_id] = positions_x[old_particle_id];
+    last_cell_positions_y[particle_id] = positions_y[old_particle_id];
+    cell_displacements_sq[particle_id] = 0.0;
+
+    if (old_particle_id == 0) {
+        printf("old_particle_id 0, new id %ld, temp_positions_x %f, temp_positions_y %f, positions_x %f, positions_y %f, temp_forces_x %f, temp_forces_y %f, forces_x %f, forces_y %f, temp_velocities_x %f, temp_velocities_y %f, velocities_x %f, velocities_y %f, temp_radii %f, radii %f\n", particle_id, temp_positions_x[particle_id], temp_positions_y[particle_id], positions_x[old_particle_id], positions_y[old_particle_id], temp_forces_x[particle_id], temp_forces_y[particle_id], forces_x[old_particle_id], forces_y[old_particle_id], temp_velocities_x[particle_id], temp_velocities_y[particle_id], velocities_x[old_particle_id], velocities_y[old_particle_id], temp_radii[particle_id], radii[old_particle_id]);
+    }
 }

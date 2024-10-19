@@ -97,10 +97,11 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     if (config.neighbor_list_update_method == "cell") {
         this->setCellSize(config.cell_size_multiplier, config.cell_displacement_multiplier);
         this->initializeCellList();
+    } else {
+        std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;
+        this->initializeNeighborList();
+        std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
     }
-    std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;
-    this->initializeNeighborList();
-    std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
 }
 
 

@@ -14,6 +14,9 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
+
+
+
 /**
  * @brief Base class for all particle types.
  */
@@ -121,7 +124,9 @@ public:
     long n_vertices = -1;  // total number of vertices
     long n_dof = -1;  // number of degrees of freedom
     long seed = -1;  // random number generator seed
-    long dim_grid = -1, dim_block = -1, dim_vertex_grid = -1;  // dimensions for the CUDA kernels
+
+    long particle_dim_grid = -1, particle_dim_block = -1, vertex_dim_grid = -1, vertex_dim_block = -1, cell_dim_grid = -1, cell_dim_block = -1;  // dimensions for the CUDA kernels
+    
     long n_cells = -1;  // number of cells in the simulation box
     long n_cells_dim = -1;  // number of cells in each dimension
     double cell_size = -1;  // size of the cells
@@ -225,9 +230,9 @@ public:
     /**
      * @brief Set the dimensions for the CUDA kernels and synchronize to the device constant memory.
      * 
-     * @param dim_block The number of threads in the block (default is 256).
+     * @param particle_dim_block The number of threads in the block (default is 256).
      */
-    virtual void setKernelDimensions(long dim_block = 256);
+    virtual void setKernelDimensions(long particle_dim_block = 256);
 
     /**
      * @brief Synchronize the kernel dimensions to the device constant memory.

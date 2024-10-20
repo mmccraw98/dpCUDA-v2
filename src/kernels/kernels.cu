@@ -51,13 +51,6 @@ __global__ void kernelUpdatePositions(
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
 
-    if (isnan(positions_x[particle_id]) || isnan(positions_y[particle_id])) {
-        printf("NaN in positions for particle %ld: pos_x=%f, pos_y=%f\n", 
-               particle_id, positions_x[particle_id], positions_y[particle_id]);
-        // positions_x[10000000000] += 10000000;
-    }
-
-
     // Load particle data into registers to minimize repeated global memory access
     double pos_x = positions_x[particle_id];
     double pos_y = positions_y[particle_id];
@@ -75,22 +68,10 @@ __global__ void kernelUpdatePositions(
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
     neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
 
-    if (isnan(neigh_displacements_sq[particle_id])) {
-        printf("NaN detected in neighbor displacement for particle %ld: dx=%f, dy=%f\n", particle_id, dx_neigh, dy_neigh);
-    }
-
     // Calculate squared displacement for cell list
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
     cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
-
-    if (isnan(cell_displacements_sq[particle_id])) {
-        printf("NaN detected in cell displacement for particle %ld: dx=%f, dy=%f\n", particle_id, dx_cell, dy_cell);
-    }
-
-    if (cell_displacements_sq[particle_id] == 0.0) {
-        // printf("Particle %ld: pos_x: %f, pos_y: %f, last_neigh_pos_x: %f, last_neigh_pos_y: %f, last_cell_pos_x: %f, last_cell_pos_y: %f\n", particle_id, pos_x, pos_y, last_neigh_positions_x[particle_id], last_neigh_positions_y[particle_id], last_cell_positions_x[particle_id], last_cell_positions_y[particle_id]);
-    }
 }
 
 
@@ -289,15 +270,24 @@ __global__ void kernelGetCellIndexForParticle(
 
 __global__ void kernelGetFirstParticleIndexForCell(const long* __restrict__ cell_index, long* __restrict__ cell_start, const long width_offset, const long width) {
     long cell_id = blockIdx.x * blockDim.x + threadIdx.x;
+    printf("cell_id: %ld\n", cell_id);
     if (cell_id >= d_n_cells) return;
 
+    bool found = false;
     for (long i = 0; i < d_n_particles; i++) {
         if (cell_index[i] == cell_id) {
             cell_start[cell_id] = i;
-            return;
+            found = true;
+            break;
         }
     }
-    cell_start[cell_id] = -1;
+    if (!found) {
+        cell_start[cell_id] = -1;
+    }
+
+    if (cell_id == 8) {
+        printf("cell_start[%ld] = %ld\n", cell_id, cell_start[cell_id]);
+    }
 
     // if (cell_id == 0 && cell_index[0] == cell_id) {
     //     cell_start[cell_id] = 0;
@@ -477,10 +467,6 @@ __global__ void kernelReorderParticleData(
     // This is the old index of the particle in the unsorted list
     long old_particle_id = particle_index[particle_id];
 
-    if (old_particle_id == -1) {
-        printf("old_particle_id == -1\n");
-    }
-
     // Copy the data from the old index to the new index
     temp_positions_x[particle_id] = positions_x[old_particle_id];
     temp_positions_y[particle_id] = positions_y[old_particle_id];
@@ -495,8 +481,4 @@ __global__ void kernelReorderParticleData(
     last_cell_positions_x[particle_id] = positions_x[old_particle_id];
     last_cell_positions_y[particle_id] = positions_y[old_particle_id];
     cell_displacements_sq[particle_id] = 0.0;
-
-    if (old_particle_id == 0) {
-        printf("old_particle_id 0, new id %ld, temp_positions_x %f, temp_positions_y %f, positions_x %f, positions_y %f, temp_forces_x %f, temp_forces_y %f, forces_x %f, forces_y %f, temp_velocities_x %f, temp_velocities_y %f, velocities_x %f, velocities_y %f, temp_radii %f, radii %f\n", particle_id, temp_positions_x[particle_id], temp_positions_y[particle_id], positions_x[old_particle_id], positions_y[old_particle_id], temp_forces_x[particle_id], temp_forces_y[particle_id], forces_x[old_particle_id], forces_y[old_particle_id], temp_velocities_x[particle_id], temp_velocities_y[particle_id], velocities_x[old_particle_id], velocities_y[old_particle_id], temp_radii[particle_id], radii[old_particle_id]);
-    }
 }

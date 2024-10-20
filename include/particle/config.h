@@ -19,7 +19,7 @@ struct BaseParticleConfig {
     double cell_size_multiplier;
     double cell_displacement_multiplier;
     std::string neighbor_list_update_method;
-    long dim_block;
+    long particle_dim_block;
     std::string type_name;
     std::string dispersity_type;
     
@@ -37,14 +37,14 @@ struct BaseParticleConfig {
      * @param cell_size_multiplier The multiplier for the cell size.
      * @param cell_displacement_multiplier The multiplier for the cell displacement.
      * @param neighbor_list_update_method The method for updating the neighbor list: "cell", "verlet", or "none"
-     * @param dim_block The number of threads in the block.
+     * @param particle_dim_block The number of threads in the block.
      */
     BaseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c, 
-                    double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, double cell_displacement_multiplier, std::string neighbor_list_update_method, long dim_block)
+                    double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, double cell_displacement_multiplier, std::string neighbor_list_update_method, long particle_dim_block)
         : seed(seed), n_particles(n_particles), mass(mass), e_c(e_c), n_c(n_c), 
         packing_fraction(packing_fraction), neighbor_cutoff_multiplier(neighbor_cutoff_multiplier), 
         neighbor_displacement_multiplier(neighbor_displacement_multiplier), cell_size_multiplier(cell_size_multiplier),
-        cell_displacement_multiplier(cell_displacement_multiplier), neighbor_list_update_method(neighbor_list_update_method), dim_block(dim_block) {}
+        cell_displacement_multiplier(cell_displacement_multiplier), neighbor_list_update_method(neighbor_list_update_method), particle_dim_block(particle_dim_block) {}
 
     virtual ~BaseParticleConfig() = default;
 
@@ -66,7 +66,7 @@ struct BaseParticleConfig {
             {"cell_size_multiplier", cell_size_multiplier},
             {"cell_displacement_multiplier", cell_displacement_multiplier},
             {"neighbor_list_update_method", neighbor_list_update_method},
-            {"dim_block", dim_block},
+            {"particle_dim_block", particle_dim_block},
             {"type_name", type_name},
             {"dispersity_type", dispersity_type},
         };
@@ -91,7 +91,7 @@ struct BaseParticleConfig {
             j.at("cell_size_multiplier").get<double>(),
             j.at("cell_displacement_multiplier").get<double>(),
             j.at("neighbor_list_update_method").get<std::string>(),
-            j.at("dim_block").get<long>(),
+            j.at("particle_dim_block").get<long>(),
         };
     }
 };
@@ -117,14 +117,14 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
      * @param cell_size_multiplier The multiplier for the cell size.
      * @param cell_displacement_multiplier The multiplier for the cell displacement.
      * @param neighbor_list_update_method The method for updating the neighbor list: "cell", "verlet", or "none"
-     * @param dim_block The number of threads in the block.
+     * @param particle_dim_block The number of threads in the block.
      * @param size_ratio The ratio of the radii of the large to small particles.
      * @param count_ratio The ratio of the number of large to small particles.
      */
     BidisperseParticleConfig(long seed, long n_particles, double mass, double e_c, double n_c,
-                            double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, double cell_displacement_multiplier, std::string neighbor_list_update_method, long dim_block,
+                            double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, double cell_size_multiplier, double cell_displacement_multiplier, std::string neighbor_list_update_method, long particle_dim_block,
                             double size_ratio, double count_ratio)
-        : BaseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, neighbor_list_update_method, dim_block),
+        : BaseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, neighbor_list_update_method, particle_dim_block),
         size_ratio(size_ratio), count_ratio(count_ratio) {
             dispersity_type = "Bidisperse";
         }
@@ -159,7 +159,7 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
         return BidisperseParticleConfig(
             base_config.seed, base_config.n_particles, base_config.mass, base_config.e_c, 
             base_config.n_c, base_config.packing_fraction, base_config.neighbor_cutoff_multiplier, 
-            base_config.neighbor_displacement_multiplier, base_config.cell_size_multiplier, base_config.cell_displacement_multiplier, base_config.neighbor_list_update_method, base_config.dim_block, size_ratio, count_ratio
+            base_config.neighbor_displacement_multiplier, base_config.cell_size_multiplier, base_config.cell_displacement_multiplier, base_config.neighbor_list_update_method, base_config.particle_dim_block, size_ratio, count_ratio
         );
     }
 };

@@ -32,26 +32,26 @@ Disk::~Disk() {
 // ----------------------------------------------------------------------
 
 
-void Disk::setKernelDimensions(long dim_block) {
+void Disk::setKernelDimensions(long particle_dim_block) {
     int maxThreadsPerBlock;
     cudaDeviceProp deviceProp;
     cudaGetDeviceProperties(&deviceProp, 0);
     maxThreadsPerBlock = deviceProp.maxThreadsPerBlock;
     std::cout << "CUDA Info: Particle::setKernelDimensions: Max threads per block: " << maxThreadsPerBlock << std::endl;
-    if (dim_block > maxThreadsPerBlock) {
-        std::cout << "WARNING: Particle::setKernelDimensions: dim_block exceeds maxThreadsPerBlock, adjusting to maxThreadsPerBlock" << std::endl;
-        dim_block = maxThreadsPerBlock;
+    if (particle_dim_block > maxThreadsPerBlock) {
+        std::cout << "WARNING: Particle::setKernelDimensions: particle_dim_block exceeds maxThreadsPerBlock, adjusting to maxThreadsPerBlock" << std::endl;
+        particle_dim_block = maxThreadsPerBlock;
     }
     if (n_particles <= 0) {
         std::cout << "ERROR: Disk::setKernelDimensions: n_particles is 0.  Set n_particles before setting kernel dimensions." << std::endl;
         exit(EXIT_FAILURE);
     }
 
-    if (n_particles < dim_block) {
-        dim_block = n_particles;
+    if (n_particles < particle_dim_block) {
+        particle_dim_block = n_particles;
     }
-    this->dim_block = dim_block;
-    this->dim_grid = (n_particles + dim_block - 1) / dim_block;
+    this->particle_dim_block = particle_dim_block;
+    this->particle_dim_grid = (n_particles + particle_dim_block - 1) / particle_dim_block;
 
     if (n_vertices > 0) {
         std::cout << "WARNING: Disk::setKernelDimensions: n_vertices is " << n_vertices << ".  This is being ignored." << std::endl;
@@ -74,7 +74,7 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
 
     this->setSeed(config.seed);
     this->setParticleCounts(config.n_particles, 0);
-    this->setKernelDimensions(config.dim_block);
+    this->setKernelDimensions(config.particle_dim_block);
 
     // Dynamic cast to check if config is BidisperseParticleConfig
     if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
@@ -119,9 +119,9 @@ double Disk::getOverlapFraction() const {
 }
 
 void Disk::calculateForces() {
-    kernelCalcDiskForces<<<dim_grid, dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_radii_ptr, d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
+    kernelCalcDiskForces<<<particle_dim_grid, particle_dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_radii_ptr, d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
 }
 
 void Disk::calculateKineticEnergy() {
-    kernelCalculateTranslationalKineticEnergy<<<dim_grid, dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
+    kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
 }

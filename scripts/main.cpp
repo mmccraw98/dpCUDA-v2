@@ -69,10 +69,10 @@ int main() {
     // TODO: make a config from a file
     
     double neighbor_cutoff_multiplier = 100.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.00;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+    double neighbor_displacement_multiplier = 0.001;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double cell_size_multiplier = 50.0;  // cells will be roughly this multiple of the maximum particle diameter
-    double cell_displacement_multiplier = 0.00;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 32, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    double cell_displacement_multiplier = 0.001;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
+    BidisperseDiskConfig config(0, 4, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: fix makefile to track changes in header files
@@ -110,6 +110,8 @@ int main() {
 
     // TODO: in dptools rename trajectory to trajectories to match folder name
 
+    // TODO: use shared memory when possible (probably neighbor list and force calculation)
+
     
     particle->setRandomVelocities(1e-4);
 
@@ -119,7 +121,7 @@ int main() {
     std::cout << "dt: " << nve_config.dt << std::endl;
     NVE nve(*particle, nve_config);
 
-    long num_steps = 3e4;
+    long num_steps = 5e4;
     long num_energy_saves = 1e2;
     long num_state_saves = 1e3;
     long min_state_save_decade = 1e1;
@@ -162,8 +164,8 @@ int main() {
     particle->calculateForces();
 
     while (step < num_steps) {
-        io_manager.log(step);
         nve.step();
+        io_manager.log(step);
         // std::cout << "Step: " << step << std::endl;
         step++;
         // if (particle->switched != switched) {

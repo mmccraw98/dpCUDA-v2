@@ -14,7 +14,75 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
+struct KernelConfig {
+    long dim_grid;
+    long dim_block;
+};
 
+template <typename T>
+struct ParticleData1D {
+    std::array<int, 1> size;  // Store size (N)
+    thrust::device_vector<T> d_val;  // Device vector
+    T* d_val_ptr = nullptr;  // Raw pointer to device memory
+
+    // Constructor
+    ParticleData1D(int N) : size{N}, d_val(N) {
+        d_val_ptr = d_val.data().get();
+    }
+
+    // Resize function
+    void resize(int new_size) {
+        size[0] = new_size;
+        d_val.resize(new_size);
+        d_val_ptr = d_val.data().get();
+    }
+
+    // Set data from host to device
+    void setData(const std::vector<T>& host_data) {
+        thrust::copy(host_data.begin(), host_data.end(), d_val.begin());
+    }
+
+    // Get data from device to host
+    std::vector<T> getData() const {
+        std::vector<T> host_data(size[0]);
+        thrust::copy(d_val.begin(), d_val.end(), host_data.begin());
+        return host_data;
+    }
+};
+
+
+template <typename T>
+struct ParticleData2D {
+    std::array<int, 2> size;  // Store size (N, 2)
+    ParticleData1D<T> x_data;  // 1D data for x
+    ParticleData1D<T> y_data;  // 1D data for y
+
+    // Constructor
+    ParticleData2D(int N) : size{N, 2}, x_data(N), y_data(N) {}
+
+    // Resize both x and y data
+    void resize(int new_size) {
+        size[0] = new_size;
+        x_data.resize(new_size);
+        y_data.resize(new_size);
+    }
+
+    // Set data for both dimensions
+    void setData(const std::vector<T>& host_data_x, const std::vector<T>& host_data_y) {
+        x_data.setData(host_data_x);
+        y_data.setData(host_data_y);
+    }
+
+    // Get data for the x-dimension
+    std::vector<T> getDataX() const {
+        return x_data.getData();
+    }
+
+    // Get data for the y-dimension
+    std::vector<T> getDataY() const {
+        return y_data.getData();
+    }
+};
 
 
 /**

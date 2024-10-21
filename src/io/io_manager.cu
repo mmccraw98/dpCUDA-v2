@@ -37,6 +37,11 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
             std::cerr << "ERROR: IOManager::IOManager:" << config.group_name << " is not a valid log group name" << std::endl;
         }
     }
+
+    // define the dependencies in the log groups
+    for (auto& log_group : log_groups) {
+        log_group->define_dependencies();
+    }
 }
 
 IOManager::~IOManager() {
@@ -54,6 +59,7 @@ void IOManager::init_path(std::filesystem::path& path, const std::string& path_n
 }
 
 void IOManager::log(long step) {
+    // figure out if any logs need to be written
     bool log_required = false;
     for (BaseLogGroup* log_group : log_groups) {
         log_group->update_log_status(step);
@@ -62,8 +68,27 @@ void IOManager::log(long step) {
         }
     }
 
+    // do the logging
+
     if (log_required) {
-        orchestrator.init_pre_req_calculation_status();
+        // handle dependency calculation if any
+        orchestrator.reset_dependency_status();
+        for (BaseLogGroup* log_group : log_groups) {
+            if (log_group->has_dependencies) {
+                log_group->handle_dependencies();
+            }
+        }
+
+        // gather the data
+        for (BaseLogGroup* log_group : log_groups) {
+            if (log_group->should_log) {
+                log_group->gather_data(step);
+            }
+        }
+
+        // now we can disconnect from the simulation and run these in parallel
+
+        // log
         for (BaseLogGroup* log_group : log_groups) {
             if (log_group->should_log) {
                 log_group->log(step);

@@ -72,6 +72,8 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
         throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
     }
 
+    this->define_unique_dependencies();
+
     this->setSeed(config.seed);
     this->setParticleCounts(config.n_particles, 0);
     this->setKernelDimensions(config.particle_dim_block);

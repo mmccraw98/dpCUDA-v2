@@ -19,6 +19,7 @@ struct ArrayData {
     std::string name;
     DataType type;
     std::array<long, 2> size;  // Now holds the size array from Data1D/2D
+    std::string index_array_name = "";  // the name of the index array used for reordering this data (if needed)
 
     // Data can be one of the following types
     std::variant<

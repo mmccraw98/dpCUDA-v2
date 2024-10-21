@@ -4,6 +4,7 @@
 #include "base_log_groups.h"
 #include "utils.h"
 #include "../include/constants.h"
+#include "../include/data/array_data.h"
 #include <iostream>
 
 /**
@@ -13,14 +14,22 @@
  */
 class StateLog : public BaseLogGroup {
 private:
-    int precision = DECIMAL_PRECISION;  // the precision to use when logging
+    long precision = DECIMAL_PRECISION;  // the precision to use when logging
     std::string root_path;  // the root path to log to
     std::string indexed_file_prefix;  // the indexed file prefix to use when logging
     std::string extension;  // the extension to use when logging
+    std::unordered_map<std::string, ArrayData> gathered_data;
+    std::unordered_map<std::string, ArrayData> reorder_index_data;  // key: index name, value: index arraydata
+
 
 public:
     StateLog(LogGroupConfig config, Orchestrator& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension);
     ~StateLog();
+
+    // TODO: add sorting by particle index
+    // TODO: add grouping together 2d data
+
+    void gather_data(long step) override;
 
     /**
      * @brief Write the header to the log file.
@@ -32,7 +41,7 @@ public:
      * 
      * @param root_path The root path to write to.
      */
-    void write_values(std::filesystem::path root_path);
+    void write_values(const std::filesystem::path& root_path);
 
     /**
      * @brief Log the current state of the system by writing all the vectors to their files in a subdirectory prefixed with the step.

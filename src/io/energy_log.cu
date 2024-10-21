@@ -3,7 +3,7 @@
 #include "../../include/io/utils.h"
 
 EnergyLog::EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite)
-    : MacroLog(log_group_config, orchestrator) {
+    : ScalarLog(log_group_config, orchestrator) {
     this->file_name = file_name;
     log_file = open_output_file(file_name, overwrite);
     if (!log_file.is_open()) {
@@ -34,13 +34,9 @@ void EnergyLog::write_header() {
     log_file.flush();
 }
 
-void EnergyLog::log(long step) {
+void EnergyLog::log(long step) {  // TODO: operate on gathered data
     for (size_t i = 0; i < config.log_names.size(); ++i) {
-        double value = orchestrator.get_value<double>(unmodified_log_names[i], step);
-        if (log_name_is_modified(config.log_names[i])) {
-            std::string modifier = get_modifier(config.log_names[i]);
-            value = orchestrator.apply_modifier(modifier, value);
-        }
+        double value = gathered_data[config.log_names[i]];
         log_file << std::fixed << std::setprecision(precision) << value;
         if (i < config.log_names.size() - 1) {
             log_file << delimiter;

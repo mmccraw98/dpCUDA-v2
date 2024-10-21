@@ -15,7 +15,7 @@
  * @param file_name The name of the file to write to
  * @param overwrite Whether to overwrite the file if it exists
  */
-class EnergyLog : public MacroLog {
+class EnergyLog : public ScalarLog {
 private:
     std::string delimiter = "\t";  // delimiter for the csv file
     std::ofstream log_file;  // the file stream

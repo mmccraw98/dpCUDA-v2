@@ -10,6 +10,8 @@ NVE::~NVE() {
 
 }
 
+// make get/set methods to sync values to device when relevant
+
 void NVE::step() {
     particle.updateVelocities(0.5 * dt);  // v(t+dt) = v(t) + dt / 2 * f(t) / m
     particle.updatePositions(dt);  // x(t+dt) = x(t) + dt * v(t+dt)

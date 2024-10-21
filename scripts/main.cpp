@@ -79,6 +79,12 @@ int main() {
     BidisperseDiskConfig config(0, 4, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
+    // TODO: get rid of either sorted_cell_index or cell_index in particle base class
+
+    // TODO: pass a log style config to each log group within the io manager constructor - default log styles for each log type
+
+    // TODO: use a different thread for each log group logging function?  gather in the same thread but then split to handling logging.
+
     // TODO: fix the kernel get first particle index for cell
 
     // TODO: fix makefile to track changes in header files
@@ -147,10 +153,10 @@ int main() {
         // config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
         // config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
-        // config_from_names_lin({"positions", "velocities", "cell_index", "sorted_cell_index", "particle_index", "cell_start", "num_neighbors", "neighbor_list"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "cell_start", "radii", "static_particle_index"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions", "velocities", "cell_index", "sorted_cell_index", "particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "cell_start", "radii", "static_particle_index"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names({"radii", "masses", "positions_x", "positions_y", "velocities_x", "velocities_y", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names({"radii", "masses", "positions", "velocities", "box_size"}, "init")  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
 
     // TODO: do something if there is data in the folder already
@@ -182,15 +188,7 @@ int main() {
     while (step < num_steps) {
         nve.step();
         io_manager.log(step);
-        // std::cout << "Step: " << step << std::endl;
         step++;
-        // if (particle->switched != switched) {
-        //     std::cout << "Switched on step: " << step << std::endl;
-        //     switched = particle->switched;
-        // }
-        // if (particle->num_rebuilds > 10000) {
-        //     break;
-        // }
     }
 
     // stop the timer

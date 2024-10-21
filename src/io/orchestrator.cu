@@ -23,38 +23,37 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+// initialize orchestrator:
+// get dependencies from particle
+// for each log name, check if it has a dependency - make list of all dependencies
 
+// log:
+// reset dependency status
+// if any dependencies, for each dependency, calculate the dependency
+// proceed with log
 
 Orchestrator::Orchestrator(Particle& particle, Integrator* integrator) : particle(particle), integrator(integrator) {
-    init_pre_req_calculation_status();
     has_integrator = integrator != nullptr;
-
-    std::cout << "Orchestrator::Orchestrator: Getting radii and neighbor list" << std::endl;
-    auto radii = get_vector_value<double>("radii");
-    auto neighbor_list = get_vector_value<long>("neighbor_list");
-
+    if (particle.using_cell_list) {
+        arrays_need_reordering = true;
+    }
 }
 
 Orchestrator::~Orchestrator() {
-    pre_req_calculation_status.clear();
 }
 
-void Orchestrator::init_pre_req_calculation_status() {
-    for (const std::string& log_name : particle.pre_req_calculations) {
-        pre_req_calculation_status[log_name] = false;  // Initialize all to false
+void Orchestrator::reset_dependency_status() {
+    particle.reset_dependency_status();
+}
+
+void Orchestrator::handle_dependencies(std::string log_name) { // io manager will give us all the log names and we check if any have dependencies then we get the particle to calculate them
+    if (particle.dependency_status.find(log_name) != particle.dependency_status.end()) {
+        particle.calculate_dependencies(log_name);
     }
 }
 
-void Orchestrator::handle_pre_req_calculations(const std::string& log_name) {
-    // some variables have pre-req calculations, they are defined here
-    if (log_name == "KE" || log_name == "TE" || log_name == "T" || log_name == "kinetic_energy") {  // i.e. to get KE, TE, or T, we first need to determine the kinetic energy
-        if (!pre_req_calculation_status["KE"] || !pre_req_calculation_status["kinetic_energy"]) {
-            particle.calculateKineticEnergy();
-            pre_req_calculation_status["KE"] = true;
-            pre_req_calculation_status["kinetic_energy"] = true;
-        }
-    }
-    // fill in others here...
+bool Orchestrator::is_dependent(std::string log_name) {
+    return particle.unique_dependencies.find(log_name) != particle.unique_dependencies.end();
 }
 
 double Orchestrator::apply_modifier(std::string& modifier, double value) {
@@ -70,21 +69,14 @@ double Orchestrator::apply_modifier(std::string& modifier, double value) {
     }
 }
 
-std::vector<long> Orchestrator::get_vector_size(const std::string& unmodified_log_name) {
-    std::vector<long> size;
-    if (unmodified_log_name == "something complicated") {
-        // d > 2 here
-    } else if (unmodified_log_name == "positions_x" || unmodified_log_name == "positions_y" || unmodified_log_name == "velocities_x" || unmodified_log_name == "velocities_y" || unmodified_log_name == "forces_x" || unmodified_log_name == "forces_y" || unmodified_log_name == "potential_energy" || unmodified_log_name == "kinetic_energy") {
-        size = {particle.n_particles, 1};
-    } else if (unmodified_log_name == "radii" || unmodified_log_name == "masses") {
-        size = {particle.n_particles, 1};
-    } else if (unmodified_log_name == "cell_index" || unmodified_log_name == "sorted_cell_index" || unmodified_log_name == "particle_index" || unmodified_log_name == "cell_start" || unmodified_log_name == "num_neighbors" || unmodified_log_name == "neighbor_list" || unmodified_log_name == "static_particle_index") {
-        thrust::host_vector<long> temp = particle.getArray<long>("d_" + unmodified_log_name);  // yeah i dont like this at all.  in fact, i dislike all of the io stuff
-        size = {static_cast<long>(temp.size()), 1};
-    } else if (unmodified_log_name == "box_size") {
-        size = {N_DIM, 1};
-    } else {
-        std::cerr << "Orchestrator::get_vector_size: Unrecognized log name: " << unmodified_log_name << std::endl;
+std::unordered_map<std::string, ArrayData> Orchestrator::get_reorder_index_data() {
+    std::unordered_map<std::string, ArrayData> reorder_index_data;
+    for (const std::string& index_name : particle.reorder_arrays) {
+        reorder_index_data[index_name] = particle.getArrayData(index_name);
     }
-    return size;
+    return reorder_index_data;
+}
+
+ArrayData Orchestrator::get_array_data(const std::string& unmodified_log_name) {
+    return particle.getArrayData(unmodified_log_name);
 }

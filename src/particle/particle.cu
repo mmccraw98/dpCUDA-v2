@@ -119,10 +119,12 @@ void Particle::setNeighborListUpdateMethod(std::string method_name) {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to cell" << std::endl;
         this->updateNeighborListPtr = &Particle::updateCellNeighborList;
         this->checkForNeighborUpdatePtr = &Particle::checkForCellUpdate;
+        this->using_cell_list = true;
     } else if (method_name == "verlet") {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to verlet" << std::endl;
         this->updateNeighborListPtr = &Particle::updateNeighborList;
         this->checkForNeighborUpdatePtr = &Particle::checkForNeighborUpdate;
+        this->using_cell_list = false;
     } else if (method_name == "none") {
         std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to none" << std::endl;
         throw std::invalid_argument("Particle::setNeighborListUpdateMethod: 'none' neighbor list update method not implemented: " + method_name);
@@ -420,6 +422,46 @@ void Particle::clearDynamicVariables() {
     d_temp_radii_ptr = nullptr;
 }
 
+void Particle::define_unique_dependencies() {
+    for (const auto& pair : calculation_dependencies) {
+        for (const auto& dependency : pair.second) {
+            unique_dependencies.insert(dependency);
+        }
+    }
+    reset_dependency_status();
+}
+
+void Particle::reset_dependency_status() {
+    dependency_status.clear();
+    for (const auto& dependency : unique_dependencies) {
+        dependency_status[dependency] = false;
+    }
+}
+
+void Particle::calculate_dependencies(std::string log_name) {
+    if (dependency_status.find(log_name) != dependency_status.end()) {
+        for (const auto& dependency : calculation_dependencies[log_name]) {
+            if (!dependency_status[dependency]) {
+                calculate_dependencies(dependency);  // handle nested dependencies
+                handle_calculation_for_single_dependency(dependency);
+                dependency_status[dependency] = true;
+            }
+        }
+    }
+}
+
+void Particle::handle_calculation_for_single_dependency(std::string dependency_calculation_name) {
+    // logic to calculate the dependency goes here - need one for each value in unique_dependencies
+    if (dependency_calculation_name == "calculate_kinetic_energy") {
+        calculateKineticEnergy();
+    } 
+    // fill in the rest here....
+
+    else {
+        throw std::invalid_argument("Particle::handle_calculation_for_single_dependency: dependency_calculation_name not found: " + dependency_calculation_name);
+    }
+}
+
 ArrayData Particle::getArrayData(const std::string& array_name) {
     ArrayData result;
     result.name = array_name;
@@ -427,58 +469,72 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Double;
         result.size = positions.size;
         result.data = std::make_pair(positions.getDataX(), positions.getDataY());
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "velocities") {
         result.type = DataType::Double;
         result.size = velocities.size;
         result.data = std::make_pair(velocities.getDataX(), velocities.getDataY());
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "forces") {
         result.type = DataType::Double;
         result.size = forces.size;
         result.data = std::make_pair(forces.getDataX(), forces.getDataY());
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "radii") {
         result.type = DataType::Double;
         result.size = radii.size;
         result.data = radii.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "masses") {
         result.type = DataType::Double;
         result.size = masses.size;
         result.data = masses.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "kinetic_energy") {
         result.type = DataType::Double;
         result.size = kinetic_energy.size;
         result.data = kinetic_energy.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "potential_energy") {
         result.type = DataType::Double;
         result.size = potential_energy.size;
         result.data = potential_energy.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "neighbor_list") {
         result.type = DataType::Long;
         result.size = neighbor_list.size;
         result.data = neighbor_list.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "num_neighbors") {
         result.type = DataType::Long;
         result.size = num_neighbors.size;
         result.data = num_neighbors.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "cell_index") {
         result.type = DataType::Long;
         result.size = cell_index.size;
         result.data = cell_index.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "sorted_cell_index") {
         result.type = DataType::Long;
         result.size = sorted_cell_index.size;
         result.data = sorted_cell_index.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "particle_index") {
         result.type = DataType::Long;
         result.size = particle_index.size;
         result.data = particle_index.getData();
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "static_particle_index") {
         result.type = DataType::Long;
         result.size = static_particle_index.size;
         result.data = static_particle_index.getData();
+        result.index_array_name = "";
     } else if (array_name == "cell_start") {
         result.type = DataType::Long;
         result.size = cell_start.size;
         result.data = cell_start.getData();
+        result.index_array_name = "";
     } else {
         throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
     }
@@ -799,7 +855,6 @@ void Particle::checkForNeighborUpdate() {
 }
 
 void Particle::checkForCellUpdate() {
-    bool weeeeee = false;
     double tolerance = 3.0;
     double max_squared_cell_displacement = getMaxSquaredCellDisplacement();
     // std::cout << "Particle::checkForCellUpdate: Max squared cell displacement: " << tolerance * max_squared_cell_displacement << " vs " << cell_displacement_threshold_sq << std::endl;
@@ -807,7 +862,6 @@ void Particle::checkForCellUpdate() {
         // std::cout << "Particle::checkForCellUpdate: Updating cell list" << std::endl;
         updateCellList();
         updateCellNeighborList();
-        weeeeee = true;
     } else {
         double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
         // std::cout << "Particle::checkForCellUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement_threshold_sq << std::endl;

@@ -59,31 +59,46 @@ long get_largest_file_index(std::string dir_name, std::string file_prefix = "");
  */
 void write_json_to_file(const std::string& file_name, const nlohmann::json& data);
 
-/**
- * @brief Writes an array to a file
- * @param file_name The name of the file to write to
- * @param data The array to write
- * @param num_rows The number of rows in the array
- * @param num_cols The number of columns in the array
- * @param precision The number of decimal places to write
- */
+// Helper function to access the correct data type from the variant
 template <typename T>
-void write_array_to_file(const std::string& file_name, const thrust::host_vector<T>& data, long num_rows, long num_cols, int precision) {
-    std::ofstream output_file(file_name);
-    if (!output_file.is_open()) {
-        std::cerr << "write_array_to_file: Error: could not open output file " << file_name << std::endl;
+thrust::host_vector<T>& get_1d_data(ArrayData& array_data) {
+    return std::get<thrust::host_vector<T>>(array_data.data);
+}
+
+template <typename T>
+std::pair<thrust::host_vector<T>, thrust::host_vector<T>>& get_2d_data(ArrayData& array_data) {
+    return std::get<std::pair<thrust::host_vector<T>, thrust::host_vector<T>>>(array_data.data);
+}
+
+void reorder_array(ArrayData& array_data, const ArrayData& reorder_index_data);
+
+template <typename T>
+void write_1d_array_to_file(std::ofstream& output_file, const thrust::host_vector<T>& data, int precision) {
+    for (const auto& val : data) {
+        output_file << std::setprecision(precision) << val << "\n";
+    }
+}
+
+template <typename T>
+void write_2d_array_to_file(std::ofstream& output_file, 
+                            const std::pair<thrust::host_vector<T>, thrust::host_vector<T>>& data, 
+                            int precision) {
+    const auto& first_vector = data.first;
+    const auto& second_vector = data.second;
+
+    if (first_vector.size() != second_vector.size()) {
+        std::cerr << "Error: 2D data vectors have mismatched sizes." << std::endl;
         exit(1);
     }
 
-    for (long row = 0; row < num_rows; row++) {
-        for (long col = 0; col < num_cols; col++) {
-            output_file << std::setprecision(precision) << data[row * num_cols + col] << "\t";
-        }
-        output_file << std::endl;
+    for (size_t i = 0; i < first_vector.size(); ++i) {
+        output_file << std::setprecision(precision) 
+                    << first_vector[i] << "\t" 
+                    << second_vector[i] << "\n";
     }
-
-    output_file.close();
 }
+
+void write_array_data_to_file(const std::string& file_name, ArrayData& array_data, long precision);
 
 /**
  * @brief Reads an array from a file

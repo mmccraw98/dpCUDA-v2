@@ -8,7 +8,7 @@
  * @brief ConsoleLog is a class that handles logging to the console.
  * 
  */
-class ConsoleLog : public MacroLog {
+class ConsoleLog : public ScalarLog {
 private:
     std::string delimiter = "|";  // delimiter for the console log
     int precision = 3;  // precision for the console log

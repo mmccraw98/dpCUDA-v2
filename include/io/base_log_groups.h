@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include "orchestrator.h"
+#include <set>
 
 #include <nlohmann/json.hpp>
 
@@ -125,6 +126,7 @@ class BaseLogGroup {
 protected:
     Orchestrator& orchestrator;  // the orchestrator that manages the interface between the logs and the simulation objects
     std::vector<std::string> unmodified_log_names;  // the unmodified log names
+    std::set<std::string> dependencies;
 
 public:
     BaseLogGroup(LogGroupConfig config, Orchestrator& orchestrator);
@@ -134,6 +136,12 @@ public:
     
     bool should_log = false;  // whether the log group should log
 
+    virtual void define_dependencies();
+
+    void handle_dependencies();
+
+    bool has_dependencies = false;
+
     /**
      * @brief Update the log status.
      * 
@@ -142,6 +150,8 @@ public:
      * @param step The current step.
      */
     void update_log_status(long step);
+
+    virtual void gather_data(long step) = 0;  // gather the data for the log group
 
     /**
      * @brief Log the current state.
@@ -155,25 +165,28 @@ public:
 
 
 /**
- * @brief MacroLog class.
+ * @brief ScalarLog class.
  * 
  * This class is the base class for all macro log groups.
  * It contains the common functionality for all macro log groups (console, energy, etc.)
  */
-class MacroLog : public BaseLogGroup {
+class ScalarLog : public BaseLogGroup {
 protected:
     std::vector<std::string> unmodified_log_names;  // the list of log names without modifiers
+    std::unordered_map<std::string, double> gathered_data;
     std::string delimiter;  // the delimiter to use when logging
     std::string modifier = "/";  // append to log names to divide them by values
     long precision;  // the precision to use when logging
     long width;  // the width to use when logging
 
 public:
-    MacroLog(LogGroupConfig config, Orchestrator& orchestrator);
-    virtual ~MacroLog();
+    ScalarLog(LogGroupConfig config, Orchestrator& orchestrator);
+    virtual ~ScalarLog();
 
-    bool log_name_is_modified(std::string log_name);  // check if the log name is modified (contains a modifier)
+    bool is_modified(std::string log_name);  // check if the log name is modified (contains a modifier)
     std::vector<std::string> get_unmodified_log_names();  // get the unmodified log names
+    void define_dependencies() override;
+    void gather_data(long step) override;
     virtual void log(long step) = 0;  // log the current state
     std::string get_modifier(std::string log_name);  // get the modifier from the log name
 };

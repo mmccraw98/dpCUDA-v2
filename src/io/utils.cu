@@ -23,6 +23,10 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
+#include <thrust/gather.h>
+#include <variant>
+#include <string>
+#include <utility>
 
 std::ifstream open_input_file(std::string file_name) {
     std::ifstream input_file = std::ifstream(file_name.c_str());
@@ -112,3 +116,97 @@ void write_json_to_file(const std::string& file_name, const nlohmann::json& data
 //     saveParams << key << "\t" << value << endl;
 //     saveParams.close();
 // }
+
+
+
+
+// Reordering 1D array
+void reorder_array_1d(ArrayData& array_data, const ArrayData& reorder_index_data) {
+    if (array_data.type == DataType::Double) {
+        auto& data = get_1d_data<double>(array_data);
+        auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
+        thrust::host_vector<double> new_data(array_data.size[0]);
+
+        thrust::gather(index.begin(), index.end(), data.begin(), new_data.begin());
+        thrust::swap(data, new_data);
+    } else if (array_data.type == DataType::Long) {
+        auto& data = get_1d_data<long>(array_data);
+        auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
+        thrust::host_vector<long> new_data(array_data.size[0]);
+
+        thrust::gather(index.begin(), index.end(), data.begin(), new_data.begin());
+        thrust::swap(data, new_data);
+    }
+}
+
+// Reordering 2D array
+void reorder_array_2d(ArrayData& array_data, const ArrayData& reorder_index_data) {
+    if (array_data.type == DataType::Double) {
+        auto& data = get_2d_data<double>(array_data);
+        auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
+        thrust::host_vector<double> new_first(data.first.size());
+        thrust::host_vector<double> new_second(data.second.size());
+
+        thrust::gather(index.begin(), index.end(), data.first.begin(), new_first.begin());
+        thrust::gather(index.begin(), index.end(), data.second.begin(), new_second.begin());
+
+        thrust::swap(data.first, new_first);
+        thrust::swap(data.second, new_second);
+    } else if (array_data.type == DataType::Long) {
+        auto& data = get_2d_data<long>(array_data);
+        auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
+        thrust::host_vector<long> new_first(data.first.size());
+        thrust::host_vector<long> new_second(data.second.size());
+
+        thrust::gather(index.begin(), index.end(), data.first.begin(), new_first.begin());
+        thrust::gather(index.begin(), index.end(), data.second.begin(), new_second.begin());
+
+        thrust::swap(data.first, new_first);
+        thrust::swap(data.second, new_second);
+    }
+}
+
+// General function to reorder array based on dimensionality
+void reorder_array(ArrayData& array_data, const ArrayData& reorder_index_data) {
+    if (array_data.size[1] == 1) {
+        reorder_array_1d(array_data, reorder_index_data);
+    } else if (array_data.size[1] == 2) {
+        reorder_array_2d(array_data, reorder_index_data);
+    } else {
+        std::cerr << "ERROR: reorder_array: array_data has invalid number of dimensions: " 
+                  << array_data.size[1] << std::endl;
+        exit(1);
+    }
+}
+
+void write_array_data_to_file(const std::string& file_name, ArrayData& array_data, long precision) {
+    std::ofstream output_file(file_name);
+    if (!output_file.is_open()) {
+        std::cerr << "write_array_data_to_file: Error: could not open output file " << file_name << std::endl;
+        exit(1);
+    }
+
+    if (array_data.size[1] == 1) {
+        if (array_data.type == DataType::Double) {
+            auto& data = get_1d_data<double>(array_data);
+            write_1d_array_to_file(output_file, data, precision);
+        } else if (array_data.type == DataType::Long) {
+            auto& data = get_1d_data<long>(array_data);
+            write_1d_array_to_file(output_file, data, precision);
+        }
+    } else if (array_data.size[1] == 2) {
+        if (array_data.type == DataType::Double) {
+            auto& data = get_2d_data<double>(array_data);
+            write_2d_array_to_file(output_file, data, precision);
+        } else if (array_data.type == DataType::Long) {
+            auto& data = get_2d_data<long>(array_data);
+            write_2d_array_to_file(output_file, data, precision);
+        }
+    } else {
+        std::cerr << "write_array_data_to_file: Error: Unsupported array dimensionality: " 
+                  << array_data.size[1] << std::endl;
+        exit(1);
+    }
+
+    output_file.close();
+}

@@ -51,6 +51,21 @@ BaseLogGroup::BaseLogGroup(LogGroupConfig config, Orchestrator& orchestrator) : 
 BaseLogGroup::~BaseLogGroup() {
 }
 
+void BaseLogGroup::define_dependencies() {
+    for (const std::string& log_name : config.log_names) {
+        if (orchestrator.is_dependent(log_name)) {
+            dependencies.insert(log_name);
+            has_dependencies = true;
+        }
+    }
+}
+
+void BaseLogGroup::handle_dependencies() {
+    for (const std::string& log_name : dependencies) {
+        orchestrator.handle_dependencies(log_name);
+    }
+}
+
 void BaseLogGroup::update_log_status(long step) {
     if (config.save_style == "lin") {
         should_log = step % config.save_freq == 0;
@@ -73,18 +88,39 @@ void BaseLogGroup::update_log_status(long step) {
     }
 }
 
-MacroLog::MacroLog(LogGroupConfig config, Orchestrator& orchestrator) : BaseLogGroup(config, orchestrator) {
+ScalarLog::ScalarLog(LogGroupConfig config, Orchestrator& orchestrator) : BaseLogGroup(config, orchestrator) {
     unmodified_log_names = get_unmodified_log_names();
 }
 
-MacroLog::~MacroLog() {
+ScalarLog::~ScalarLog() {
 }
 
-bool MacroLog::log_name_is_modified(std::string log_name) {
+void ScalarLog::define_dependencies() {
+    for (const std::string& log_name : unmodified_log_names) {
+        if (orchestrator.is_dependent(log_name)) {
+            dependencies.insert(log_name);
+            has_dependencies = true;
+        }
+    }
+}
+
+bool ScalarLog::is_modified(std::string log_name) {
     return log_name.find(modifier) != std::string::npos;
 }
 
-std::vector<std::string> MacroLog::get_unmodified_log_names() {
+void ScalarLog::gather_data(long step) {
+    for (size_t i = 0; i < unmodified_log_names.size(); ++i) {
+        const auto& name = unmodified_log_names[i];
+        double value = orchestrator.get_value<double>(name, step);
+        if (is_modified(config.log_names[i])) {
+            std::string mod = get_modifier(config.log_names[i]);
+            value = orchestrator.apply_modifier(mod, value);
+        }
+        gathered_data[config.log_names[i]] = value;
+    }
+}
+
+std::vector<std::string> ScalarLog::get_unmodified_log_names() {
     std::vector<std::string> unmodified_log_names;
     for (auto& log_name : config.log_names) {
         size_t pos = log_name.find(modifier);
@@ -97,7 +133,7 @@ std::vector<std::string> MacroLog::get_unmodified_log_names() {
     return unmodified_log_names;
 }
 
-std::string MacroLog::get_modifier(std::string log_name) {
+std::string ScalarLog::get_modifier(std::string log_name) {
     size_t pos = log_name.find(modifier);
     if (pos != std::string::npos) {
         return log_name.substr(pos + 1);

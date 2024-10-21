@@ -11,6 +11,7 @@
 
 #include <unordered_map>
 #include <any>
+#include <set>
 #include <typeinfo>
 #include <iostream>
 #include <string>
@@ -45,6 +46,29 @@ public:
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
     // These are the values that need to be calculated before the log value is calculated
     std::vector<std::string> pre_req_calculations = {"KE", "T", "kinetic_energy"};
+
+    // this is going to be done separately for each derived class
+    // the key is the name of the log variable and the value is the function that needs to be called to calculate the log variable
+    // i.e. if we want total energy, we need to calculate kinetic energy first
+    // many other log variables may depend on the same calculation so we keep track of which ones have been calculated
+    std::unordered_map<std::string, std::vector<std::string>> calculation_dependencies = {  // replicate this for each derived class
+        {"TE", {"calculate_kinetic_energy"}},
+        {"T", {"calculate_kinetic_energy"}},
+        {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
+        {"kinetic_energy", {"calculate_kinetic_energy"}}  // kinetic energy array
+        // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
+    };
+    virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
+    std::vector<std::string> reorder_arrays = {"static_particle_index"};  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
+    std::set<std::string> unique_dependencies;
+    std::map<std::string, bool> dependency_status;
+    std::set<std::string> get_unique_dependencies() { return unique_dependencies; }
+    std::map<std::string, bool> get_dependency_status() { return dependency_status; }
+    void define_unique_dependencies();
+    void reset_dependency_status();
+    void calculate_dependencies(std::string log_name);
+
+
 
     // Device vectors for particle data
     Data1D<double> box_size;
@@ -108,6 +132,7 @@ public:
 
     long num_rebuilds = 0;
     bool switched = false;
+    bool using_cell_list = false;
 
     // Pointers to the device arrays
     double* d_positions_x_ptr;

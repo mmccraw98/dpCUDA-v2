@@ -60,9 +60,11 @@ public:
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
     std::vector<std::string> reorder_arrays = {"static_particle_index"};  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
+    std::set<std::string> unique_dependents;
     std::set<std::string> unique_dependencies;
     std::map<std::string, bool> dependency_status;
     std::set<std::string> get_unique_dependencies() { return unique_dependencies; }
+    std::set<std::string> get_unique_dependents() { return unique_dependents; }
     std::map<std::string, bool> get_dependency_status() { return dependency_status; }
     void define_unique_dependencies();
     void reset_dependency_status();
@@ -86,85 +88,13 @@ public:
     Data1D<long> neighbor_list;
     Data1D<long> num_neighbors;
     Data1D<long> cell_index;
-    Data1D<long> sorted_cell_index;
     Data1D<long> particle_index;
     Data1D<long> static_particle_index;
     Data1D<long> cell_start;
 
-
-    thrust::device_vector<double> d_positions_x;  // particle positions
-    thrust::device_vector<double> d_positions_y;  // particle positions
-    thrust::device_vector<double> d_last_neigh_positions_x;  // particle positions at the last neighbor list update
-    thrust::device_vector<double> d_last_neigh_positions_y;  // particle positions at the last neighbor list update
-    thrust::device_vector<double> d_last_cell_positions_x;  // particle positions at the last cell list update
-    thrust::device_vector<double> d_last_cell_positions_y;  // particle positions at the last cell list update
-
-    thrust::device_vector<double> d_neigh_displacements_sq;  // squared displacement between current and last positions for neighbor list update
-    thrust::device_vector<double> d_cell_displacements_sq;  // squared displacement between current and last positions for cell list update
-
-    thrust::device_vector<double> d_velocities_x;  // particle velocities
-    thrust::device_vector<double> d_velocities_y;  // particle velocities
-    thrust::device_vector<double> d_forces_x;  // forces on the particles
-    thrust::device_vector<double> d_forces_y;  // forces on the particles
-
-    thrust::device_vector<double> d_temp_positions_x;  // temporary positions for the particles
-    thrust::device_vector<double> d_temp_positions_y;  // temporary positions for the particles
-    thrust::device_vector<double> d_temp_forces_x;  // temporary forces for the particles
-    thrust::device_vector<double> d_temp_forces_y;  // temporary forces for the particles
-    thrust::device_vector<double> d_temp_velocities_x;  // temporary velocities for the particles
-    thrust::device_vector<double> d_temp_velocities_y;  // temporary velocities for the particles
-
-
-    thrust::device_vector<double> d_radii;  // particle radii
-    thrust::device_vector<double> d_masses;  // particle masses
-    thrust::device_vector<double> d_temp_masses;  // temporary masses for the particles
-    thrust::device_vector<double> d_temp_radii;  // temporary radii for the particles
-
-    thrust::device_vector<double> d_potential_energy;  // potential energy of the particles
-    thrust::device_vector<double> d_kinetic_energy;  // kinetic energy of the particles
-    thrust::device_vector<long> d_neighbor_list;  // neighbor list for the particles
-    thrust::device_vector<long> d_num_neighbors;  // number of neighbors for each particle
-    thrust::device_vector<long> d_cell_index;  // stores the index of the cell that each particle is in
-    thrust::device_vector<long> d_sorted_cell_index;  // stores the cell indices sorted in ascending order
-    thrust::device_vector<long> d_particle_index;  // stores the particle index for each cell used for sorting
-    thrust::device_vector<long> d_static_particle_index;  // stores the persistent particle index for the data arrays - used for tracking particles through reordering
-    thrust::device_vector<long> d_cell_start;  // stores the starting particle index for each cell
-
     long num_rebuilds = 0;
     bool switched = false;
     bool using_cell_list = false;
-
-    // Pointers to the device arrays
-    double* d_positions_x_ptr;
-    double* d_positions_y_ptr;
-    double* d_last_neigh_positions_x_ptr;
-    double* d_last_neigh_positions_y_ptr;
-    double* d_last_cell_positions_x_ptr;
-    double* d_last_cell_positions_y_ptr;
-    double* d_neigh_displacements_sq_ptr;
-    double* d_cell_displacements_sq_ptr;
-    double* d_velocities_x_ptr;
-    double* d_velocities_y_ptr;
-    double* d_forces_x_ptr;
-    double* d_forces_y_ptr;
-
-    double* d_radii_ptr;
-    double* d_masses_ptr;
-    double* d_potential_energy_ptr;
-    double* d_kinetic_energy_ptr;
-    long* d_cell_index_ptr;
-    long* d_sorted_cell_index_ptr;
-    long* d_particle_index_ptr;
-    long* d_static_particle_index_ptr;
-    long* d_cell_start_ptr;
-    double* d_temp_positions_x_ptr;
-    double* d_temp_positions_y_ptr;
-    double* d_temp_forces_x_ptr;
-    double* d_temp_forces_y_ptr;
-    double* d_temp_velocities_x_ptr;
-    double* d_temp_velocities_y_ptr;
-    double* d_temp_masses_ptr;
-    double* d_temp_radii_ptr;
 
     // Simulation parameters
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
@@ -185,9 +115,6 @@ public:
     long n_cells_dim = -1;  // number of cells in each dimension
     double cell_size = -1;  // size of the cells
 
-    // ----------------------------------------------------------------------
-    // ----------------------- Template Methods -----------------------------
-    // ----------------------------------------------------------------------
 
     ArrayData getArrayData(const std::string& array_name);
 

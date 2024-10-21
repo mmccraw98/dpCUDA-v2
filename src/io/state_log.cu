@@ -25,8 +25,8 @@ void StateLog::gather_data(long step) {
 void StateLog::write_values(const std::filesystem::path& root_path) {
     for (auto& [name, array_data] : gathered_data) {
         std::filesystem::path file_path = root_path / (name + extension);
-        if (reorder_index_data.find(name) != reorder_index_data.end()) {
-            reorder_array(array_data, reorder_index_data[name]);
+        if (orchestrator.arrays_need_reordering && reorder_index_data.find(array_data.index_array_name) != reorder_index_data.end()) {
+            reorder_array(array_data, reorder_index_data[array_data.index_array_name]);
         }
         write_array_data_to_file(file_path.string(), array_data, precision);
     }
@@ -40,5 +40,6 @@ void StateLog::log(long step) {
 }
 
 void StateLog::write_state() {
+    std::cout << "Writing state to " << root_path << std::endl;
     write_values(root_path);
 }

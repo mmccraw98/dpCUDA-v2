@@ -169,7 +169,6 @@ void Particle::initDynamicVariables() {
     neighbor_list.resizeAndFill(n_particles, -1L);
     num_neighbors.resizeAndFill(n_particles, 0L);
     cell_index.resizeAndFill(n_particles, -1L);
-    sorted_cell_index.resizeAndFill(n_particles, -1L);
     particle_index.resizeAndFill(n_particles, 0L);
     static_particle_index.resizeAndFill(n_particles, 0L);
     thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
@@ -195,7 +194,6 @@ void Particle::clearDynamicVariables() {
     neighbor_list.clear();
     num_neighbors.clear();
     cell_index.clear();
-    sorted_cell_index.clear();
     particle_index.clear();
     static_particle_index.clear();
     cell_start.clear();
@@ -207,6 +205,7 @@ void Particle::clearDynamicVariables() {
 
 void Particle::define_unique_dependencies() {
     for (const auto& pair : calculation_dependencies) {
+        unique_dependents.insert(pair.first);
         for (const auto& dependency : pair.second) {
             unique_dependencies.insert(dependency);
         }
@@ -222,13 +221,11 @@ void Particle::reset_dependency_status() {
 }
 
 void Particle::calculate_dependencies(std::string log_name) {
-    if (dependency_status.find(log_name) != dependency_status.end()) {
-        for (const auto& dependency : calculation_dependencies[log_name]) {
-            if (!dependency_status[dependency]) {
-                calculate_dependencies(dependency);  // handle nested dependencies
-                handle_calculation_for_single_dependency(dependency);
-                dependency_status[dependency] = true;
-            }
+    for (const auto& dependency : calculation_dependencies[log_name]) {
+        if (!dependency_status[dependency]) {
+            calculate_dependencies(dependency);  // handle nested dependencies
+            handle_calculation_for_single_dependency(dependency);
+            dependency_status[dependency] = true;  // once calculated, it doesnt need to be calculated again
         }
     }
 }
@@ -263,6 +260,11 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.size = forces.size;
         result.data = std::make_pair(forces.getDataX(), forces.getDataY());
         result.index_array_name = "static_particle_index";
+    } else if (array_name == "box_size") {
+        result.type = DataType::Double;
+        result.size = box_size.size;
+        result.data = box_size.getData();
+        result.index_array_name = "";
     } else if (array_name == "radii") {
         result.type = DataType::Double;
         result.size = radii.size;
@@ -287,7 +289,7 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Long;
         result.size = neighbor_list.size;
         result.data = neighbor_list.getData();
-        result.index_array_name = "static_particle_index";
+        result.index_array_name = ""; // this is a tricky one to incorporate in the reordering process in a general way
     } else if (array_name == "num_neighbors") {
         result.type = DataType::Long;
         result.size = num_neighbors.size;
@@ -297,11 +299,6 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Long;
         result.size = cell_index.size;
         result.data = cell_index.getData();
-        result.index_array_name = "static_particle_index";
-    } else if (array_name == "sorted_cell_index") {
-        result.type = DataType::Long;
-        result.size = sorted_cell_index.size;
-        result.data = sorted_cell_index.getData();
         result.index_array_name = "static_particle_index";
     } else if (array_name == "particle_index") {
         result.type = DataType::Long;
@@ -694,15 +691,12 @@ void Particle::initCellList() {
     num_neighbors.resizeAndFill(n_particles, 0L);
     syncNeighborList();
     cell_index.resize(n_particles);
-    sorted_cell_index.resize(n_particles);
     particle_index.resize(n_particles);
     static_particle_index.resize(n_particles);
     cell_start.resize(n_cells + 1);
     thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
     thrust::sequence(static_particle_index.d_vec.begin(), static_particle_index.d_vec.end());
     cell_index.fill(-1L);
-    sorted_cell_index.fill(-1L);
-    cell_start.fill(-1L);
     updateCellList();
     updateCellNeighborList();
 }

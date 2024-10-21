@@ -1,8 +1,10 @@
 #include "../../include/io/io_manager.h"
 #include <iostream>
 #include <filesystem>
+#include <thread>
+#include <vector>
 
-IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), overwrite(overwrite), log_configs(log_configs) {
+IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, bool use_parallel, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), use_parallel(use_parallel), overwrite(overwrite), log_configs(log_configs) {
     // probably validate root_path if it is not empty
 
     for (auto& config : log_configs) {
@@ -31,7 +33,6 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
             }
             state_log = new StateLog(config, orchestrator, system_dir_path, "", state_file_extension);
-            state_log->write_state();
 
         } else {
             std::cerr << "ERROR: IOManager::IOManager:" << config.group_name << " is not a valid log group name" << std::endl;
@@ -40,7 +41,13 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
 
     // define the dependencies in the log groups
     for (auto& log_group : log_groups) {
+        std::cout << "IOManager::IOManager: defining dependencies for " << log_group->config.group_name << std::endl;
         log_group->define_dependencies();
+    }
+
+    if (state_log != nullptr) {
+        state_log->gather_data(0);
+        state_log->write_state();
     }
 }
 
@@ -89,10 +96,22 @@ void IOManager::log(long step) {
         // now we can disconnect from the simulation and run these in parallel
 
         // log
+        std::vector<std::thread> threads;  // Store threads for async log groups
         for (BaseLogGroup* log_group : log_groups) {
             if (log_group->should_log) {
-                log_group->log(step);
+                if (log_group->parallel && use_parallel) {
+                    threads.emplace_back([log_group, step]() {
+                        log_group->log(step);
+                    });
+                } else {
+                    log_group->log(step);
+                }
             }
+        }
+
+        // Detach all threads
+        for (auto& thread : threads) {
+            thread.detach();  // Let them run independently
         }
     }
 }

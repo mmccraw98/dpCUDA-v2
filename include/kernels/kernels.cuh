@@ -217,8 +217,21 @@ __global__ void kernelUpdateNeighborList(
  * @return __device__ PBC cell index for the particle
  */
 inline __device__ long getPBCCellIndex(double pos) {
-    long index = __double2ll_rd(pos / d_cell_size);  // Efficient floor operation
-    return (index + d_n_cells_dim) % d_n_cells_dim;  // Ensure positive wrapping
+    // version 3:
+    // Use CUDA intrinsic for fast floor-like rounding
+    long index = __double2ll_rd(pos / d_cell_size);
+    // Ensure positive wrapping using optimized modulo
+    return index >= 0 ? index % d_n_cells_dim : (index % d_n_cells_dim + d_n_cells_dim) % d_n_cells_dim;
+
+    // version 2:
+    // Calculate the index with floor-like rounding
+    // long index = static_cast<long>(floor(pos / d_cell_size));
+    // Ensure positive wrapping using modulo
+    // return (index % d_n_cells_dim + d_n_cells_dim) % d_n_cells_dim;
+
+    // version 1:
+    // long index = __double2ll_rd(pos / d_cell_size);  // Efficient floor operation
+    // return (index + d_n_cells_dim) % d_n_cells_dim;  // Ensure positive wrapping
 }
 
 /**

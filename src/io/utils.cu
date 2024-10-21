@@ -24,6 +24,7 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 #include <thrust/gather.h>
+#include <thrust/scatter.h>
 #include <variant>
 #include <string>
 #include <utility>
@@ -127,14 +128,14 @@ void reorder_array_1d(ArrayData& array_data, const ArrayData& reorder_index_data
         auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
         thrust::host_vector<double> new_data(array_data.size[0]);
 
-        thrust::gather(index.begin(), index.end(), data.begin(), new_data.begin());
+        thrust::scatter(data.begin(), data.end(), index.begin(), new_data.begin());
         thrust::swap(data, new_data);
     } else if (array_data.type == DataType::Long) {
         auto& data = get_1d_data<long>(array_data);
         auto& index = get_1d_data<long>(const_cast<ArrayData&>(reorder_index_data));
         thrust::host_vector<long> new_data(array_data.size[0]);
 
-        thrust::gather(index.begin(), index.end(), data.begin(), new_data.begin());
+        thrust::scatter(data.begin(), data.end(), index.begin(), new_data.begin());
         thrust::swap(data, new_data);
     }
 }
@@ -147,8 +148,8 @@ void reorder_array_2d(ArrayData& array_data, const ArrayData& reorder_index_data
         thrust::host_vector<double> new_first(data.first.size());
         thrust::host_vector<double> new_second(data.second.size());
 
-        thrust::gather(index.begin(), index.end(), data.first.begin(), new_first.begin());
-        thrust::gather(index.begin(), index.end(), data.second.begin(), new_second.begin());
+        thrust::scatter(data.first.begin(), data.first.end(), index.begin(), new_first.begin());
+        thrust::scatter(data.second.begin(), data.second.end(), index.begin(), new_second.begin());
 
         thrust::swap(data.first, new_first);
         thrust::swap(data.second, new_second);
@@ -158,8 +159,8 @@ void reorder_array_2d(ArrayData& array_data, const ArrayData& reorder_index_data
         thrust::host_vector<long> new_first(data.first.size());
         thrust::host_vector<long> new_second(data.second.size());
 
-        thrust::gather(index.begin(), index.end(), data.first.begin(), new_first.begin());
-        thrust::gather(index.begin(), index.end(), data.second.begin(), new_second.begin());
+        thrust::scatter(data.first.begin(), data.first.end(), index.begin(), new_first.begin());
+        thrust::scatter(data.second.begin(), data.second.end(), index.begin(), new_second.begin());
 
         thrust::swap(data.first, new_first);
         thrust::swap(data.second, new_second);

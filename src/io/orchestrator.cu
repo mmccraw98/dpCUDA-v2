@@ -47,13 +47,12 @@ void Orchestrator::reset_dependency_status() {
 }
 
 void Orchestrator::handle_dependencies(std::string log_name) { // io manager will give us all the log names and we check if any have dependencies then we get the particle to calculate them
-    if (particle.dependency_status.find(log_name) != particle.dependency_status.end()) {
-        particle.calculate_dependencies(log_name);
-    }
+    // print out the dependency status
+    particle.calculate_dependencies(log_name);
 }
 
 bool Orchestrator::is_dependent(std::string log_name) {
-    return particle.unique_dependencies.find(log_name) != particle.unique_dependencies.end();
+    return particle.unique_dependents.find(log_name) != particle.unique_dependents.end();
 }
 
 double Orchestrator::apply_modifier(std::string& modifier, double value) {

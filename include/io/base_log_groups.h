@@ -142,6 +142,8 @@ public:
 
     bool has_dependencies = false;
 
+    const bool parallel = false;
+
     /**
      * @brief Update the log status.
      * 

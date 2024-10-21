@@ -25,7 +25,7 @@ public:
      * @param root_path The root path for all output files
      * @param overwrite Whether to overwrite existing files
      */
-    IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root_path = "", bool overwrite = true);
+    IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root_path = "", bool use_parallel = true, bool overwrite = true);
     ~IOManager();
 
     /**
@@ -71,6 +71,7 @@ private:
     StateLog* state_log = nullptr;
 
     bool overwrite;  // whether to overwrite existing files
+    bool use_parallel;  // whether to use parallel IO
 
     std::string root_path;  // root path for all output files
     

@@ -22,7 +22,7 @@ struct RandomUniform {
     RandomUniform(double min, double max, unsigned int seed) : min(min), max(max), seed(seed) {}
 
     __host__ __device__
-    float operator()(const unsigned int n) const {
+    double operator()(const unsigned int n) const {
         thrust::default_random_engine rng(seed + n);
         thrust::uniform_real_distribution<double> dist(min, max);
         rng.discard(n);

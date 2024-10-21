@@ -5,6 +5,10 @@
 #include "../../include/functors.h"
 #include "config.h"
 
+#include "../../include/data/data_1d.h"
+#include "../../include/data/data_2d.h"
+#include "../../include/data/array_data.h"
+
 #include <unordered_map>
 #include <any>
 #include <typeinfo>
@@ -13,77 +17,13 @@
 #include <cmath>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <thrust/iterator/constant_iterator.h>
+#include <thrust/iterator/counting_iterator.h>
 
 struct KernelConfig {
     long dim_grid;
     long dim_block;
 };
-
-template <typename T>
-struct ParticleData1D {
-    std::array<int, 1> size;  // Store size (N)
-    thrust::device_vector<T> d_val;  // Device vector
-    T* d_val_ptr = nullptr;  // Raw pointer to device memory
-
-    // Constructor
-    ParticleData1D(int N) : size{N}, d_val(N) {
-        d_val_ptr = d_val.data().get();
-    }
-
-    // Resize function
-    void resize(int new_size) {
-        size[0] = new_size;
-        d_val.resize(new_size);
-        d_val_ptr = d_val.data().get();
-    }
-
-    // Set data from host to device
-    void setData(const std::vector<T>& host_data) {
-        thrust::copy(host_data.begin(), host_data.end(), d_val.begin());
-    }
-
-    // Get data from device to host
-    std::vector<T> getData() const {
-        std::vector<T> host_data(size[0]);
-        thrust::copy(d_val.begin(), d_val.end(), host_data.begin());
-        return host_data;
-    }
-};
-
-
-template <typename T>
-struct ParticleData2D {
-    std::array<int, 2> size;  // Store size (N, 2)
-    ParticleData1D<T> x_data;  // 1D data for x
-    ParticleData1D<T> y_data;  // 1D data for y
-
-    // Constructor
-    ParticleData2D(int N) : size{N, 2}, x_data(N), y_data(N) {}
-
-    // Resize both x and y data
-    void resize(int new_size) {
-        size[0] = new_size;
-        x_data.resize(new_size);
-        y_data.resize(new_size);
-    }
-
-    // Set data for both dimensions
-    void setData(const std::vector<T>& host_data_x, const std::vector<T>& host_data_y) {
-        x_data.setData(host_data_x);
-        y_data.setData(host_data_y);
-    }
-
-    // Get data for the x-dimension
-    std::vector<T> getDataX() const {
-        return x_data.getData();
-    }
-
-    // Get data for the y-dimension
-    std::vector<T> getDataY() const {
-        return y_data.getData();
-    }
-};
-
 
 /**
  * @brief Base class for all particle types.
@@ -107,6 +47,27 @@ public:
     std::vector<std::string> pre_req_calculations = {"KE", "T", "kinetic_energy"};
 
     // Device vectors for particle data
+    Data1D<double> box_size;
+    SwapData2D<double> positions;
+    SwapData2D<double> velocities;
+    SwapData2D<double> forces;
+    Data2D<double> last_neigh_positions;
+    Data2D<double> last_cell_positions;
+    Data1D<double> neigh_displacements_sq;
+    Data1D<double> cell_displacements_sq;
+    SwapData1D<double> radii;
+    SwapData1D<double> masses;
+    Data1D<double> kinetic_energy;
+    Data1D<double> potential_energy;
+    Data1D<long> neighbor_list;
+    Data1D<long> num_neighbors;
+    Data1D<long> cell_index;
+    Data1D<long> sorted_cell_index;
+    Data1D<long> particle_index;
+    Data1D<long> static_particle_index;
+    Data1D<long> cell_start;
+
+
     thrust::device_vector<double> d_positions_x;  // particle positions
     thrust::device_vector<double> d_positions_y;  // particle positions
     thrust::device_vector<double> d_last_neigh_positions_x;  // particle positions at the last neighbor list update
@@ -203,6 +164,8 @@ public:
     // ----------------------- Template Methods -----------------------------
     // ----------------------------------------------------------------------
 
+    ArrayData getArrayData(const std::string& array_name);
+
     /**
      * @brief Get a key-value map to pointers for all the member device arrays.
      * Serves as a utility function for the getArray and setArray methods to reduce
@@ -231,8 +194,8 @@ public:
     thrust::host_vector<T> getArray(const std::string& array_name) {
 
         if (array_name == "d_box_size") {  // I don't like this at all
-            thrust::host_vector<double> box_size = getBoxSize();
-            return box_size;
+            thrust::host_vector<double> host_box_size = box_size.getData();
+            return host_box_size;
         }
 
         auto array_map = getArrayMap();
@@ -314,8 +277,6 @@ public:
      */
     void setNumParticles(long n_particles);
 
-    virtual void resetLastPositions();
-
     /**
      * @brief Set the degrees of freedom.  Specific values depend on the derived class.
      */
@@ -365,14 +326,7 @@ public:
      * 
      * @param box_size The box size vector.
      */
-    void setBoxSize(const thrust::host_vector<double>& box_size);
-
-    /**
-     * @brief Get the box size vector from the device memory.
-     * 
-     * @return The box size vector in the host memory.
-     */
-    thrust::host_vector<double> getBoxSize();
+    void setBoxSize(const thrust::host_vector<double>& host_box_size);
 
     /**
      * @brief Synchronize the neighbor list on the device.
@@ -610,12 +564,12 @@ public:
     /**
      * @brief Initialize and calculate the neighbor list for the particles.
      */
-    virtual void initializeNeighborList();
+    virtual void initNeighborList();
 
     /**
      * @brief Initialize and calculate the cell list for the particles.
      */
-    virtual void initializeCellList();
+    virtual void initCellList();
 
     /**
      * @brief Synchronize the cell list sizes to the device constant memory.
@@ -645,11 +599,6 @@ public:
      * @param neighbor_displacement_multiplier The multiplier for the neighbor displacement.
      */
     virtual void setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier);
-
-    /**
-     * @brief Print the neighbor list for the particles.  Useful for debugging.
-     */
-    virtual void printNeighborList();
 
     /**
      * @brief Set the cell size for the cell list.

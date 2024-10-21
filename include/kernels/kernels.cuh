@@ -97,7 +97,7 @@ __global__ void kernelUpdateVelocities(double* velocities_x, double* velocities_
  * 
  * @param velocities The velocities of the particles.
  */
-__global__ void kernelRemoveMeanVelocities(double* velocities);
+__global__ void kernelRemoveMeanVelocities(double* __restrict__ velocities_x, double* __restrict__ velocities_y, const double mean_vel_x, const double mean_vel_y);
 
 
 __global__ void kernelZeroForceAndPotentialEnergy(double* forces_x, double* forces_y, double* potential_energy);
@@ -248,16 +248,16 @@ __global__ void kernelUpdateCellNeighborList(
     const long* __restrict__ cell_start, double* __restrict__ cell_displacements_sq);
 
 __global__ void kernelReorderParticleData(
-	const long* particle_index,
-	const double* positions_x, const double* positions_y,
-	const double* forces_x, const double* forces_y,
-	const double* velocities_x, const double* velocities_y,
-	const double* masses, const double* radii,
-	double* temp_positions_x, double* temp_positions_y,
-	double* temp_forces_x, double* temp_forces_y,
-	double* temp_velocities_x, double* temp_velocities_y,
-	double* temp_masses, double* temp_radii,
-	double* last_cell_positions_x, double* last_cell_positions_y,
-	double* cell_displacements_sq);
+	const long* __restrict__ particle_index,
+	const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+	const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+	const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+	const double* __restrict__ masses, const double* __restrict__ radii,
+	double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
+	double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
+	double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
+	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
+	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+	double* __restrict__ cell_displacements_sq);
 
 #endif /* KERNELS_CUH_ */

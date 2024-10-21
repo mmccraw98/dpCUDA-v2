@@ -17,6 +17,7 @@ set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-11.8)
 # Add include directories (including CUDA's include directory)
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/data
     ${CMAKE_SOURCE_DIR}/include/integrator
     ${CMAKE_SOURCE_DIR}/include/particle
     ${CMAKE_SOURCE_DIR}/include/kernels
@@ -39,6 +40,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # Add source files for the executable
 add_executable(main_exec
     scripts/main.cpp
+    src/data/data_1d.cu
+    src/data/data_2d.cu
     src/kernels/kernels.cu
     src/particle/config.cu
     src/particle/particle.cu

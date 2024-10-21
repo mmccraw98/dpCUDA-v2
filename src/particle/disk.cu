@@ -96,17 +96,17 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
     if (config.neighbor_list_update_method == "cell") {
         this->setCellSize(config.cell_size_multiplier, config.cell_displacement_multiplier);
-        this->initializeCellList();
+        this->initCellList();
     } else {
         std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;
-        this->initializeNeighborList();
+        this->initNeighborList();
         std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
     }
 }
 
 
 double Disk::getArea() const {
-    return thrust::transform_reduce(d_radii.begin(), d_radii.end(), Square(), 0.0, thrust::plus<double>()) * PI;
+    return thrust::transform_reduce(radii.d_vec.begin(), radii.d_vec.end(), Square(), 0.0, thrust::plus<double>()) * PI;
 }
 
 double Disk::getOverlapFraction() const {
@@ -119,9 +119,11 @@ double Disk::getOverlapFraction() const {
 }
 
 void Disk::calculateForces() {
-    kernelCalcDiskForces<<<particle_dim_grid, particle_dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_radii_ptr, d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
+    // kernelCalcDiskForces<<<particle_dim_grid, particle_dim_block>>>(d_positions_x_ptr, d_positions_y_ptr, d_radii_ptr, d_forces_x_ptr, d_forces_y_ptr, d_potential_energy_ptr);
+    kernelCalcDiskForces<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
 }
 
 void Disk::calculateKineticEnergy() {
-    kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
+    // kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
+    kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, kinetic_energy.d_ptr);
 }

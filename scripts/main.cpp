@@ -26,9 +26,13 @@
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
 
+#include "../include/data/data_1d.h"
+#include "../include/data/data_2d.h"
+
 #include <nlohmann/json.hpp>
 
 int main() {
+
 
     // TODO: add cell linked list (only check neighbors in current cell and neighboring cells (maybe can define particles as being on the boundary of a cell in parallel and can then fetch the boundary particles))
 
@@ -75,9 +79,13 @@ int main() {
     BidisperseDiskConfig config(0, 4, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
+    // TODO: fix the kernel get first particle index for cell
+
     // TODO: fix makefile to track changes in header files
 
     // TODO: check if switching to SoA gives a performance boost
+
+    // TODO: switch box size to be a new particle1d data type
 
     // TODO: move the cuda check to functors
 
@@ -85,6 +93,10 @@ int main() {
 
     // TODO: intelligently set the cell sizing based on particle diameter and expected cell occupancy (density is global, so can only specify the number of particles per cell)
     // TODO: make the number of cells a power of 2 - why is this important?  ask chatgpt
+
+    // TODO: better pre req calculation handling
+
+    // TODO: better particle config and base config
 
     // TODO: fix remove mean velocities
     // TODO: around or above 500k particles, there is an out of bounds error somewhere - probably the array needs to laid out differently
@@ -97,6 +109,8 @@ int main() {
     // TODO: fix the get/set array methods
 
     // TODO: improve the io and orchestration stuff
+
+    // TODO: orchestrator and io should be parallel to the simulation
 
     // TODO: the calc-prereq values should be handled by the orchestrator 
 
@@ -111,6 +125,8 @@ int main() {
     // TODO: in dptools rename trajectory to trajectories to match folder name
 
     // TODO: use shared memory when possible (probably neighbor list and force calculation)
+
+    // TODO: conjugate momenta instead of velocities and mass
 
     
     particle->setRandomVelocities(1e-4);

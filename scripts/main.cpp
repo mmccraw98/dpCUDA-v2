@@ -71,13 +71,23 @@ int main() {
 
     // set seed to -1 to use the current time
     // TODO: make a config from a file
+
+    // TODO: faster dataio as binary?  helps size and loading time
     
-    double neighbor_cutoff_multiplier = 100.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.001;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
-    double cell_size_multiplier = 50.0;  // cells will be roughly this multiple of the maximum particle diameter
-    double cell_displacement_multiplier = 0.001;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 64, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, cell_size_multiplier, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
+    double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+    double num_particles_per_cell = 8.0;  // the desired number of particles per cell
+    double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.05, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
+
+    // TODO: faster cell start calculation using a binary search
+    // TODO: avoid checking max displacement every step by only doing the reduction on particles that have left their original cells (track cells in position update kernel)
+    // TODO: use shared memory
+    // TODO: tune block and grid size
+    
+
+    // TODO: how should the simulation scripts be defined?  one for each particle type or truly run-time defined?
 
     // TODO: pool simulation with all the different types of particles
     // TODO: jamming simulation with all the different types of particles
@@ -86,15 +96,7 @@ int main() {
 
     // TODO: pass a log style config to each log group within the io manager constructor - default log styles for each log type
 
-    // TODO: use a different thread for each log group logging function?  gather in the same thread but then split to handling logging.
-
-    // TODO: fix the kernel get first particle index for cell
-
     // TODO: fix makefile to track changes in header files
-
-    // TODO: check if switching to SoA gives a performance boost
-
-    // TODO: switch box size to be a new particle1d data type
 
     // TODO: move the cuda check to functors
 
@@ -146,7 +148,7 @@ int main() {
     std::cout << "dt: " << nve_config.dt << std::endl;
     NVE nve(*particle, nve_config);
 
-    long num_steps = 5e4;
+    long num_steps = 1e5;
     long num_energy_saves = 1e2;
     long num_state_saves = 1e3;
     long min_state_save_decade = 1e1;
@@ -158,7 +160,7 @@ int main() {
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
         // config_from_names_lin_everyN({"step", "KE", "PE", "TE", "T"}, 1, "energy"),  // saves the energy data to the energy file
         // config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
-        config_from_names_lin({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names_lin({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin_everyN({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, 1, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "cell_start", "radii", "static_particle_index"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
@@ -169,7 +171,7 @@ int main() {
 
     // TODO: make an io manager config?
 
-    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-10-14/debugging-dpcuda2", true, true);
+    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-10-14/debugging-dpcuda2", false, true);
     io_manager.write_params();
 
     // add a start time and an end time to the io manager, should be added to the config file - the end time will be used to determine if the program finished (if empty,it didnt finish)

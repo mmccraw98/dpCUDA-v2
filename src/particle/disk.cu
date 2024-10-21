@@ -97,7 +97,7 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
     this->setNeighborListUpdateMethod(config.neighbor_list_update_method);
     this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
     if (config.neighbor_list_update_method == "cell") {
-        this->setCellSize(config.cell_size_multiplier, config.cell_displacement_multiplier);
+        this->setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
         this->initCellList();
     } else {
         std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;

@@ -279,6 +279,8 @@ __global__ void kernelGetFirstParticleIndexForCell(const long* __restrict__ cell
         cell_start[cell_id] = -1;
     }
 
+
+
     // if (cell_id == 0 && cell_index[0] == cell_id) {
     //     cell_start[cell_id] = 0;
     //     return;

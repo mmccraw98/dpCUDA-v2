@@ -63,6 +63,10 @@ inline __device__ long mod(long a, long b) {
 inline __device__ double pbcDistance(const double x1, const double x2, const long dim) {
 	double dist = x1 - x2, size = d_box_size[dim];
 	return dist - size * round(dist / size); //round for distance, floor for position
+    // double dist = x1 - x2;
+    // double size = d_box_size[dim];
+    // dist -= size * floor((dist + 0.5 * size) / size);  // Faster than round()
+    // return dist;
 }
 
 // ----------------------------------------------------------------------

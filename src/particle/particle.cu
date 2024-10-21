@@ -668,9 +668,11 @@ void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neigh
     std::cout << "Particle::setNeighborCutoff: Neighbor cutoff set to " << neighbor_cutoff << " and neighbor displacement set to " << neighbor_displacement_threshold_sq << " box length: " << host_box_size[0] << std::endl;
 }
 
-void Particle::setCellSize(double cell_size_multiplier, double cell_displacement_multiplier) {
-    long min_num_cells_dim = 4;  // if there are fewer than 4 cells in one axis, the cell list probably wont work
-    double trial_cell_size = cell_size_multiplier * getDiameter("max");
+void Particle::setCellSize(double num_particles_per_cell, double cell_displacement_multiplier) {
+    long min_num_cells_dim = 4;  // if there are fewer than 4 cells in one axis, the cell list is spiritually defeated
+    double number_density = getNumberDensity();
+    double trial_cell_size = std::sqrt(num_particles_per_cell / number_density);
+    double min_cell_size = 2.0 * getDiameter("max");  // somewhat arbitrary bound
     thrust::host_vector<double> host_box_size = box_size.getData();
     n_cells_dim = static_cast<long>(std::floor(host_box_size[0] / trial_cell_size));
     n_cells = n_cells_dim * n_cells_dim;
@@ -680,8 +682,21 @@ void Particle::setCellSize(double cell_size_multiplier, double cell_displacement
         n_cells = n_cells_dim * n_cells_dim;
     }
     cell_size = host_box_size[0] / n_cells_dim;
+    if (cell_size < min_cell_size) {
+        std::cout << "Particle::setCellSize: cell size is less than twice the maximum diameter" << std::endl;  // 
+        cell_size = min_cell_size;
+
+        // try to make the cell again
+        n_cells_dim = static_cast<long>(std::floor(host_box_size[0] / cell_size));
+        n_cells = n_cells_dim * n_cells_dim;
+        if (n_cells_dim < min_num_cells_dim) {
+            std::cout << "Particle::setCellSize: Failed to make cell list - fewer than " << min_num_cells_dim << " cells in one dimension and cell size is less than twice the maximum particle diameter" << std::endl;
+            std::cout << "Consider using verlet list or all-to-all" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+    }
     cell_displacement_threshold_sq = std::pow(cell_displacement_multiplier * cell_size, 2);
-    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement_threshold_sq << std::endl;
+    std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement_threshold_sq << " for " << n_cells << " cells" << std::endl;
     syncCellList();
 }
 
@@ -772,4 +787,9 @@ double Particle::getTimeUnit() {
 
 void Particle::setMass(double mass) {
     masses.fill(mass);
+}
+
+
+double Particle::getNumberDensity() {
+    return n_particles / getBoxArea();
 }

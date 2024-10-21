@@ -484,7 +484,9 @@ public:
      * @param cell_size_multiplier The multiplier for the cell size.
      * @param cell_displacement_multiplier The multiplier for the cell displacement.
      */
-    virtual void setCellSize(double cell_size_multiplier, double cell_displacement_multiplier);
+    virtual void setCellSize(double num_particles_per_cell, double cell_displacement_multiplier);
+
+    virtual double getNumberDensity();
 
     /**
      * @brief Zero out the force and potential energy arrays.

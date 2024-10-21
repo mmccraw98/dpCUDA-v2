@@ -104,6 +104,7 @@ void Disk::initializeFromConfig(const BaseParticleConfig& config) {
         this->initNeighborList();
         std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
     }
+    this->calculateForces();  // make sure forces are calculated before the integration starts
 }
 
 

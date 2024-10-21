@@ -183,7 +183,6 @@ int main() {
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    particle->calculateForces();
 
     while (step < num_steps) {
         nve.step();

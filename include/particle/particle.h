@@ -39,6 +39,7 @@ public:
     std::unique_ptr<BaseParticleConfig> config;
 
     // Function pointer for the neighbor list update method
+    void (Particle::*initNeighborListPtr)();
     void (Particle::*updateNeighborListPtr)();
     void (Particle::*checkForNeighborUpdatePtr)();
 
@@ -95,6 +96,7 @@ public:
     long num_rebuilds = 0;
     bool switched = false;
     bool using_cell_list = false;
+    std::string neighbor_list_update_method = "none";
 
     // Simulation parameters
     double e_c = -1, e_a = -1, e_b = -1, e_l = -1;  // energy scales for interaction, area, bending, and length
@@ -127,7 +129,7 @@ public:
      * 
      * @param method_name The name of the method to use for updating the neighbor list: "cell", "verlet", or "none".
      */
-    void setNeighborListUpdateMethod(std::string method_name);
+    void setNeighborMethod(std::string method_name);
 
     /**
      * @brief Set the seed for the random number generator.
@@ -422,27 +424,41 @@ public:
     /**
      * @brief Check if the neighbor list of the particles needs to be updated (if maximum squared displacement is greater than the neighbor cutoff squared).
      */
-    virtual void checkNeighbors();
+    virtual void checkForNeighborUpdate();
 
     /**
      * @brief Check if the neighbor list of the particles needs to be updated using the Verlet criterion.
      */
-    virtual void checkForNeighborUpdate();
+    virtual void checkForVerletListUpdate();
 
     /**
      * @brief Check if the cell list of the particles needs to be updated using the Verlet criterion.
      */
-    virtual void checkForCellUpdate();
+    virtual void checkForCellListUpdate();
 
     /**
      * @brief Calculate the neighbor list for the particles.
      */
-    virtual void updateNeighborList();
+    virtual void updateVerletList();
 
     /**
      * @brief Initialize and calculate the neighbor list for the particles.
      */
     virtual void initNeighborList();
+
+    virtual void clearNeighborVariables();
+
+    virtual void initAllToAllListVariables();
+
+    virtual void initAllToAllList();
+
+    virtual void checkForAllToAllUpdate();
+
+    virtual void initVerletListVariables();
+
+    virtual void initCellListVariables();
+
+    virtual void initVerletList();
 
     /**
      * @brief Initialize and calculate the cell list for the particles.
@@ -476,7 +492,7 @@ public:
      * @param neighbor_cutoff_multiplier The multiplier for the neighbor cutoff.
      * @param neighbor_displacement_multiplier The multiplier for the neighbor displacement.
      */
-    virtual void setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier);
+    virtual bool setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier);
 
     /**
      * @brief Set the cell size for the cell list.
@@ -484,7 +500,7 @@ public:
      * @param cell_size_multiplier The multiplier for the cell size.
      * @param cell_displacement_multiplier The multiplier for the cell displacement.
      */
-    virtual void setCellSize(double num_particles_per_cell, double cell_displacement_multiplier);
+    virtual bool setCellSize(double num_particles_per_cell, double cell_displacement_multiplier);
 
     virtual double getNumberDensity();
 

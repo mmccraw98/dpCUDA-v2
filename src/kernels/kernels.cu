@@ -41,6 +41,7 @@ __constant__ double d_cell_size;
 // ----------------------------------------------------------------------
 
 // Should have the displacement calculation here rather than in velocities since this is only called once per time step
+// can sneak in a lot of extra single-particle calculations here since it is called once per time step
 __global__ void kernelUpdatePositions(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ last_neigh_positions_x, const double* __restrict__ last_neigh_positions_y,

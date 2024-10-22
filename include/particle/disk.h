@@ -69,8 +69,6 @@ public:
     // ------------- Implementation of Pure Virtual Methods -----------------
     // ----------------------------------------------------------------------
 
-    void initializeFromConfig(const BaseParticleConfig& config) override;
-
     /**
      * @brief Get the total area of the particles by summing the squares of the radii.
      * 

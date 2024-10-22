@@ -4,8 +4,9 @@
 #include <thread>
 #include <vector>
 
-IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, bool use_parallel, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), use_parallel(use_parallel), overwrite(overwrite), log_configs(log_configs) {
+IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, long num_threads, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), num_threads(num_threads), overwrite(overwrite), log_configs(log_configs), thread_pool(num_threads) {
     // probably validate root_path if it is not empty
+    use_parallel = num_threads > 1;
 
     for (auto& config : log_configs) {
 
@@ -41,7 +42,6 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
 
     // define the dependencies in the log groups
     for (auto& log_group : log_groups) {
-        std::cout << "IOManager::IOManager: defining dependencies for " << log_group->config.group_name << std::endl;
         log_group->define_dependencies();
     }
 
@@ -52,6 +52,7 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
 }
 
 IOManager::~IOManager() {
+    thread_pool.shutdown();
     for (auto& log_group : log_groups) {
         delete log_group;
     }
@@ -100,7 +101,7 @@ void IOManager::log(long step) {
         for (BaseLogGroup* log_group : log_groups) {
             if (log_group->should_log) {
                 if (log_group->parallel && use_parallel) {
-                    threads.emplace_back([log_group, step]() {
+                    thread_pool.enqueue([log_group, step]() {
                         log_group->log(step);
                     });
                 } else {

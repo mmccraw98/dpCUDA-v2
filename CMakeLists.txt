@@ -22,6 +22,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/particle
     ${CMAKE_SOURCE_DIR}/include/kernels
     ${CMAKE_SOURCE_DIR}/include/io
+    ${CMAKE_SOURCE_DIR}/include/utils
     ${CUDA_TOOLKIT_ROOT_DIR}/include
 )
 
@@ -57,6 +58,7 @@ add_executable(main_exec
     src/integrator/nve.cu
     src/particle/disk.cu
     src/io/utils.cu
+    src/utils/thread_pool.cpp
 )
 
 # Link nlohmann_json to the main_exec target

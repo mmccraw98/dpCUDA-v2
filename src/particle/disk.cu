@@ -64,49 +64,6 @@ void Disk::setKernelDimensions(long particle_dim_block) {
 // ------------- Implementation of Pure Virtual Methods -----------------
 // ----------------------------------------------------------------------
 
-void Disk::initializeFromConfig(const BaseParticleConfig& config) {
-    // Determine the type of the config using dynamic cast
-    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
-        this->config = std::make_unique<BidisperseParticleConfig>(*bidisperse_config);
-    } else {
-        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
-    }
-
-    this->define_unique_dependencies();
-
-    this->setSeed(config.seed);
-    this->setParticleCounts(config.n_particles, 0);
-    this->setKernelDimensions(config.particle_dim_block);
-
-    // Dynamic cast to check if config is BidisperseParticleConfig
-    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
-        // Handle bidisperse-specific fields
-        this->setBiDispersity(bidisperse_config->size_ratio, bidisperse_config->count_ratio);
-    } else {
-        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
-    }
-    this->initializeBox(config.packing_fraction);
-
-    // TODO: make this a config - position initialization config: zero, random, etc.
-    this->setRandomPositions();
-
-    this->setEnergyScale(config.e_c, "c");
-    this->setExponent(config.n_c, "c");
-    this->setMass(config.mass);
-
-    this->setNeighborListUpdateMethod(config.neighbor_list_update_method);
-    this->setNeighborCutoff(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    if (config.neighbor_list_update_method == "cell") {
-        this->setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
-        this->initCellList();
-    } else {
-        std::cout << "Disk::initializeFromConfig: Initializing neighbor list" << std::endl;
-        this->initNeighborList();
-        std::cout << "Disk::initializeFromConfig: Neighbor list initialized" << std::endl;
-    }
-    this->calculateForces();  // make sure forces are calculated before the integration starts
-}
-
 
 double Disk::getArea() const {
     return thrust::transform_reduce(radii.d_vec.begin(), radii.d_vec.end(), Square(), 0.0, thrust::plus<double>()) * PI;

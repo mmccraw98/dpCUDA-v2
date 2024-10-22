@@ -4,7 +4,7 @@
 
 StateLog::StateLog(LogGroupConfig config, Orchestrator& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension)
     : BaseLogGroup(config, orchestrator), root_path(root_path), indexed_file_prefix(indexed_file_prefix), extension(extension) {
-    
+    this->parallel = true;
 }
 
 StateLog::~StateLog() {
@@ -40,6 +40,5 @@ void StateLog::log(long step) {
 }
 
 void StateLog::write_state() {
-    std::cout << "Writing state to " << root_path << std::endl;
     write_values(root_path);
 }

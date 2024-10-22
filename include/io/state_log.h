@@ -26,8 +26,6 @@ public:
     StateLog(LogGroupConfig config, Orchestrator& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension);
     ~StateLog();
 
-    const bool parallel = true;
-
     // TODO: add sorting by particle index
     // TODO: add grouping together 2d data
 

@@ -44,31 +44,91 @@ Particle::Particle() {
 Particle::~Particle() {
     clearDynamicVariables();
     clearGeometricVariables();
+    clearNeighborVariables();
 }
 
 void Particle::initializeFromConfig(const BaseParticleConfig& config) {
+    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
+        this->config = std::make_unique<BidisperseParticleConfig>(*bidisperse_config);
+    } else {
+        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+    }
+
+    this->define_unique_dependencies();
+
+    this->setSeed(config.seed);
+    this->setParticleCounts(config.n_particles, 0);
+    this->setKernelDimensions(config.particle_dim_block);
+
+    // Dynamic cast to check if config is BidisperseParticleConfig
+    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
+        // Handle bidisperse-specific fields
+        this->setBiDispersity(bidisperse_config->size_ratio, bidisperse_config->count_ratio);
+    } else {
+        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+    }
+    this->initializeBox(config.packing_fraction);
+
+    // TODO: make this a config - position initialization config: zero, random, etc.
+    this->setRandomPositions();
+
+    this->setEnergyScale(config.e_c, "c");
+    this->setExponent(config.n_c, "c");
+    this->setMass(config.mass);
+
+    this->setNeighborMethod(config.neighbor_list_update_method);
+    this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+
+    if (this->neighbor_list_update_method == "cell") {
+        bool could_set_cell_size = this->setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
+        if (!could_set_cell_size) {
+            std::cout << "WARNING: Disk::initializeFromConfig: Could not set cell size.  Attempting to use verlet list instead." << std::endl;
+            this->setNeighborMethod("verlet");
+        }
+        bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+        if (!could_set_neighbor_size) {
+            std::cerr << "ERROR: Disk::initializeFromConfig: Could not set neighbor size for cell list - neighbor cutoff exceeds box size.  Attempting to use all-to-all instead." << std::endl;
+            this->setNeighborMethod("all");
+        }
+    }
+    if (this->neighbor_list_update_method == "verlet") {
+        bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+        if (!could_set_neighbor_size) {
+            std::cout << "WARNING: Disk::initializeFromConfig: Could not set neighbor size.  Attempting to use all-to-all instead." << std::endl;
+            this->setNeighborMethod("all");
+        }
+    }
+    this->initNeighborList();
+    this->calculateForces();  // make sure forces are calculated before the integration starts
+    // may want to check that the forces are balanced
 }
 
-// ----------------------------------------------------------------------
-// -------------------- Universally Defined Methods ---------------------
-// ----------------------------------------------------------------------
-
-void Particle::setNeighborListUpdateMethod(std::string method_name) {
+void Particle::setNeighborMethod(std::string method_name) {
+    this->using_cell_list = false;
+    this->neighbor_list_update_method = method_name;
     if (method_name == "cell") {
-        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to cell" << std::endl;
+        std::cout << "Particle::setNeighborMethod: Setting neighbor list update method to cell" << std::endl;
+        this->initNeighborListPtr = &Particle::initCellList;
         this->updateNeighborListPtr = &Particle::updateCellNeighborList;
-        this->checkForNeighborUpdatePtr = &Particle::checkForCellUpdate;
+        this->checkForNeighborUpdatePtr = &Particle::checkForCellListUpdate;
         this->using_cell_list = true;
     } else if (method_name == "verlet") {
-        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to verlet" << std::endl;
-        this->updateNeighborListPtr = &Particle::updateNeighborList;
-        this->checkForNeighborUpdatePtr = &Particle::checkForNeighborUpdate;
-        this->using_cell_list = false;
-    } else if (method_name == "none") {
-        std::cout << "Particle::setNeighborListUpdateMethod: Setting neighbor list update method to none" << std::endl;
-        throw std::invalid_argument("Particle::setNeighborListUpdateMethod: 'none' neighbor list update method not implemented: " + method_name);
+        std::cout << "Particle::setNeighborMethod: Setting neighbor list update method to verlet" << std::endl;
+        this->initNeighborListPtr = &Particle::initVerletList;
+        this->updateNeighborListPtr = &Particle::updateVerletList;
+        this->checkForNeighborUpdatePtr = &Particle::checkForVerletListUpdate;
+    } else if (method_name == "all") {
+        std::cout << "Particle::setNeighborMethod: Setting neighbor list update method to all" << std::endl;
+        thrust::host_vector<double> host_box_size = box_size.getData();
+        double max_diameter = getDiameter("max");
+        double box_diagonal = std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
+        double neighbor_cutoff_multiplier = 2.0 * box_diagonal / max_diameter;  // set it to be twice the diagonal length so that every particle is included always (2x multiplier is extraneous but harmless)
+        setNeighborSize(neighbor_cutoff_multiplier, 0.0);  // the neighbor displacement is unused here
+        this->initNeighborListPtr = &Particle::initAllToAllList;
+        this->updateNeighborListPtr = &Particle::updateVerletList;
+        this->checkForNeighborUpdatePtr = &Particle::checkForAllToAllUpdate;
     } else {
-        throw std::invalid_argument("Particle::setNeighborListUpdateMethod: Invalid method name: " + method_name);
+        throw std::invalid_argument("Particle::setNeighborMethod: Invalid method name: " + method_name);
     }
 }
 
@@ -163,21 +223,6 @@ void Particle::initDynamicVariables() {
     masses.resizeAndFill(n_particles, 0.0);
     kinetic_energy.resizeAndFill(n_particles, 0.0);
     potential_energy.resizeAndFill(n_particles, 0.0);
-
-    // here for posteritiy and will be removed shortly
-    std::cout << "Particle::initDynamicVariables: n_particles: " << n_particles << std::endl;
-    neighbor_list.resizeAndFill(n_particles, -1L);
-    num_neighbors.resizeAndFill(n_particles, 0L);
-    cell_index.resizeAndFill(n_particles, -1L);
-    particle_index.resizeAndFill(n_particles, 0L);
-    static_particle_index.resizeAndFill(n_particles, 0L);
-    thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
-    thrust::sequence(static_particle_index.d_vec.begin(), static_particle_index.d_vec.end());
-    cell_start.resizeAndFill(n_particles, -1L);
-    last_neigh_positions.resizeAndFill(n_particles, 0.0, 0.0);
-    last_cell_positions.resizeAndFill(n_particles, 0.0, 0.0);
-    neigh_displacements_sq.resizeAndFill(n_particles, 0.0);
-    cell_displacements_sq.resizeAndFill(n_particles, 0.0);
 }
 
 void Particle::clearDynamicVariables() {
@@ -188,9 +233,9 @@ void Particle::clearDynamicVariables() {
     masses.clear();
     kinetic_energy.clear();
     potential_energy.clear();
+}
 
-
-    // here for posteritiy and will be removed shortly
+void Particle::clearNeighborVariables() {
     neighbor_list.clear();
     num_neighbors.clear();
     cell_index.clear();
@@ -330,7 +375,7 @@ void Particle::setBoxSize(const thrust::host_vector<double>& host_box_size) {  /
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_box_size, box_size.getData().data(), sizeof(double) * N_DIM);
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::setBoxSize: Error copying box size to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
 }
 
@@ -338,25 +383,17 @@ void Particle::syncNeighborList() {
     cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &this->max_neighbors_allocated, sizeof(this->max_neighbors_allocated));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNeighborList: Error copying max_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
-    // long* neighbor_list_ptr = thrust::raw_pointer_cast(&d_neighbor_list[0]);
-    // cuda_err = cudaMemcpyToSymbol(d_neighbor_list_ptr, &neighbor_list_ptr, sizeof(neighbor_list_ptr));
-    // if (cuda_err != cudaSuccess) {
-    //     std::cerr << "Particle::syncNeighborList: Error copying d_neighbor_list_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
-    //     exit(EXIT_FAILURE);
-    // }
-    // long* neighbor_list_ptr = thrust::raw_pointer_cast(&d_neighbor_list[0]);
     cuda_err = cudaMemcpyToSymbol(d_neighbor_list_ptr, &neighbor_list.d_ptr, sizeof(neighbor_list.d_ptr));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNeighborList: Error copying d_neighbor_list_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
-    // long* num_neighbors_ptr = thrust::raw_pointer_cast(&d_num_neighbors[0]);
     cuda_err = cudaMemcpyToSymbol(d_num_neighbors_ptr, &num_neighbors.d_ptr, sizeof(num_neighbors.d_ptr));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncNeighborList: Error copying d_num_neighbors_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
 }
 
@@ -367,28 +404,28 @@ void Particle::setEnergyScale(double e, std::string which) {
         cuda_err = cudaMemcpyToSymbol(d_e_c, &e_c, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setEnergyScale: Error copying e_c to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "a") {
         e_a = e;
         cuda_err = cudaMemcpyToSymbol(d_e_a, &e_a, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setEnergyScale: Error copying e_a to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "b") {
         e_b = e;
         cuda_err = cudaMemcpyToSymbol(d_e_b, &e_b, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setEnergyScale: Error copying e_b to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "l") {
         e_l = e;
         cuda_err = cudaMemcpyToSymbol(d_e_l, &e_l, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setEnergyScale: Error copying e_l to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else {
         throw std::invalid_argument("Particle::setEnergyScale: which must be 'c', 'a', 'b', or 'l', not " + which);
@@ -423,28 +460,28 @@ void Particle::setExponent(double n, std::string which) {
         cuda_err = cudaMemcpyToSymbol(d_n_c, &n_c, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setExponent: Error copying n_c to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "a") {
         n_a = n;
         cuda_err = cudaMemcpyToSymbol(d_n_a, &n_a, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setExponent: Error copying n_a to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "b") {
         n_b = n;
         cuda_err = cudaMemcpyToSymbol(d_n_b, &n_b, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setExponent: Error copying n_b to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else if (which == "l") {
         n_l = n;
         cuda_err = cudaMemcpyToSymbol(d_n_l, &n_l, sizeof(double));
         if (cuda_err != cudaSuccess) {
             std::cerr << "Particle::setExponent: Error copying n_l to device: " << cudaGetErrorString(cuda_err) << std::endl;
-            exit(EXIT_FAILURE);
+            exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
         }
     } else {
         throw std::invalid_argument("Particle::setExponent: which must be 'c', 'a', 'b', or 'l', not " + which);
@@ -605,13 +642,13 @@ double Particle::getMaxSquaredCellDisplacement() {
     return thrust::reduce(cell_displacements_sq.d_vec.begin(), cell_displacements_sq.d_vec.end(), 0.0, thrust::maximum<double>());
 }
 
-void Particle::updateNeighborList() {
+void Particle::updateVerletList() {
     neighbor_list.fill(-1L);
     kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
     max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
-        std::cout << "Particle::updateNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
+        std::cout << "Particle::updateVerletList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
         neighbor_list.resize(n_particles * max_neighbors_allocated);
         neighbor_list.fill(-1L);
         syncNeighborList();
@@ -619,60 +656,101 @@ void Particle::updateNeighborList() {
     }
 }
 
-void Particle::checkNeighbors() {
-    // std::cout << "Particle::checkNeighbors: Checking neighbors" << std::endl;
-    (this->*checkForNeighborUpdatePtr)();
+void Particle::checkForAllToAllUpdate() {
+    // Do nothing
 }
 
 void Particle::checkForNeighborUpdate() {
+    (this->*checkForNeighborUpdatePtr)();
+}
+
+void Particle::checkForVerletListUpdate() {
     double tolerance = 3.0;
     double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-    // std::cout << "Particle::checkForNeighborUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement_threshold_sq << std::endl;
     if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
-        // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
-        updateNeighborList();
+        updateVerletList();
     }
 }
 
-void Particle::checkForCellUpdate() {
+void Particle::checkForCellListUpdate() {
     double tolerance = 3.0;
     double max_squared_cell_displacement = getMaxSquaredCellDisplacement();
-    // std::cout << "Particle::checkForCellUpdate: Max squared cell displacement: " << tolerance * max_squared_cell_displacement << " vs " << cell_displacement_threshold_sq << std::endl;
     if (tolerance * max_squared_cell_displacement > cell_displacement_threshold_sq) {
-        // std::cout << "Particle::checkForCellUpdate: Updating cell list" << std::endl;
         updateCellList();
         updateCellNeighborList();
     } else {
         double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-        // std::cout << "Particle::checkForCellUpdate: Max squared neighbor displacement: " << tolerance * max_squared_neighbor_displacement << " vs " << neighbor_displacement_threshold_sq << std::endl;
         if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
-            // std::cout << "Particle::checkForNeighborUpdate: Updating neighbor list" << std::endl;
             updateCellNeighborList();
         }
     }
 }
 
 void Particle::initNeighborList() {
+    (this->*initNeighborListPtr)();
+}
+
+void Particle::initVerletListVariables() {
     neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     num_neighbors.resizeAndFill(n_particles, 0L);
-    syncNeighborList();
-    (this->*updateNeighborListPtr)();
+    last_neigh_positions.resizeAndFill(n_particles, 0.0, 0.0);
+    neigh_displacements_sq.resizeAndFill(n_particles, 0.0);
+    last_cell_positions.resizeAndFill(n_particles, 0.0, 0.0);  // TODO: this is a waste of memory for non-cell list usage but would require defining a new position update kernel
+    cell_displacements_sq.resizeAndFill(n_particles, 0.0);
 }
 
-void Particle::setNeighborCutoff(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
+void Particle::initVerletList() {
+    initVerletListVariables();
+    syncNeighborList();
+    updateVerletList();
+}
+
+void Particle::initAllToAllListVariables() {
+    this->max_neighbors_allocated = n_particles;
+    initVerletListVariables();
+}
+
+void Particle::initAllToAllList() {
+    initAllToAllListVariables();
+    syncNeighborList();
+    updateVerletList();
+}
+
+void Particle::initCellListVariables() {
+    cell_index.resizeAndFill(n_particles, -1L);
+    particle_index.resize(n_particles);
+    static_particle_index.resize(n_particles);
+    cell_start.resize(n_cells + 1);
+    thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
+    thrust::sequence(static_particle_index.d_vec.begin(), static_particle_index.d_vec.end());
+}
+
+void Particle::initCellList() {
+    initVerletListVariables();
+    syncNeighborList();
+    initCellListVariables();
+    updateCellList();
+    updateCellNeighborList();
+}
+
+bool Particle::setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
+    this->max_neighbors_allocated = 4;  // initial assumption, probably could be refined
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
     this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * neighbor_cutoff, 2);
-    this->max_neighbors_allocated = 4;
-
     thrust::host_vector<double> host_box_size = box_size.getData();
-    std::cout << "Particle::setNeighborCutoff: Neighbor cutoff set to " << neighbor_cutoff << " and neighbor displacement set to " << neighbor_displacement_threshold_sq << " box length: " << host_box_size[0] << std::endl;
+    double box_diagonal = std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
+    if (neighbor_cutoff >= box_diagonal) {
+        std::cout << "Particle::setNeighborSize: Neighbor radius exceeds the box size" << std::endl;
+        return false;
+    }
+    return true;
 }
 
-void Particle::setCellSize(double num_particles_per_cell, double cell_displacement_multiplier) {
+bool Particle::setCellSize(double num_particles_per_cell, double cell_displacement_multiplier) {
     long min_num_cells_dim = 4;  // if there are fewer than 4 cells in one axis, the cell list is spiritually defeated
     double number_density = getNumberDensity();
     double trial_cell_size = std::sqrt(num_particles_per_cell / number_density);
-    double min_cell_size = 2.0 * getDiameter("max");  // somewhat arbitrary bound
+    double min_cell_size = 2.0 * getDiameter("max");  // somewhat arbitrary bound, probably could be refined
     thrust::host_vector<double> host_box_size = box_size.getData();
     n_cells_dim = static_cast<long>(std::floor(host_box_size[0] / trial_cell_size));
     n_cells = n_cells_dim * n_cells_dim;
@@ -691,29 +769,13 @@ void Particle::setCellSize(double num_particles_per_cell, double cell_displaceme
         n_cells = n_cells_dim * n_cells_dim;
         if (n_cells_dim < min_num_cells_dim) {
             std::cout << "Particle::setCellSize: Failed to make cell list - fewer than " << min_num_cells_dim << " cells in one dimension and cell size is less than twice the maximum particle diameter" << std::endl;
-            std::cout << "Consider using verlet list or all-to-all" << std::endl;
-            exit(EXIT_FAILURE);
+            return false;
         }
     }
     cell_displacement_threshold_sq = std::pow(cell_displacement_multiplier * cell_size, 2);
     std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement_threshold_sq << " for " << n_cells << " cells" << std::endl;
     syncCellList();
-}
-
-void Particle::initCellList() {
-    std::cout << "Particle::initCellList: Initializing cell list" << std::endl;
-    neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
-    num_neighbors.resizeAndFill(n_particles, 0L);
-    syncNeighborList();
-    cell_index.resize(n_particles);
-    particle_index.resize(n_particles);
-    static_particle_index.resize(n_particles);
-    cell_start.resize(n_cells + 1);
-    thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
-    thrust::sequence(static_particle_index.d_vec.begin(), static_particle_index.d_vec.end());
-    cell_index.fill(-1L);
-    updateCellList();
-    updateCellNeighborList();
+    return true;
 }
 
 void Particle::syncCellList() {

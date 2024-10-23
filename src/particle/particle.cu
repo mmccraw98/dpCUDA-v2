@@ -170,6 +170,22 @@ void Particle::syncNumVertices() {
     }
 }
 
+void Particle::initAdamVariables() {
+    first_moment.resizeAndFill(n_particles, 0.0, 0.0);
+    second_moment.resizeAndFill(n_particles, 0.0, 0.0);
+}
+
+void Particle::clearAdamVariables() {
+    first_moment.clear();
+    second_moment.clear();
+}
+
+void Particle::updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) {
+    double one_minus_beta1_pow_t = 1 - pow(beta1, step + 1);  // adam starts at t=1
+    double one_minus_beta2_pow_t = 1 - pow(beta2, step + 1);
+    kernelAdamStep<<<particle_dim_grid, particle_dim_block>>>(first_moment.x.d_ptr, first_moment.y.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon);
+}
+
 void Particle::setParticleCounts(long n_particles, long n_vertices) {
     setNumParticles(n_particles);
     setNumVertices(n_vertices);
@@ -197,19 +213,34 @@ void Particle::setKernelDimensions(long particle_dim_block) {
 
 void Particle::syncKernelDimensions() {
     cudaError_t cuda_err;
-    cuda_err = cudaMemcpyToSymbol(d_dim_block, &particle_dim_block, sizeof(long));
+    cuda_err = cudaMemcpyToSymbol(d_particle_dim_block, &particle_dim_block, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncKernelDimensions: Error copying particle_dim_block to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
-    cuda_err = cudaMemcpyToSymbol(d_dim_grid, &particle_dim_grid, sizeof(long));
+    cuda_err = cudaMemcpyToSymbol(d_particle_dim_grid, &particle_dim_grid, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncKernelDimensions: Error copying particle_dim_grid to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
-    cuda_err = cudaMemcpyToSymbol(d_dim_vertex_grid, &vertex_dim_grid, sizeof(long));
+    cuda_err = cudaMemcpyToSymbol(d_vertex_dim_grid, &vertex_dim_grid, sizeof(long));
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::syncKernelDimensions: Error copying vertex_dim_grid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_vertex_dim_block, &vertex_dim_block, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncKernelDimensions: Error copying vertex_dim_block to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_cell_dim_grid, &cell_dim_grid, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncKernelDimensions: Error copying cell_dim_grid to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    cuda_err = cudaMemcpyToSymbol(d_cell_dim_block, &cell_dim_block, sizeof(long));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::syncKernelDimensions: Error copying cell_dim_block to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);
     }
 }
@@ -799,11 +830,16 @@ void Particle::syncCellList() {
 void Particle::reorderParticleData() {
     thrust::sort_by_key(cell_index.d_vec.begin(), cell_index.d_vec.end(), thrust::make_zip_iterator(thrust::make_tuple(particle_index.d_vec.begin(), static_particle_index.d_vec.begin())));
     kernelReorderParticleData<<<particle_dim_grid, particle_dim_block>>>(particle_index.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, radii.d_ptr, positions.x.d_temp_ptr, positions.y.d_temp_ptr, forces.x.d_temp_ptr, forces.y.d_temp_ptr, velocities.x.d_temp_ptr, velocities.y.d_temp_ptr, masses.d_temp_ptr, radii.d_temp_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr);
+    // TODO: - all swappable data needs to be swapped here; however, adam variables need to swap only when doing adam - can this be generalized?
     positions.swap();
     forces.swap();
     velocities.swap();
     masses.swap();
     radii.swap();
+    // if (adam_enabled) {
+    first_moment.swap();
+    second_moment.swap();
+    // }
 }
 
 void Particle::updateCellList() {

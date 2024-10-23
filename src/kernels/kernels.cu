@@ -7,9 +7,12 @@
 // ----------------------- Device Constants -----------------------------
 // ----------------------------------------------------------------------
 
-__constant__ long d_dim_block;
-__constant__ long d_dim_grid;
-__constant__ long d_dim_vertex_grid;
+__constant__ long d_particle_dim_block;
+__constant__ long d_particle_dim_grid;
+__constant__ long d_vertex_dim_grid;
+__constant__ long d_vertex_dim_block;
+__constant__ long d_cell_dim_grid;
+__constant__ long d_cell_dim_block;
 
 __constant__ double d_box_size[N_DIM];
 
@@ -473,4 +476,58 @@ __global__ void kernelReorderParticleData(
     last_cell_positions_x[particle_id] = positions_x[old_particle_id];
     last_cell_positions_y[particle_id] = positions_y[old_particle_id];
     cell_displacements_sq[particle_id] = 0.0;
+}
+
+// ----------------------------------------------------------------------
+// --------------------- Minimizers -------------------------------
+// ----------------------------------------------------------------------
+
+__global__ void kernelAdamStep(
+    double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
+    double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, 
+    double one_minus_beta2_pow_t, double epsilon) {
+
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    // Prefetch forces into registers
+    double force_x = forces_x[particle_id];
+    double force_y = forces_y[particle_id];
+
+    // Load moments into registers
+    double first_m_x = first_moment_x[particle_id];
+    double first_m_y = first_moment_y[particle_id];
+    double second_m_x = second_moment_x[particle_id];
+    double second_m_y = second_moment_y[particle_id];
+
+    // Update moments using fma for better performance
+    first_m_x = fma(beta1, first_m_x, (beta1 - 1) * force_x);
+    first_m_y = fma(beta1, first_m_y, (beta1 - 1) * force_y);
+
+    second_m_x = fma(beta2, second_m_x, (1 - beta2) * force_x * force_x);
+    second_m_y = fma(beta2, second_m_y, (1 - beta2) * force_y * force_y);
+
+    // Compute bias-corrected moments
+    double m_hat_x = first_m_x / one_minus_beta1_pow_t;
+    double m_hat_y = first_m_y / one_minus_beta1_pow_t;
+
+    double v_hat_x = second_m_x / one_minus_beta2_pow_t;
+    double v_hat_y = second_m_y / one_minus_beta2_pow_t;
+
+    // Compute position updates
+    double update_x = -alpha * m_hat_x / (sqrt(v_hat_x) + epsilon);
+    double update_y = -alpha * m_hat_y / (sqrt(v_hat_y) + epsilon);
+
+    // Update positions
+    positions_x[particle_id] += update_x;
+    positions_y[particle_id] += update_y;
+
+    // Store updated moments back
+    first_moment_x[particle_id] = first_m_x;
+    first_moment_y[particle_id] = first_m_y;
+    second_moment_x[particle_id] = second_m_x;
+    second_moment_y[particle_id] = second_m_y;
 }

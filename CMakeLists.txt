@@ -38,6 +38,8 @@ set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-rela
 # Libraries for C++ (e.g., linking stdc++fs for filesystem support)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
+# main exec
+
 # Add source files for the executable
 add_executable(main_exec
     scripts/main.cpp
@@ -57,6 +59,8 @@ add_executable(main_exec
     src/integrator/integrator.cu
     src/integrator/nve.cu
     src/particle/disk.cu
+    src/particle/rigid_bumpy.cu
+    src/integrator/adam.cu
     src/io/utils.cu
     src/utils/thread_pool.cpp
 )
@@ -64,16 +68,44 @@ add_executable(main_exec
 # Link nlohmann_json to the main_exec target
 target_link_libraries(main_exec PRIVATE nlohmann_json::nlohmann_json)
 
-# # Add a new executable for another script
-# add_executable(other_script_exec
-#     scripts/other_script.cpp
-#     src/integrator/integrator.cu
-#     src/kernels/kernels.cu
-#     src/particle/particle.cu
-# )
-
 # Set properties for CUDA separable compilation
 set_target_properties(main_exec PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_STANDARD 17
+)
+
+# test exec
+
+# Add source files for the executable
+add_executable(test_exec
+    scripts/test.cpp
+    src/data/data_1d.cu
+    src/data/data_2d.cu
+    src/kernels/kernels.cu
+    src/particle/config.cu
+    src/particle/particle.cu
+    src/particle/particle_factory.cu
+    src/io/orchestrator.cu
+    src/io/io_manager.cu
+    src/io/base_log_groups.cu
+    src/io/console_log.cu
+    src/io/energy_log.cu
+    src/io/orchestrator.cu
+    src/io/state_log.cu
+    src/integrator/integrator.cu
+    src/integrator/nve.cu
+    src/particle/disk.cu
+    src/particle/rigid_bumpy.cu
+    src/integrator/adam.cu
+    src/io/utils.cu
+    src/utils/thread_pool.cpp
+)
+
+# Link nlohmann_json to the test_exec target
+target_link_libraries(test_exec PRIVATE nlohmann_json::nlohmann_json)
+
+# Set properties for CUDA separable compilation
+set_target_properties(test_exec PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_STANDARD 17
 )

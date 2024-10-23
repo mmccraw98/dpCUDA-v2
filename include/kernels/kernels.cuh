@@ -8,9 +8,12 @@
 // ----------------------- Device Constants -----------------------------
 // ----------------------------------------------------------------------
 
-extern __constant__ long d_dim_block;  // number of threads per block
-extern __constant__ long d_dim_grid;  // number of blocks per grid
-extern __constant__ long d_dim_vertex_grid;  // number of vertices per grid
+extern __constant__ long d_particle_dim_block;  // number of threads per block
+extern __constant__ long d_particle_dim_grid;  // number of blocks per grid
+extern __constant__ long d_vertex_dim_grid;  // number of vertices per grid
+extern __constant__ long d_vertex_dim_block;  // number of threads per block
+extern __constant__ long d_cell_dim_grid;
+extern __constant__ long d_cell_dim_block;
 
 extern __constant__ double d_box_size[N_DIM];  // box size vector
 
@@ -275,3 +278,13 @@ __global__ void kernelReorderParticleData(
 	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
 	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
 	double* __restrict__ cell_displacements_sq);
+
+
+// minimizers
+
+__global__ void kernelAdamStep(
+    double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
+    double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon);

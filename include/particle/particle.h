@@ -73,6 +73,8 @@ public:
 
 
     // Device vectors for particle data
+    // swap data is for data that is not able to be recomputed when the arrays are reorganized by cell occupation
+    // swap data doubles the memory usage for each array
     Data1D<double> box_size;
     SwapData2D<double> positions;
     SwapData2D<double> velocities;
@@ -91,6 +93,10 @@ public:
     Data1D<long> particle_index;
     Data1D<long> static_particle_index;
     Data1D<long> cell_start;
+
+    // adam minimizer variables
+    SwapData2D<double> first_moment;
+    SwapData2D<double> second_moment;
 
     long num_rebuilds = 0;
     bool switched = false;
@@ -118,6 +124,11 @@ public:
 
 
     ArrayData getArrayData(const std::string& array_name);
+
+    virtual void initAdamVariables();
+    virtual void clearAdamVariables();
+    virtual void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon);
+    bool adam_enabled = false;
 
     // ----------------------------------------------------------------------
     // -------------------- Universally Defined Methods ---------------------

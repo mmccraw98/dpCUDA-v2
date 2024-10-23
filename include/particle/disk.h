@@ -51,7 +51,7 @@ class Disk : public Particle {
 public:
     Disk();
 
-    virtual ~Disk();
+    virtual ~Disk();  // TODO: may want to remove virtual
 
     // ----------------------------------------------------------------------
     // --------------------- Overridden Methods -----------------------------

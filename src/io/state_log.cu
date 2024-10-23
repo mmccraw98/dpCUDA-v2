@@ -34,9 +34,13 @@ void StateLog::write_values(const std::filesystem::path& root_path) {
 
 
 void StateLog::log(long step) {
+    std::cout << "logging state on step: " << step << std::endl;
     std::filesystem::path timestep_root_path = std::filesystem::path(root_path) / (indexed_file_prefix + std::to_string(step));
+    std::cout << "timestep root path: " << timestep_root_path << std::endl;
     make_dir(timestep_root_path.string(), true);
+    std::cout << "writing values" << std::endl;
     write_values(timestep_root_path);
+    std::cout << "done logging state on step: " << step << std::endl;
 }
 
 void StateLog::write_state() {

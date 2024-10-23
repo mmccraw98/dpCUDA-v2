@@ -20,6 +20,7 @@ class BaseData2D {
         void setData(const thrust::host_vector<T>& host_data_x, const thrust::host_vector<T>& host_data_y);
         thrust::host_vector<T> getDataX() const;
         thrust::host_vector<T> getDataY() const;
+        void copyFrom(const BaseData2D<T, Data1DType>& other);
 };
 
 // Data2D accepts Data1DType as a template parameter

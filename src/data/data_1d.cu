@@ -57,6 +57,13 @@ thrust::host_vector<T> BaseData1D<T>::getData() const {
     return host_data;
 }
 
+// Copy from another BaseData1D
+template <typename T>
+void BaseData1D<T>::copyFrom(const BaseData1D<T>& other) {
+    resize(other.size[0]);
+    thrust::copy(other.d_vec.begin(), other.d_vec.end(), d_vec.begin());
+}
+
 // Specializations
 
 // template instantiation

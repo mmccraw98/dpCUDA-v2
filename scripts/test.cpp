@@ -40,7 +40,7 @@ int main() {
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 1024 * 100, 1.0, 1.0, 2.0, 0.8, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 32, 1.0, 1.0, 2.0, 0.8, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     particle->initAdamVariables();
@@ -50,6 +50,8 @@ int main() {
     double beta2 = 0.999;
     double epsilon = 1e-8;
 
+    double avg_pe_target = 1e-16;
+    double avg_pe_diff_target = 1e-16;
 
     AdamConfig adam_config(alpha, beta1, beta2, epsilon);
     Adam adam(*particle, adam_config);
@@ -61,11 +63,26 @@ int main() {
 
     long step = 0;
     long num_steps = 1e5;
+    double dof = static_cast<double>(particle->n_dof);
+    double last_avg_pe = 0.0;
+    double avg_pe_diff = 0.0;
     while (step < num_steps) {
-        adam.step(step);
+        adam.minimize(step);
         io_manager.log(step);
+        double avg_pe = particle->totalPotentialEnergy() / dof;
+        avg_pe_diff = std::abs(avg_pe - last_avg_pe);
+        last_avg_pe = avg_pe;
+        if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target) {
+            break;
+        }
         step++;
     }
+
+    // copy the disk positions and radii and then use that to determine the rigid particle positions
+    SwapData2D<double> positions;
+    positions.copyFrom(particle->positions);
+    Data1D<double> radii;
+    radii.copyFrom(particle->radii);
 
 
     // RigidBumpy rb;

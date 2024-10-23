@@ -8,7 +8,7 @@ Adam::~Adam() {
 
 }
 
-void Adam::step(long step) {
+void Adam::minimize(long step) {
     // TODO: may want to consider moving the zero-out and neigh-update into the force calc
     particle.zeroForceAndPotentialEnergy();  // not needed since forces are calculated in place
     particle.checkForNeighborUpdate();

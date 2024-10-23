@@ -30,6 +30,7 @@ public:
     void clear();
     void setData(const thrust::host_vector<T>& host_data);
     thrust::host_vector<T> getData() const;
+    void copyFrom(const BaseData1D<T>& other);
 };
 
 // derived for types

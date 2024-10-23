@@ -60,6 +60,14 @@ thrust::host_vector<T> BaseData2D<T, Data1DType>::getDataY() const {
     return y.getData();
 }
 
+// Copy from another BaseData2D
+template <typename T, typename Data1DType>
+void BaseData2D<T, Data1DType>::copyFrom(const BaseData2D<T, Data1DType>& other) {
+    resize(other.size[0]);
+    x.copyFrom(other.x);
+    y.copyFrom(other.y);
+}
+
 // Data2D constructors
 template <typename T, typename Data1DType>
 Data2D<T, Data1DType>::Data2D() = default;

@@ -43,5 +43,5 @@ class Adam : public Integrator {
         double epsilon;
 
         void step() override {}
-        void step(long step);
+        void minimize(long step);
 };

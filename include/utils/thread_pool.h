@@ -1,5 +1,4 @@
-#ifndef THREAD_POOL_H
-#define THREAD_POOL_H
+#pragma once
 
 #include <thread>
 #include <queue>
@@ -26,5 +25,3 @@ private:
 
     void worker_thread();
 };
-
-#endif // THREAD_POOL_H

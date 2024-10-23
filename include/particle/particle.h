@@ -1,5 +1,4 @@
-#ifndef PARTICLE_H
-#define PARTICLE_H
+#pragma once
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
@@ -569,5 +568,3 @@ public:
      */
     virtual void calculateKineticEnergy() = 0;
 };
-
-#endif /* PARTICLE_H */

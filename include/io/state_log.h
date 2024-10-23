@@ -1,5 +1,4 @@
-#ifndef STATE_LOG_H
-#define STATE_LOG_H
+#pragma once
 
 #include "base_log_groups.h"
 #include "utils.h"
@@ -55,5 +54,3 @@ public:
      */
     void write_state();
 };
-
-#endif /* STATE_LOG_H */

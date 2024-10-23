@@ -1,5 +1,4 @@
-#ifndef INTEGRATOR_H
-#define INTEGRATOR_H
+#pragma once
 
 #include <iostream>
 #include <string>
@@ -68,5 +67,3 @@ public:
      */
     virtual void step() = 0;
 };
-
-#endif /* INTEGRATOR_H */

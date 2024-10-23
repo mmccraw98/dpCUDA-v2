@@ -1,5 +1,4 @@
-#ifndef ORCHESTRATOR_H
-#define ORCHESTRATOR_H
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -56,5 +55,3 @@ public:
     ArrayData get_array_data(const std::string& unmodified_log_name);
 
 };
-
-#endif /* ORCHESTRATOR_H */

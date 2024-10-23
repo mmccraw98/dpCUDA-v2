@@ -1,5 +1,4 @@
-#ifndef FILE_MANAGER_H
-#define FILE_MANAGER_H
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -99,5 +98,3 @@ public:
     // TODO: read / write parameters (more generally, struct) (construct particle objects from the output of this - should return a particle constructor struct)
     // TODO: write energy
 };
-
-#endif /* FILE_MANAGER_H */

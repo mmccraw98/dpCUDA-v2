@@ -1,5 +1,4 @@
-#ifndef DATA_2D_H
-#define DATA_2D_H
+#pragma once
 
 #include "data_1d.h"
 
@@ -50,5 +49,3 @@ class SwapData2D : public Data2D<T, SwapData1D<T>> {
         SwapData2D(long N, T value_x = T(), T value_y = T());
         void swap();
 };
-
-#endif // DATA_2D_H

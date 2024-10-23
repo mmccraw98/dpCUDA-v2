@@ -1,5 +1,4 @@
-#ifndef FUNCTORS_H_
-#define FUNCTORS_H_
+#pragma once
 
 #include "constants.h"
 #include <thrust/functional.h>
@@ -90,5 +89,3 @@ struct TranslationalKineticEnergy {
         return 0.5 * mass * velocity * velocity;
     }
 };
-
-#endif /* FUNCTORS_H_ */

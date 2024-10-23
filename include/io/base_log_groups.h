@@ -1,5 +1,4 @@
-#ifndef BASE_LOG_GROUPS_H
-#define BASE_LOG_GROUPS_H
+#pragma once
 
 #include <string>
 #include <vector>
@@ -193,5 +192,3 @@ public:
     std::string get_modifier(std::string log_name);  // get the modifier from the log name
 };
 
-
-#endif /* BASE_LOG_GROUPS_H */

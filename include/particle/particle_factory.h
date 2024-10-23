@@ -1,5 +1,4 @@
-#ifndef PARTICLE_FACTORY_H
-#define PARTICLE_FACTORY_H
+#pragma once
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
@@ -32,5 +31,3 @@ std::unique_ptr<Particle> create_particle(const ConfigType& config) {
     }
     throw std::invalid_argument("Invalid particle type: " + config.type_name);
 }
-
-#endif /* PARTICLE_FACTORY_H */

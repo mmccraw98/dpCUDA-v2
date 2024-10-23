@@ -1,5 +1,4 @@
-#ifndef ENERGY_LOG_H
-#define ENERGY_LOG_H
+#pragma once
 
 #include "base_log_groups.h"
 #include "utils.h"
@@ -39,5 +38,3 @@ public:
     void log(long step) final;  // logs the values to the file
 };
 
-
-#endif /* ENERGY_LOG_H */

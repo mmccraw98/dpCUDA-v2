@@ -1,5 +1,4 @@
-#ifndef DISK_H
-#define DISK_H
+#pragma once
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
@@ -95,5 +94,3 @@ public:
      */
     void calculateKineticEnergy();
 };
-
-#endif /* DISK_H */

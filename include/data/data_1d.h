@@ -1,7 +1,4 @@
-// BaseData1D.h
-
-#ifndef DATA_1D_H
-#define DATA_1D_H
+#pragma once
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
@@ -74,4 +71,3 @@ class SwapData1D : public Data1D<T> {
         void clear();
         void swap();
 };
-#endif // DATA_1D_H

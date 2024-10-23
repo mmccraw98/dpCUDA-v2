@@ -1,5 +1,4 @@
-#ifndef IO_UTILS_H
-#define IO_UTILS_H
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -129,5 +128,3 @@ thrust::host_vector<T> read_array_from_file(const std::string& file_name, long n
     input_file.close();
     return data;
 }
-
-#endif /* IO_UTILS_H */

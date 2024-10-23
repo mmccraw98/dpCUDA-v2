@@ -1,5 +1,4 @@
-#ifndef ARRAY_DATA_H
-#define ARRAY_DATA_H
+#pragma once
 
 #include <thrust/host_vector.h>
 #include <string>
@@ -30,5 +29,3 @@ struct ArrayData {
     > data;
 };
 
-
-#endif // ARRAY_DATA_H

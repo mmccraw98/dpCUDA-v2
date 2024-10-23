@@ -33,6 +33,13 @@
 
 int main() {
 
+    // change to pragma once
+
+    // make a base config class
+    // make a configs folder in each directory that has configs and define them there - based off the base config class
+
+    // make a kernel config
+
 
     // TODO: move to crtp base classes to avoid runtime type checking - however, perf report shows no appearance of virtualization performance loss and is probably not worth the effort
 

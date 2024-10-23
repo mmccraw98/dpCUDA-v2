@@ -1,5 +1,4 @@
-#ifndef PARTICLE_CONFIG_H
-#define PARTICLE_CONFIG_H
+#pragma once
 
 #include <iostream>
 #include <nlohmann/json.hpp>
@@ -163,5 +162,3 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
         );
     }
 };
-
-#endif // PARTICLE_CONFIG_H

@@ -1,5 +1,4 @@
-#ifndef NVE_H
-#define NVE_H
+#pragma once
 
 #include "integrator.h"
 #include "../particle/particle.h"
@@ -67,5 +66,3 @@ public:
      */
     void step() override;
 };
-
-#endif /* NVE_H */

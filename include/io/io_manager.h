@@ -1,5 +1,4 @@
-#ifndef IO_MANAGER_H
-#define IO_MANAGER_H
+#pragma once
 
 #include "../particle/particle.h"
 #include "../integrator/integrator.h"
@@ -101,5 +100,3 @@ private:
      */
     void init_path(std::filesystem::path& path, const std::string& path_name);
 };
-
-#endif /* IO_MANAGER_H */

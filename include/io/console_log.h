@@ -1,5 +1,4 @@
-#ifndef CONSOLE_LOG_H
-#define CONSOLE_LOG_H
+#pragma once
 
 #include "base_log_groups.h"
 #include <iostream>
@@ -39,5 +38,3 @@ public:
      */
     void log(long step) final;
 };
-
-#endif /* CONSOLE_LOG_H */

@@ -1,5 +1,4 @@
-#ifndef KERNELS_CUH_
-#define KERNELS_CUH_
+#pragma once
 
 #include <stdio.h>
 #include <cmath>
@@ -276,5 +275,3 @@ __global__ void kernelReorderParticleData(
 	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
 	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
 	double* __restrict__ cell_displacements_sq);
-
-#endif /* KERNELS_CUH_ */

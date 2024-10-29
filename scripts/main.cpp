@@ -93,7 +93,7 @@ int main() {
     double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 1024 * 100, 1.0, 1.0, 2.0, 0.8, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 131072, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
 
     // TODO: define integration tests
@@ -217,9 +217,18 @@ int main() {
 
     long step = 0;
 
+    while (step < 1e4) {
+        nve.step();
+        if (step % 1000 == 0) {
+            particle->scaleVelocitiesToTemperature(1e-2);
+        }
+        step++;
+    }
+
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
+    step = 0;
     while (step < num_steps) {
         nve.step();
         io_manager.log(step);
@@ -229,7 +238,7 @@ int main() {
     // stop the timer
     auto end = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Time taken: " << duration << " milliseconds" << std::endl;
+    std::cout << "Time taken: " << duration * 1e-3 << " seconds for " << particle->n_particles << " particles" << std::endl;
 
     return 0;
 }

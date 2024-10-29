@@ -25,6 +25,22 @@ struct KernelConfig {
     long dim_block;
 };
 
+#include <typeinfo>
+template <typename T>
+void printType(const T& obj) {
+    std::cout << "Type: " << typeid(obj).name() << std::endl;
+}
+
+#define CUDA_CHECK(call)                                                    \
+    {                                                                       \
+        cudaError_t err = call;                                             \
+        if (err != cudaSuccess) {                                           \
+            std::cerr << "CUDA error in " << __FILE__ << " at line "        \
+                      << __LINE__ << ": " << cudaGetErrorString(err) << "\n"; \
+            std::exit(EXIT_FAILURE);                                        \
+        }                                                                   \
+    }
+
 /**
  * @brief Base class for all particle types.
  */
@@ -560,7 +576,7 @@ public:
      * 
      * @return The total area of the particles.
      */
-    virtual double getArea() const = 0;
+    virtual double getParticleArea() const = 0;
 
     /**
      * @brief Virtual method to calculate the ratio of the particle overlap area to the total area.

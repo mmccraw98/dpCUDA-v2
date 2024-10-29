@@ -15,6 +15,8 @@ extern __constant__ long d_vertex_dim_block;  // number of threads per block
 extern __constant__ long d_cell_dim_grid;
 extern __constant__ long d_cell_dim_block;
 
+extern __constant__ double d_vertex_radius;
+
 extern __constant__ double d_box_size[N_DIM];  // box size vector
 
 extern __constant__ long d_n_dim;  // number of dimensions
@@ -34,6 +36,14 @@ extern __constant__ double d_n_l;  // exponent for the length energy
 extern __constant__ long* d_num_neighbors_ptr;  // pointer to the array that stores the number of neighbors for each particle
 extern __constant__ long* d_neighbor_list_ptr;  // pointer to the neighbor list array
 extern __constant__ long d_max_neighbors_allocated;  // maximum number of neighbors allocated for each particle
+
+extern __constant__ long* d_num_vertex_neighbors_ptr;
+extern __constant__ long* d_vertex_neighbor_list_ptr;
+extern __constant__ long d_max_vertex_neighbors_allocated;
+
+extern __constant__ long* d_particle_start_index_ptr;
+extern __constant__ long* d_num_vertices_in_particle_ptr;
+
 
 extern __constant__ long d_n_cells;  // number of cells in the simulation box
 extern __constant__ long d_n_cells_dim;  // number of cells in each dimension
@@ -288,3 +298,41 @@ __global__ void kernelAdamStep(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ forces_x, const double* __restrict__ forces_y,
     double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon);
+
+// initialize vertices
+
+__global__ void kernelGetNumVerticesInParticles(
+    const double* __restrict__ radii,
+    const double min_particle_diam,
+    const long num_vertices_in_small_particle,
+    const double max_particle_diam,
+    const long num_vertices_in_large_particle,
+    long* __restrict__ num_vertices_in_particle);
+
+__global__ void kernelInitializeVerticesOnParticles(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ radii, const double* __restrict__ angles,
+    long* __restrict__ vertex_particle_index,
+    const long* __restrict__ particle_start_index,
+    const long* __restrict__ num_vertices_in_particle,
+    double* __restrict__ vertex_masses,
+    double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y);
+
+
+// vertex utilities
+
+inline __device__ long getNextVertexId(const long current_id, const long num_vertices_in_particle) {
+    return mod(current_id + 1, num_vertices_in_particle);
+}
+
+inline __device__ long getPreviousVertexId(const long current_id, const long num_vertices_in_particle) {
+    return mod(current_id - 1, num_vertices_in_particle);
+}
+
+// calculate particle area
+
+__global__ void kernelCalculateParticleArea(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    double* __restrict__ particle_area
+);
+

@@ -73,7 +73,7 @@ public:
      * 
      * @return The total area of the particles.
      */
-    double getArea() const override;
+    double getParticleArea() const override;
 
     /**
      * @brief Get the fraction of the area involving the overlap between particles using the lense formula.

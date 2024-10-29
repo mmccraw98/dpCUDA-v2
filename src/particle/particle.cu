@@ -22,21 +22,7 @@
 #include <thrust/functional.h>
 
 
-#include <typeinfo>
-template <typename T>
-void printType(const T& obj) {
-    std::cout << "Type: " << typeid(obj).name() << std::endl;
-}
 
-#define CUDA_CHECK(call)                                                    \
-    {                                                                       \
-        cudaError_t err = call;                                             \
-        if (err != cudaSuccess) {                                           \
-            std::cerr << "CUDA error in " << __FILE__ << " at line "        \
-                      << __LINE__ << ": " << cudaGetErrorString(err) << "\n"; \
-            std::exit(EXIT_FAILURE);                                        \
-        }                                                                   \
-    }
 
 Particle::Particle() {
 }
@@ -623,7 +609,7 @@ double Particle::getBoxArea() {
 
 double Particle::getPackingFraction() {
     double box_area = getBoxArea();
-    double area = getArea();
+    double area = getParticleArea();
     return area / box_area;
 }
 
@@ -632,7 +618,7 @@ double Particle::getDensity() {
 }
 
 void Particle::scaleToPackingFraction(double packing_fraction) {
-    double new_side_length = std::pow(getArea() / packing_fraction, 1.0 / N_DIM);
+    double new_side_length = std::pow(getParticleArea() / packing_fraction, 1.0 / N_DIM);
     double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
     double scale_factor = new_side_length / side_length;
     positions.scale(scale_factor, scale_factor);

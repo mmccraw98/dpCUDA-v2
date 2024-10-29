@@ -23,6 +23,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/kernels
     ${CMAKE_SOURCE_DIR}/include/io
     ${CMAKE_SOURCE_DIR}/include/utils
+    ${CMAKE_SOURCE_DIR}/include/routines
     ${CUDA_TOOLKIT_ROOT_DIR}/include
 )
 
@@ -61,6 +62,7 @@ add_executable(main_exec
     src/particle/disk.cu
     src/particle/rigid_bumpy.cu
     src/integrator/adam.cu
+    src/routines/initialization.cu
     src/io/utils.cu
     src/utils/thread_pool.cpp
 )
@@ -98,6 +100,7 @@ add_executable(test_exec
     src/particle/rigid_bumpy.cu
     src/integrator/adam.cu
     src/io/utils.cu
+    src/routines/initialization.cu
     src/utils/thread_pool.cpp
 )
 

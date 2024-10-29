@@ -14,6 +14,8 @@ __constant__ long d_vertex_dim_block;
 __constant__ long d_cell_dim_grid;
 __constant__ long d_cell_dim_block;
 
+__constant__ double d_vertex_radius;
+
 __constant__ double d_box_size[N_DIM];
 
 __constant__ long d_n_dim = N_DIM;
@@ -32,8 +34,14 @@ __constant__ double d_n_l;
 
 __constant__ long* d_num_neighbors_ptr;
 __constant__ long* d_neighbor_list_ptr;
-__constant__ long d_max_neighbors;
 __constant__ long d_max_neighbors_allocated;
+
+__constant__ long* d_num_vertex_neighbors_ptr;
+__constant__ long* d_vertex_neighbor_list_ptr;
+__constant__ long d_max_vertex_neighbors_allocated;
+
+__constant__ long* d_particle_start_index_ptr;
+__constant__ long* d_num_vertices_in_particle_ptr;
 
 __constant__ long d_n_cells;
 __constant__ long d_n_cells_dim;
@@ -530,4 +538,91 @@ __global__ void kernelAdamStep(
     first_moment_y[particle_id] = first_m_y;
     second_moment_x[particle_id] = second_m_x;
     second_moment_y[particle_id] = second_m_y;
+}
+
+
+// ----------------------------------------------------------------------
+
+__global__ void kernelGetNumVerticesInParticles(
+    const double* __restrict__ radii,
+    const double min_particle_diam,
+    const long num_vertices_in_small_particle,
+    const double max_particle_diam,
+    const long num_vertices_in_large_particle,
+    long* __restrict__ num_vertices_in_particle) {
+    
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double radius = radii[particle_id];
+    if (radius == min_particle_diam / 2.0) {
+        num_vertices_in_particle[particle_id] = num_vertices_in_small_particle;
+    } else if (radius == max_particle_diam / 2.0) {
+        num_vertices_in_particle[particle_id] = num_vertices_in_large_particle;
+    } else {
+        printf("Error: particle radius %f is not equal to min or max particle diameter\n", radius);
+    }
+}
+
+__global__ void kernelInitializeVerticesOnParticles(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ radii, const double* __restrict__ angles,
+    long* __restrict__ vertex_particle_index,
+    const long* __restrict__ particle_start_index,
+    const long* __restrict__ num_vertices_in_particle,
+    double* __restrict__ vertex_masses,
+    double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y) {
+    
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double angle = angles[particle_id];
+    double radius = radii[particle_id];
+    long num_vertices = num_vertices_in_particle[particle_id];
+    long vertex_start_index = particle_start_index[particle_id];
+    double vertex_angle_increment = 2 * M_PI / num_vertices;
+    double inner_radius = radius - d_vertex_radius;
+
+
+    for (long i = 0; i < num_vertices; i++) {
+        double vertex_angle = i * vertex_angle_increment + angle;
+        double vertex_x = positions_x[particle_id] + inner_radius * cos(vertex_angle);
+        double vertex_y = positions_y[particle_id] + inner_radius * sin(vertex_angle);
+        vertex_positions_x[vertex_start_index + i] = vertex_x;
+        vertex_positions_y[vertex_start_index + i] = vertex_y;
+        vertex_particle_index[vertex_start_index + i] = particle_id;
+        vertex_masses[vertex_start_index + i] = 1 / static_cast<double>(num_vertices);
+    }
+}
+
+// area
+
+__global__ void kernelCalculateParticleArea(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    double* __restrict__ particle_area
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double temp_area = 0.0;
+    long first_vertex_index = d_particle_start_index_ptr[particle_id];
+    long num_vertices = d_num_vertices_in_particle_ptr[particle_id];
+
+    // Prefetch first vertex to avoid duplicate reads
+    double pos_x = vertex_positions_x[first_vertex_index];
+    double pos_y = vertex_positions_y[first_vertex_index];
+
+    // Loop over vertices to compute the area
+    for (long i = 1; i <= num_vertices; i++) {
+        long next_index = first_vertex_index + (i % num_vertices);
+        double next_pos_x = vertex_positions_x[next_index];
+        double next_pos_y = vertex_positions_y[next_index];
+
+        temp_area += pos_x * next_pos_y - next_pos_x * pos_y;
+
+        // Move to the next vertex
+        pos_x = next_pos_x;
+        pos_y = next_pos_y;
+    }
+    particle_area[particle_id] = abs(temp_area) * 0.5;
 }

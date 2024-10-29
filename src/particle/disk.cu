@@ -65,7 +65,7 @@ void Disk::setKernelDimensions(long particle_dim_block) {
 // ----------------------------------------------------------------------
 
 
-double Disk::getArea() const {
+double Disk::getParticleArea() const {
     return thrust::transform_reduce(radii.d_vec.begin(), radii.d_vec.end(), Square(), 0.0, thrust::plus<double>()) * PI;
 }
 

@@ -125,7 +125,6 @@ public:
     double neighbor_cutoff = -1;  // cutoff distance for the neighbor list
     double neighbor_displacement_threshold_sq = -1;  // displacement threshold squared after which the neighbor list is updated
     double cell_displacement_threshold_sq = -1;  // displacement threshold squared after which the cell list is updated
-    long max_neighbors = -1;  // maximum number of neighbors
     long max_neighbors_allocated = -1;  // maximum number of neighbors allocated for each particle
     long n_particles = -1;  // total number of particles
     long n_vertices = -1;  // total number of vertices

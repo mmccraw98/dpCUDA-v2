@@ -25,6 +25,9 @@ public:
     SwapData2D<double> vertex_forces;
     SwapData1D<double> vertex_masses;
 
+    Data1D<double> last_angles;  // for tracking particle rotation for vertex neighbor list updates
+    Data1D<double> angle_displacements_sq;
+
     // particle rotational variables
     SwapData1D<double> angles;
     SwapData1D<double> angular_velocities;
@@ -33,14 +36,17 @@ public:
     SwapData1D<double> area;
 
     // vertex-based particle variables
-    Data1D<long> vertex_particle_index;
-    Data1D<long> particle_start_index;
-    Data1D<long> num_vertices_in_particle;
+    Data1D<long> vertex_particle_index;  // index of the particle that each vertex belongs to
+    Data1D<long> particle_start_index;  // index of the first vertex in each particle
+    Data1D<long> num_vertices_in_particle;  // number of vertices in each particle
 
     Data1D<long> vertex_neighbor_list;
     Data1D<long> num_vertex_neighbors;
 
-    // Data1D<double> 
+    double vertex_neighbor_cutoff;  // vertices within this distance of each other are neighbors
+    double vertex_particle_neighbor_cutoff;  // particles within this distance of a vertex will be checked for vertex neighbors
+
+    long max_vertex_neighbors_allocated;
 
     double segment_length_per_vertex_diameter;
 
@@ -51,17 +57,21 @@ public:
     // sync the vertex radius to the device
     void syncVertexRadius(double vertex_radius);
 
+    double getVertexRadius();
+
     // vertices should be all the same size and mass?
 
     void setKernelDimensions(long particle_dim_block = 256, long vertex_dim_block = 256);
 
     void initVertexVariables();
 
+    void scalePositions(double scale_factor) override;
+
     void initGeometricVariables();
 
     void syncVertexIndices();
 
-    void syncNeighborList() override;
+    void syncVertexNeighborList();
 
     void initDynamicVariables();
     void clearDynamicVariables();
@@ -76,5 +86,17 @@ public:
     
     void calculateForces() override;
 
+    void updatePositions();
+
+    void updateVelocities();
+
     void calculateKineticEnergy();
+
+    void calculateParticlePositions();
+
+    void updateVertexVerletList();
+
+    void initVerletListVariables();
+
+    void initVerletList();
 };

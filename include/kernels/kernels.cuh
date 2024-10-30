@@ -43,6 +43,7 @@ extern __constant__ long d_max_vertex_neighbors_allocated;
 
 extern __constant__ long* d_particle_start_index_ptr;
 extern __constant__ long* d_num_vertices_in_particle_ptr;
+extern __constant__ long* d_vertex_particle_index_ptr;
 
 
 extern __constant__ long d_n_cells;  // number of cells in the simulation box
@@ -331,8 +332,60 @@ inline __device__ long getPreviousVertexId(const long current_id, const long num
 
 // calculate particle area
 
-__global__ void kernelCalculateParticleArea(
+__global__ void kernelCalculateParticlePolygonArea(
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
     double* __restrict__ particle_area
 );
 
+__global__ void kernelCalculateBumpyParticleAreaFull(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ vertex_radii,
+    double* __restrict__ particle_area
+);
+
+// overlap lenses
+
+inline __device__ double A(const double R, const double d) {
+    return R * R * acos(d / R) - d * sqrt(R * R - d * d);
+}
+
+inline __device__ double calcOverlapLenseArea(const double r_ij, const double radius_i, const double radius_j) {
+    double d1 = (r_ij * r_ij - radius_i * radius_i + radius_j * radius_j) / (2 * r_ij);
+    double d2 = r_ij - d1;
+    return A(radius_i, d1) + A(radius_j, d2);
+}
+
+__global__ void kernelCalcPartcleOverlapLenses(const double* __restrict__ pos, const double* __restrict__ rad, double* __restrict__ overlaps);
+
+
+// angle between two vectors
+
+inline __device__ double angleBetweenVectors(const double next_x, const double next_y, const double current_x, const double current_y, const double previous_x, const double previous_y) {
+    double mid_sin = (next_x - current_x) * (current_y - previous_y) - (next_y - current_y) * (current_x - previous_x);
+    double mid_cos = (next_x - current_x) * (current_x - previous_x) + (next_y - current_y) * (current_y - previous_y);
+    return atan2(mid_sin, mid_cos);
+}
+
+// calculate particle positions
+
+__global__ void kernelCalculateParticlePositions(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    double* __restrict__ particle_positions_x, double* __restrict__ particle_positions_y
+);
+
+// vertex neighbors
+
+__global__ void kernelUpdateVertexNeighborList(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double cutoff,
+    const double particle_cutoff
+);
+
+// scale positions
+
+__global__ void kernelScalePositions(
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y,
+    const double scale_factor
+);

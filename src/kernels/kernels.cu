@@ -42,6 +42,7 @@ __constant__ long d_max_vertex_neighbors_allocated;
 
 __constant__ long* d_particle_start_index_ptr;
 __constant__ long* d_num_vertices_in_particle_ptr;
+__constant__ long* d_vertex_particle_index_ptr;
 
 __constant__ long d_n_cells;
 __constant__ long d_n_cells_dim;
@@ -235,6 +236,10 @@ __global__ void kernelUpdateNeighborList(
 
         double other_x = positions_x[other_id];
         double other_y = positions_y[other_id];
+
+        // if (particle_id == 0) {
+        //     printf("particle_id: %ld, particle_pos: %f, %f, other_id: %ld, other_pos: %f, %f, cutoff_sq: %f\n", particle_id, pos_x, pos_y, other_id, other_x, other_y, cutoff_sq);
+        // }
 
         // Check if within cutoff using early exit
         if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
@@ -597,7 +602,7 @@ __global__ void kernelInitializeVerticesOnParticles(
 
 // area
 
-__global__ void kernelCalculateParticleArea(
+__global__ void kernelCalculateParticlePolygonArea(
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
     double* __restrict__ particle_area
 ) {
@@ -625,4 +630,203 @@ __global__ void kernelCalculateParticleArea(
         pos_y = next_pos_y;
     }
     particle_area[particle_id] = abs(temp_area) * 0.5;
+}
+
+__global__ void kernelCalculateBumpyParticleAreaFull(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ vertex_radii,
+    double* __restrict__ particle_area
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double temp_polygon_area = 0.0;
+    double temp_overlap_area = 0.0;
+    double temp_angle_area = 0.0;
+    double vertex_area = M_PI * d_vertex_radius * d_vertex_radius;
+
+    long first_vertex_index = d_particle_start_index_ptr[particle_id];
+    long num_vertices = d_num_vertices_in_particle_ptr[particle_id];
+
+    // Load initial positions
+    double pos_x = vertex_positions_x[first_vertex_index];
+    double pos_y = vertex_positions_y[first_vertex_index];
+    double prev_pos_x = vertex_positions_x[first_vertex_index + num_vertices - 1];
+    double prev_pos_y = vertex_positions_y[first_vertex_index + num_vertices - 1];
+
+    // Loop over vertices to compute the area
+    for (long i = 0; i < num_vertices; i++) {
+        // Calculate next vertex index with wrapping
+        long next_index = first_vertex_index + ((i + 1) % num_vertices);
+        double next_pos_x = vertex_positions_x[next_index];
+        double next_pos_y = vertex_positions_y[next_index];
+
+        // Calculate polygon area
+        temp_polygon_area += pos_x * next_pos_y - next_pos_x * pos_y;
+
+        // Calculate angle area
+        double angle = angleBetweenVectors(next_pos_x, next_pos_y, pos_x, pos_y, prev_pos_x, prev_pos_y);
+        temp_angle_area += (M_PI - angle) / (2.0 * M_PI);
+
+        // Calculate overlap area
+        double dx = next_pos_x - pos_x;
+        double dy = next_pos_y - pos_y;
+        double r_ij = sqrt(dx * dx + dy * dy);
+
+        if (r_ij < 2 * d_vertex_radius) {
+            temp_overlap_area -= calcOverlapLenseArea(r_ij, d_vertex_radius, d_vertex_radius);
+        }
+
+        // Update positions for next iteration
+        prev_pos_x = pos_x;
+        prev_pos_y = pos_y;
+        pos_x = next_pos_x;
+        pos_y = next_pos_y;
+    }
+
+    particle_area[particle_id] = abs(temp_polygon_area) * 0.5 + temp_overlap_area + temp_angle_area * vertex_area;
+}
+
+// overlap lenses
+__global__ void kernelCalcParticleOverlapLenses(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ radii, double* __restrict__ overlaps
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long num_neighbors = d_num_neighbors_ptr[particle_id];
+    if (num_neighbors == 0) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double rad = radii[particle_id];
+
+    double overlap = 0.0;
+
+    for (long n = 0; n < num_neighbors; n++) {
+        long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_id == -1 || other_id == particle_id) continue;
+
+        double other_pos_x = positions_x[other_id];
+        double other_pos_y = positions_y[other_id];
+        double other_rad = radii[other_id];
+
+        double dx = pbcDistance(pos_x, other_pos_x, 0);
+        double dy = pbcDistance(pos_y, other_pos_y, 1);
+        double rad_sum = rad + other_rad;
+        double distance_sq = dx * dx + dy * dy;
+
+        if (distance_sq >= rad_sum * rad_sum) {
+            continue;
+        }
+        double distance = sqrt(distance_sq);
+        // divide by 2 to avoid double counting
+        overlaps[particle_id] += calcOverlapLenseArea(distance, rad, other_rad) / 2.0;
+	}
+}
+
+// calculate particle positions
+
+__global__ void kernelCalculateParticlePositions(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    double* __restrict__ particle_positions_x, double* __restrict__ particle_positions_y
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double pos_x = 0.0;
+    double pos_y = 0.0;
+
+    long first_vertex_index = d_particle_start_index_ptr[particle_id];
+    long num_vertices = d_num_vertices_in_particle_ptr[particle_id];
+
+    // Loop over vertices to compute the area
+    for (long i = first_vertex_index; i < first_vertex_index + num_vertices; i++) {
+        pos_x += vertex_positions_x[i];
+        pos_y += vertex_positions_y[i];
+    }
+
+    particle_positions_x[particle_id] = pos_x / num_vertices;
+    particle_positions_y[particle_id] = pos_y / num_vertices;
+}
+
+
+
+// vertex neighbors
+__global__ void kernelUpdateVertexNeighborList(
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double cutoff,
+    const double particle_cutoff
+) {
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+
+    long added_vertex_neighbors = 0;
+    double pos_x = vertex_positions_x[vertex_id];
+    double pos_y = vertex_positions_y[vertex_id];
+    double cutoff_sq = cutoff * cutoff;
+    double particle_cutoff_sq = particle_cutoff * particle_cutoff;
+
+    long particle_id = d_vertex_particle_index_ptr[vertex_id];
+    long num_particle_neighbors = d_num_neighbors_ptr[particle_id];
+
+    // iterate over neighboring particles in the particle neighbor list
+    for (long n = 0; n < num_particle_neighbors; n++) {
+        long other_particle_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_particle_id == -1 || other_particle_id == particle_id) continue;
+
+        // Load neighbor's data
+        double other_particle_x = positions_x[other_particle_id];
+        double other_particle_y = positions_y[other_particle_id];
+
+        // If the particle center is within the particle cutoff radius of the vertex, then check the vertices of the particle
+        if (isWithinCutoffSquared(pos_x, pos_y, other_particle_x, other_particle_y, particle_cutoff_sq)) {
+            long first_vertex_index = d_particle_start_index_ptr[other_particle_id];
+            long num_vertices = d_num_vertices_in_particle_ptr[other_particle_id];
+
+            for (long i = first_vertex_index; i < first_vertex_index + num_vertices; i++) {
+                double other_x = vertex_positions_x[i];
+                double other_y = vertex_positions_y[i];
+
+                if (isWithinCutoffSquared(pos_x, pos_y, other_x, other_y, cutoff_sq)) {
+                    if (added_vertex_neighbors < d_max_vertex_neighbors_allocated) {
+                        d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated + added_vertex_neighbors] = i;
+                    }
+                    added_vertex_neighbors++;
+                }
+            }
+        }
+    }
+}
+
+
+// scale positions
+
+__global__ void kernelScalePositions(
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y,
+    const double scale_factor
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+
+    double new_pos_x = pos_x * scale_factor;
+    double new_pos_y = pos_y * scale_factor;
+
+    positions_x[particle_id] = new_pos_x;
+    positions_y[particle_id] = new_pos_y;
+
+    long first_vertex_index = d_particle_start_index_ptr[particle_id];
+    long num_vertices = d_num_vertices_in_particle_ptr[particle_id];
+
+    for (long i = first_vertex_index; i < first_vertex_index + num_vertices; i++) {
+        vertex_positions_x[i] += (new_pos_x - pos_x);
+        vertex_positions_y[i] += (new_pos_y - pos_y);
+    }
 }

@@ -621,9 +621,13 @@ void Particle::scaleToPackingFraction(double packing_fraction) {
     double new_side_length = std::pow(getParticleArea() / packing_fraction, 1.0 / N_DIM);
     double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
     double scale_factor = new_side_length / side_length;
-    positions.scale(scale_factor, scale_factor);
+    scalePositions(scale_factor);
     thrust::host_vector<double> host_box_size(N_DIM, new_side_length);
     setBoxSize(host_box_size);
+}
+
+void Particle::scalePositions(double scale_factor) {  // scale the positions but not the particle sizes
+    positions.scale(scale_factor, scale_factor);
 }
 
 double Particle::totalKineticEnergy() const {
@@ -638,17 +642,12 @@ double Particle::totalEnergy() const {
     return totalKineticEnergy() + totalPotentialEnergy();
 }
 
-void Particle::scalePositions(double scale_factor) {
-    positions.scale(scale_factor, scale_factor);
-}
-
 void Particle::updatePositions(double dt) {
     kernelUpdatePositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, neigh_displacements_sq.d_ptr, cell_displacements_sq.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, dt);
 }
 
 void Particle::updateVelocities(double dt) {
     kernelUpdateVelocities<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, masses.d_ptr, dt);
-
 }
 
 double Particle::getMaxSquaredNeighborDisplacement() {
@@ -662,7 +661,7 @@ double Particle::getMaxSquaredCellDisplacement() {
 void Particle::updateVerletList() {
     neighbor_list.fill(-1L);
     kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
-    max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
+    long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
         std::cout << "Particle::updateVerletList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
@@ -844,7 +843,7 @@ void Particle::updateCellList() {
 void Particle::updateCellNeighborList() {
     neighbor_list.fill(-1L);
     kernelUpdateCellNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neighbor_cutoff, cell_index.d_ptr, cell_start.d_ptr, neigh_displacements_sq.d_ptr);
-    max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
+    long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
         std::cout << "Particle::updateCellNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;

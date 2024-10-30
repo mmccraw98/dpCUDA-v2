@@ -114,6 +114,11 @@ void RigidBumpy::syncVertexIndices() {
         std::cerr << "RigidBumpy::syncVertexIndices: Error copying d_num_vertices_in_particle_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
+    cuda_err = cudaMemcpyToSymbol(d_vertex_particle_index_ptr, &vertex_particle_index.d_ptr, sizeof(vertex_particle_index.d_ptr));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "RigidBumpy::syncVertexIndices: Error copying d_vertex_particle_index_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
+    }
 }
 
 void RigidBumpy::setParticleStartIndex() {
@@ -124,13 +129,21 @@ void RigidBumpy::syncVertexRadius(double vertex_radius) {
     cudaMemcpyToSymbol(d_vertex_radius, &vertex_radius, sizeof(double));
 }
 
+double RigidBumpy::getVertexRadius() {
+    double vertex_radius;
+    cudaMemcpyFromSymbol(&vertex_radius, d_vertex_radius, sizeof(double));
+    return vertex_radius;
+}
+
 void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_positions, SwapData1D<double>& disk_radii, long num_vertices_in_small_particle) {
     // i really dont like this
 
     // set the particle positions and radii from the disk packing
     positions.copyFrom(disk_positions);
     radii.copyFrom(disk_radii);
-    
+
+
+
     double max_particle_diam = getDiameter("max");
     double min_particle_diam = getDiameter("min");
 
@@ -151,6 +164,10 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     long num_vertices_in_large_particle = static_cast<long>(num_vertices_in_small_particle * max_particle_diam / min_particle_diam);
 
     double vertex_angle_small = 2 * M_PI / num_vertices_in_small_particle;
+    std::cout << "vertex_angle_small: " << vertex_angle_small << std::endl;
+    std::cout << "segment_length_per_vertex_diameter: " << segment_length_per_vertex_diameter << std::endl;
+    std::cout << "sin(vertex_angle_small / 2): " << std::sin(vertex_angle_small / 2) << std::endl;
+    std::cout << "min_particle_diam: " << min_particle_diam << std::endl;
     double vertex_radius = min_particle_diam / (1 + segment_length_per_vertex_diameter / std::sin(vertex_angle_small / 2)) / 2.0;
     syncVertexRadius(vertex_radius);
 
@@ -176,42 +193,62 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     syncVertexIndices();
 }
 
+
+// need to make a scale function for the particles which can then go into the base particle class and be overridden by the rigid bumpy class so we dont have to replicate the scaleToPackingFraction function
+
 void RigidBumpy::calculateParticleArea() {
-    kernelCalculateParticleArea<<<particle_dim_grid, particle_dim_block>>>(
-        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, area.d_ptr);
+    std::cout << "RIGID BUMPY CALCULATE PARTICLE AREA" << std::endl;
+    // kernelCalculateParticlePolygonArea<<<particle_dim_grid, particle_dim_block>>>(
+    //     vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, area.d_ptr);
+    kernelCalculateBumpyParticleAreaFull<<<particle_dim_grid, particle_dim_block>>>(
+        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, radii.d_ptr, area.d_ptr);
+
+    double min_diam = getDiameter("min");
+    double max_diam = getDiameter("max");
+    std::cout << "a: " << static_cast<double>(n_particles / 2) * M_PI * min_diam * min_diam / 4.0 + static_cast<double>(n_particles / 2) * M_PI * max_diam * max_diam / 4.0 << std::endl;
 }
 
 double RigidBumpy::getParticleArea() const {
-    return thrust::reduce(area.d_vec.begin(), area.d_vec.end(), 0.0, thrust::plus<double>());
+    std::cout << "RIGID BUMPY GET PARTICLE AREA" << std::endl;
+    double a = thrust::reduce(area.d_vec.begin(), area.d_vec.end(), 0.0, thrust::plus<double>());
+    std::cout << "a: " << a << std::endl;
+    return a;
 }
 
-void RigidBumpy::syncNeighborList() {
-    Particle::syncNeighborList();
+
+// calculate the particle positions first if not already done not needed for rigid bumpy
+// compare polygon areas to particle areas
+// calculate the contribution to the area from the vertices
+void RigidBumpy::scalePositions(double scale_factor) {
+    kernelScalePositions<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, scale_factor
+    );
 }
-// void Particle::syncNeighborList() {
-//     cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_neighbors_allocated, &this->max_neighbors_allocated, sizeof(this->max_neighbors_allocated));
-//     if (cuda_err != cudaSuccess) {
-//         std::cerr << "Particle::syncNeighborList: Error copying max_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
-//         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
-//     }
-//     cuda_err = cudaMemcpyToSymbol(d_neighbor_list_ptr, &neighbor_list.d_ptr, sizeof(neighbor_list.d_ptr));
-//     if (cuda_err != cudaSuccess) {
-//         std::cerr << "Particle::syncNeighborList: Error copying d_neighbor_list_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
-//         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
-//     }
-//     cuda_err = cudaMemcpyToSymbol(d_num_neighbors_ptr, &num_neighbors.d_ptr, sizeof(num_neighbors.d_ptr));
-//     if (cuda_err != cudaSuccess) {
-//         std::cerr << "Particle::syncNeighborList: Error copying d_num_neighbors_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
-//         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
-//     }
-// }
+
+void RigidBumpy::syncVertexNeighborList() {
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_max_vertex_neighbors_allocated, &max_vertex_neighbors_allocated, sizeof(max_vertex_neighbors_allocated));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "RigidBumpy::syncVertexNeighborList: Error copying max_vertex_neighbors_allocated to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
+    }
+    cuda_err = cudaMemcpyToSymbol(d_vertex_neighbor_list_ptr, &vertex_neighbor_list.d_ptr, sizeof(vertex_neighbor_list.d_ptr));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "RigidBumpy::syncVertexNeighborList: Error copying d_vertex_neighbor_list_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
+    }
+    cuda_err = cudaMemcpyToSymbol(d_num_vertex_neighbors_ptr, &num_vertex_neighbors.d_ptr, sizeof(num_vertex_neighbors.d_ptr));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "RigidBumpy::syncVertexNeighborList: Error copying d_num_vertex_neighbors_ptr to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
+    }
+}
 
 void RigidBumpy::setMass(double mass) {
     Particle::setMass(mass);
     vertex_masses.scale(mass);
     // check if sum of vertex masses is equal to particle mass for each particle
     double total_vertex_mass = thrust::reduce(vertex_masses.d_vec.begin(), vertex_masses.d_vec.end(), 0.0, thrust::plus<double>());
-    if (std::abs(total_vertex_mass - mass * n_particles) > 1e-6) {
+    if (std::abs(total_vertex_mass / n_particles - mass) > 1e-6) {
         std::cout << "WARNING: RigidBumpy::setMass: Total vertex mass does not match particle mass" << std::endl;
     }
 }
@@ -224,5 +261,55 @@ double RigidBumpy::getOverlapFraction() const {
 void RigidBumpy::calculateForces() {
 }
 
+void RigidBumpy::updatePositions() {
+}
+
+void RigidBumpy::updateVelocities() {
+}
+
 void RigidBumpy::calculateKineticEnergy() {
+}
+
+void RigidBumpy::calculateParticlePositions() {
+    kernelCalculateParticlePositions<<<particle_dim_grid, particle_dim_block>>>(
+        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr
+    );
+}
+
+void RigidBumpy::updateVertexVerletList() {
+    std::cout << "Updating vertex verlet list" << std::endl;
+    vertex_neighbor_list.fill(-1L);
+    kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
+        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff
+    );
+    long max_vertex_neighbors = thrust::reduce(num_vertex_neighbors.d_vec.begin(), num_vertex_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
+    std::cout << "max_vertex_neighbors: " << max_vertex_neighbors << std::endl;
+}
+
+// void Particle::updateVerletList() {
+//     neighbor_list.fill(-1L);
+//     kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
+//     max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
+//     if (max_neighbors > max_neighbors_allocated) {
+//         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
+//         std::cout << "Particle::updateVerletList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
+//         neighbor_list.resize(n_particles * max_neighbors_allocated);
+//         neighbor_list.fill(-1L);
+//         syncNeighborList();
+//         kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
+//     }
+// }
+
+void RigidBumpy::initVerletListVariables() {
+    Particle::initVerletListVariables();
+    vertex_neighbor_list.resizeAndFill(n_vertices * max_vertex_neighbors_allocated, -1L);
+    num_vertex_neighbors.resizeAndFill(n_vertices, 0L);
+}
+
+void RigidBumpy::initVerletList() {
+    initVerletListVariables();
+    syncNeighborList();
+    syncVertexNeighborList();
+    updateVerletList();
+    updateVertexVerletList();
 }

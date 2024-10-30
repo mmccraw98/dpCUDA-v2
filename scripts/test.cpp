@@ -51,6 +51,8 @@ int main() {
 
     RigidBumpy rb;
 
+    rb.segment_length_per_vertex_diameter = 1.0;
+
 
     long num_particles = 32;
     long num_vertices_per_particle = 32;
@@ -75,37 +77,40 @@ int main() {
 
     std::cout << "done with initializeVerticesFromDiskPacking" << std::endl;
 
+    num_particles = rb.positions.size[0];
+    thrust::host_vector<double> hpx = rb.positions.x.getData();
+    thrust::host_vector<double> hpy = rb.positions.y.getData();
+    for (long i = 0; i < num_particles; i++) {
+        std::cout << "particle " << i << " position: " << hpx[i] << ", " << hpy[i] << std::endl;
+    }
+
+    rb.calculateParticleArea();
+
     rb.initializeBox(config.packing_fraction);
 
     rb.setEnergyScale(config.e_c, "c");
     rb.setExponent(config.n_c, "c");
     rb.setMass(config.mass);
 
-    
+    double vertex_diameter = 2.0 * rb.getVertexRadius();
+    double particle_diameter = rb.getDiameter("max");
 
-    // this->setNeighborMethod(config.neighbor_list_update_method);
-    // this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+    std::cout << "vertex_diameter: " << vertex_diameter << std::endl;
+    std::cout << "particle_diameter: " << particle_diameter << std::endl;
 
-    // if (this->neighbor_list_update_method == "cell") {
-    //     bool could_set_cell_size = this->setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
-    //     if (!could_set_cell_size) {
-    //         std::cout << "WARNING: Disk::initializeFromConfig: Could not set cell size.  Attempting to use verlet list instead." << std::endl;
-    //         this->setNeighborMethod("verlet");
-    //     }
-    //     bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    //     if (!could_set_neighbor_size) {
-    //         std::cerr << "ERROR: Disk::initializeFromConfig: Could not set neighbor size for cell list - neighbor cutoff exceeds box size.  Attempting to use all-to-all instead." << std::endl;
-    //         this->setNeighborMethod("all");
-    //     }
-    // }
-    // if (this->neighbor_list_update_method == "verlet") {
-    //     bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    //     if (!could_set_neighbor_size) {
-    //         std::cout << "WARNING: Disk::initializeFromConfig: Could not set neighbor size.  Attempting to use all-to-all instead." << std::endl;
-    //         this->setNeighborMethod("all");
-    //     }
-    // }
-    // this->initNeighborList();
+    rb.vertex_particle_neighbor_cutoff = particle_diameter;  // particles within this distance of a vertex will be checked for vertex neighbors
+    rb.vertex_neighbor_cutoff = 2.0 * vertex_diameter;  // vertices within this distance of each other are neighbors
+
+    // rb.updateVerletList();
+
+    rb.setNeighborMethod("verlet");
+    rb.setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+    rb.max_vertex_neighbors_allocated = 4;
+
+    // init the neighbor list for the particles    
+    rb.initVerletList();
+
+
     // this->calculateForces();  // make sure forces are calculated before the integration starts
     // // may want to check that the forces are balanced
 

@@ -59,7 +59,7 @@ __global__ void kernelUpdatePositions(
     const double* __restrict__ last_neigh_positions_x, const double* __restrict__ last_neigh_positions_y,
     const double* __restrict__ last_cell_positions_x, const double* __restrict__ last_cell_positions_y,
     double* __restrict__ neigh_displacements_sq, double* __restrict__ cell_displacements_sq,
-    double* __restrict__ velocities_x, double* __restrict__ velocities_y, const double dt) 
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y, const double dt) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -80,13 +80,54 @@ __global__ void kernelUpdatePositions(
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
     neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    // TODO: check for max displacement threshold here to avoid the thrust reduce call
 
     // Calculate squared displacement for cell list
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
     cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+    // TODO: check for max displacement threshold here to avoid the thrust reduce call
 }
 
+
+__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double angle = angles[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double ang_vel = angular_velocities[particle_id];
+
+    // Update positions
+    double temp_delta_x = vel_x * dt;
+    double temp_delta_y = vel_y * dt;
+    double temp_angle_delta = ang_vel * dt;
+    delta_x[particle_id] = temp_delta_x;
+    delta_y[particle_id] = temp_delta_y;
+    angle_delta[particle_id] = temp_angle_delta;
+
+    pos_x += temp_delta_x;
+    pos_y += temp_delta_y;
+    angle += temp_angle_delta;
+    positions_x[particle_id] = pos_x;
+    positions_y[particle_id] = pos_y;
+    angles[particle_id] = angle;
+
+    // Calculate squared displacement for neighbor list
+    double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
+    double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
+    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+
+    // Calculate squared displacement for cell list
+    double dx_cell = pos_x - last_cell_positions_x[particle_id];
+    double dy_cell = pos_y - last_cell_positions_y[particle_id];
+    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+}
 
 // TODO: use the __restrict__ keyword for the pointers since they are not overlapping
 // TODO: this could be parallelized over particles and dimensions
@@ -211,6 +252,120 @@ __global__ void kernelCalcDiskForces(
     potential_energy[particle_id] = energy;
 }
 
+
+__global__ void kernelCalcRigidBumpyForces1(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, 
+    double* __restrict__ vertex_forces_x, double* __restrict__ vertex_forces_y, double* __restrict__ vertex_torques, double* __restrict__ vertex_potential_energy) 
+{
+    // TODO: could probably make this faster by copying the relevant data into shared memory
+
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+
+    long num_neighbors = d_num_vertex_neighbors_ptr[vertex_id];
+    if (num_neighbors == 0) return;
+
+    double vertex_pos_x = vertex_positions_x[vertex_id];
+    double vertex_pos_y = vertex_positions_y[vertex_id];
+    long particle_id = d_vertex_particle_index_ptr[vertex_id];
+    double particle_pos_x = positions_x[particle_id];
+    double particle_pos_y = positions_y[particle_id];
+    double force_acc_x = 0.0, force_acc_y = 0.0;
+    double energy = 0.0;
+
+    for (long n = 0; n < num_neighbors; n++) {
+        long other_id = d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated + n];
+        if (other_id == -1 || other_id == vertex_id) continue;
+
+        // Load neighbor's data
+        double other_vertex_pos_x = vertex_positions_x[other_id];
+        double other_vertex_pos_y = vertex_positions_y[other_id];
+
+        // Calculate force and energy using the interaction function
+        double force_x, force_y;
+        double interaction_energy = calcPointPointInteraction(
+            vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, 
+            force_x, force_y
+        );
+
+        // Accumulate force and energy
+        force_acc_x += force_x;
+        force_acc_y += force_y;
+        energy += interaction_energy;
+    }
+
+    // Calculate torque
+    double torque = calcTorque(force_acc_x, force_acc_y, vertex_pos_x, vertex_pos_y, particle_pos_x, particle_pos_y);
+
+    // Store results in global memory
+    vertex_forces_x[vertex_id] = force_acc_x;
+    vertex_forces_y[vertex_id] = force_acc_y;
+    vertex_torques[vertex_id] = torque;
+    vertex_potential_energy[vertex_id] = energy;
+}
+
+__global__ void kernelCalcRigidBumpyParticleForces1(
+    const double* __restrict__ vertex_forces_x, const double* __restrict__ vertex_forces_y, const double* __restrict__ vertex_torques, const double* __restrict__ vertex_potential_energy,
+    double* __restrict__ particle_forces_x, double* __restrict__ particle_forces_y, double* __restrict__ particle_torques, double* __restrict__ particle_potential_energy) 
+{
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double force_acc_x = 0.0, force_acc_y = 0.0;
+    double torque_acc = 0.0;
+    double energy = 0.0;
+
+    for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
+        long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+        force_acc_x += vertex_forces_x[vertex_id];
+        force_acc_y += vertex_forces_y[vertex_id];
+        torque_acc += vertex_torques[vertex_id];
+        energy += vertex_potential_energy[vertex_id];
+    }
+
+    particle_forces_x[particle_id] = force_acc_x;
+    particle_forces_y[particle_id] = force_acc_y;
+    particle_torques[particle_id] = torque_acc;
+    particle_potential_energy[particle_id] = energy;
+}
+
+__global__ void kernelCalcRigidBumpyForces2(const double* __restrict__ positions_x, const double* __restrict__ positions_y, const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, double* __restrict__ particle_forces_x, double* __restrict__ particle_forces_y, double* __restrict__ particle_torques, double* __restrict__ particle_potential_energy) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double force_acc_x = 0.0, force_acc_y = 0.0;
+    double torque_acc = 0.0;
+    double energy = 0.0;
+    double particle_pos_x = positions_x[particle_id];
+    double particle_pos_y = positions_y[particle_id];
+    double other_vertex_pos_x, other_vertex_pos_y;
+
+    // loop over all vertices of the particle
+    for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
+        long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+        double vertex_pos_x = vertex_positions_x[vertex_id];
+        double vertex_pos_y = vertex_positions_y[vertex_id];
+        long num_neighbors = d_num_vertex_neighbors_ptr[vertex_id];
+        for (long n = 0; n < num_neighbors; n++) {
+            long other_id = d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated + n];
+            if (other_id == -1 || other_id == vertex_id) continue;
+            other_vertex_pos_x = vertex_positions_x[other_id];
+            other_vertex_pos_y = vertex_positions_y[other_id];
+            double temp_force_x, temp_force_y;
+            double interaction_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
+            force_acc_x += temp_force_x;
+            force_acc_y += temp_force_y;
+            torque_acc += calcTorque(temp_force_x, temp_force_y, vertex_pos_x, vertex_pos_y, particle_pos_x, particle_pos_y);
+            energy += interaction_energy;
+        }
+    }
+
+    particle_forces_x[particle_id] = force_acc_x;
+    particle_forces_y[particle_id] = force_acc_y;
+    particle_torques[particle_id] = torque_acc;
+    particle_potential_energy[particle_id] = energy;
+}
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
@@ -501,7 +656,9 @@ __global__ void kernelAdamStep(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ forces_x, const double* __restrict__ forces_y,
     double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, 
-    double one_minus_beta2_pow_t, double epsilon) {
+    double one_minus_beta2_pow_t, double epsilon, double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
+    double* __restrict__ neigh_displacements_sq, double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    double* __restrict__ cell_displacements_sq) {
 
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -538,11 +695,48 @@ __global__ void kernelAdamStep(
     positions_x[particle_id] += update_x;
     positions_y[particle_id] += update_y;
 
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+
+    double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
+    double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
+    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+
+    double dx_cell = pos_x - last_cell_positions_x[particle_id];
+    double dy_cell = pos_y - last_cell_positions_y[particle_id];
+    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+
     // Store updated moments back
     first_moment_x[particle_id] = first_m_x;
     first_moment_y[particle_id] = first_m_y;
     second_moment_x[particle_id] = second_m_x;
     second_moment_y[particle_id] = second_m_y;
+}
+
+__global__ void kernelGradDescStep(
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ forces_x, double* __restrict__ forces_y,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
+    double alpha) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    positions_x[particle_id] += alpha * forces_x[particle_id];
+    positions_y[particle_id] += alpha * forces_y[particle_id];
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+
+    // Calculate squared displacement for neighbor list
+    double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
+    double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
+    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+
+    // Calculate squared displacement for cell list
+    double dx_cell = pos_x - last_cell_positions_x[particle_id];
+    double dy_cell = pos_y - last_cell_positions_y[particle_id];
+    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
 }
 
 
@@ -567,6 +761,7 @@ __global__ void kernelGetNumVerticesInParticles(
     } else {
         printf("Error: particle radius %f is not equal to min or max particle diameter\n", radius);
     }
+    printf("particle_id: %ld, num_vertices_in_particle: %ld\n", particle_id, num_vertices_in_particle[particle_id]);
 }
 
 __global__ void kernelInitializeVerticesOnParticles(
@@ -641,8 +836,8 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
     if (particle_id >= d_n_particles) return;
 
     double temp_polygon_area = 0.0;
-    double temp_overlap_area = 0.0;
-    double temp_angle_area = 0.0;
+    double exposed_vertex_area = 0.0;
+    double temp_exposed_vertex_area = 0.0;
     double vertex_area = M_PI * d_vertex_radius * d_vertex_radius;
 
     long first_vertex_index = d_particle_start_index_ptr[particle_id];
@@ -654,8 +849,12 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
     double prev_pos_x = vertex_positions_x[first_vertex_index + num_vertices - 1];
     double prev_pos_y = vertex_positions_y[first_vertex_index + num_vertices - 1];
 
+
+
     // Loop over vertices to compute the area
     for (long i = 0; i < num_vertices; i++) {
+        temp_exposed_vertex_area = 0.0;
+
         // Calculate next vertex index with wrapping
         long next_index = first_vertex_index + ((i + 1) % num_vertices);
         double next_pos_x = vertex_positions_x[next_index];
@@ -666,16 +865,26 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
 
         // Calculate angle area
         double angle = angleBetweenVectors(next_pos_x, next_pos_y, pos_x, pos_y, prev_pos_x, prev_pos_y);
-        temp_angle_area += (M_PI - angle) / (2.0 * M_PI);
 
-        // Calculate overlap area
+        // Calculate next vertex overlap area
         double dx = next_pos_x - pos_x;
         double dy = next_pos_y - pos_y;
         double r_ij = sqrt(dx * dx + dy * dy);
 
-        if (r_ij < 2 * d_vertex_radius) {
-            temp_overlap_area -= calcOverlapLenseArea(r_ij, d_vertex_radius, d_vertex_radius);
+        if (r_ij < 2 * d_vertex_radius - 1e-10) {  // have to give some offset to prevent numerical errors - not good!
+            temp_exposed_vertex_area -= calcOverlapLenseArea(r_ij, d_vertex_radius, d_vertex_radius) / 2.0;
         }
+
+        // calculate previous vertex overlap area
+        double prev_dx = prev_pos_x - pos_x;
+        double prev_dy = prev_pos_y - pos_y;
+        double prev_r_ij = sqrt(prev_dx * prev_dx + prev_dy * prev_dy);
+
+        if (prev_r_ij < 2 * d_vertex_radius - 1e-10) {  // have to give some offset to prevent numerical errors - not good!
+            temp_exposed_vertex_area -= calcOverlapLenseArea(prev_r_ij, d_vertex_radius, d_vertex_radius) / 2.0;
+        }
+
+        exposed_vertex_area += (vertex_area - temp_exposed_vertex_area) * (M_PI - angle) / (2.0 * M_PI);
 
         // Update positions for next iteration
         prev_pos_x = pos_x;
@@ -684,7 +893,7 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
         pos_y = next_pos_y;
     }
 
-    particle_area[particle_id] = abs(temp_polygon_area) * 0.5 + temp_overlap_area + temp_angle_area * vertex_area;
+    particle_area[particle_id] = abs(temp_polygon_area) * 0.5 + exposed_vertex_area;
 }
 
 // overlap lenses

@@ -90,10 +90,10 @@ int main() {
     // TODO: faster dataio as binary?  helps size and loading time
     
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+    double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 256, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
     
     // TODO: all-to-all neighbor list does not conserve energy in nve - may need explicit all-to-all neighbor list definition as some may be left out for some reason
@@ -184,7 +184,7 @@ int main() {
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
-        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "boxSize"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions", "velocities", "forces"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
@@ -194,7 +194,7 @@ int main() {
         // config_from_names_lin_everyN({"step", "KE", "PE", "TE", "T"}, 1, "energy"),  // saves the energy data to the energy file
         // config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
         // config_from_names_lin({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        // config_from_names_lin_everyN({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, 1, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin_everyN({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy", "particlePos", "boxSize"}, 100, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "cell_start", "radii", "static_particle_index"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
     };
 
@@ -202,7 +202,7 @@ int main() {
 
     // TODO: make an io manager config?
 
-    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-10-14/debugging-dpcuda2", 4, true);
+    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-11-08/jamming/1-run", 4, true);
     io_manager.write_params();  // TODO: move this into the io manager constructor
 
     // add a start time and an end time to the io manager, should be added to the config file - the end time will be used to determine if the program finished (if empty,it didnt finish)

@@ -204,6 +204,8 @@ public:
      */
     void syncNumVertices();
 
+    void updateCellSize();
+
     /**
      * @brief Set the number of particles and vertices and synchronize to the device constant memory.
      * Initialize the arrays to the correct sizes depending on the number of particles and vertices.
@@ -265,6 +267,8 @@ public:
      * @param e_l The length energy scale.
      */
     void setAllEnergyScales(double e_c, double e_a, double e_b, double e_l);
+
+    double getForceBalance();
 
     /**
      * @brief Set the exponents for the energy terms.
@@ -353,7 +357,7 @@ public:
      * 
      * @return The area of the box.
      */
-    double getBoxArea();
+    double getBoxArea() const;
 
     /**
      * @brief Get the packing fraction of the particles.
@@ -403,6 +407,8 @@ public:
      * Depends on the derived class to define the logic.
      */
     virtual void initGeometricVariables() {};
+
+    virtual void updatePositionsGradDesc(double alpha);
 
     /**
      * @brief Clear the geometric variables and their pointers for the object - default is empty.

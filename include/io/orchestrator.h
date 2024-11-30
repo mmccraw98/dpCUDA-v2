@@ -35,7 +35,7 @@ public:
     T get_value(const std::string& unmodified_log_name, long step) {
         if (unmodified_log_name == "step") {
             return step;
-        } else if (unmodified_log_name == "KE") {
+        } else if (unmodified_log_name == "KE") {  // TODO: move all of these to the particle class
             return particle.totalKineticEnergy();
         } else if (unmodified_log_name == "PE") {
             return particle.totalPotentialEnergy();
@@ -43,6 +43,8 @@ public:
             return particle.totalEnergy();
         } else if (unmodified_log_name == "T") {
             return particle.calculateTemperature();
+        } else if (unmodified_log_name == "phi") {
+            return particle.getPackingFraction();
         } else {
             std::cerr << "Orchestrator::get_value: Log name not recognized: " << unmodified_log_name << std::endl;
             return 0.0;

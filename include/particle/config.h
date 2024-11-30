@@ -95,6 +95,43 @@ struct BaseParticleConfig {
     }
 };
 
+struct BaseVertexParticleConfig : public BaseParticleConfig {
+    long n_vertices;
+    long vertex_dim_block;
+    double vertex_neighbor_cutoff_multiplier;
+    double vertex_neighbor_displacement_multiplier;
+    double segment_length_per_vertex_diameter;
+
+    BaseVertexParticleConfig(
+        long seed, long n_particles, double mass, double e_c, double n_c, 
+        double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, 
+        double num_particles_per_cell, double cell_displacement_multiplier, std::string neighbor_list_update_method, 
+        long particle_dim_block,
+        // new arguments
+        long n_vertices, long vertex_dim_block, double vertex_neighbor_cutoff_multiplier, double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter
+    )
+        : BaseParticleConfig(
+            seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, 
+            neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, 
+            neighbor_list_update_method, particle_dim_block
+            ), n_vertices(n_vertices), vertex_dim_block(vertex_dim_block), vertex_neighbor_cutoff_multiplier(vertex_neighbor_cutoff_multiplier), vertex_neighbor_displacement_multiplier(vertex_neighbor_displacement_multiplier), segment_length_per_vertex_diameter(segment_length_per_vertex_diameter) {}
+
+    virtual nlohmann::json to_json() const override {
+        nlohmann::json j = BaseParticleConfig::to_json();
+        j["n_vertices"] = n_vertices;
+        j["vertex_dim_block"] = vertex_dim_block;
+        j["vertex_neighbor_cutoff_multiplier"] = vertex_neighbor_cutoff_multiplier;
+        j["vertex_neighbor_displacement_multiplier"] = vertex_neighbor_displacement_multiplier;
+        j["segment_length_per_vertex_diameter"] = segment_length_per_vertex_diameter;
+        return j;
+    };
+
+    static BaseVertexParticleConfig from_json(const nlohmann::json& j) {
+        BaseParticleConfig base_config = BaseParticleConfig::from_json(j);
+        return BaseVertexParticleConfig(base_config.seed, base_config.n_particles, base_config.mass, base_config.e_c, base_config.n_c, base_config.packing_fraction, base_config.neighbor_cutoff_multiplier, base_config.neighbor_displacement_multiplier, base_config.num_particles_per_cell, base_config.cell_displacement_multiplier, base_config.neighbor_list_update_method, base_config.particle_dim_block, j.at("n_vertices").get<long>(), j.at("vertex_dim_block").get<long>(), j.at("vertex_neighbor_cutoff_multiplier").get<double>(), j.at("vertex_neighbor_displacement_multiplier").get<double>(), j.at("segment_length_per_vertex_diameter").get<double>());
+    };
+};
+
 /**
  * @brief Configuration for bidisperse particles.
  */
@@ -161,4 +198,40 @@ struct BidisperseParticleConfig : public BaseParticleConfig {
             base_config.neighbor_displacement_multiplier, base_config.num_particles_per_cell, base_config.cell_displacement_multiplier, base_config.neighbor_list_update_method, base_config.particle_dim_block, size_ratio, count_ratio
         );
     }
+};
+
+
+struct BidisperseVertexParticleConfig : public BaseVertexParticleConfig {
+    double size_ratio;
+    double count_ratio;
+    long n_vertex_per_small_particle;
+    long n_vertex_per_large_particle;
+
+    BidisperseVertexParticleConfig(
+        long seed, long n_particles, double mass, double e_c, double n_c, 
+        double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, 
+        double num_particles_per_cell, double cell_displacement_multiplier, std::string neighbor_list_update_method, 
+        long particle_dim_block,
+        long n_vertices, long vertex_dim_block, double vertex_neighbor_cutoff_multiplier, double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter,
+        // new arguments
+        double size_ratio, double count_ratio, long n_vertex_per_small_particle, long n_vertex_per_large_particle
+    )
+        : BaseVertexParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, neighbor_list_update_method, particle_dim_block, n_vertices, vertex_dim_block, vertex_neighbor_cutoff_multiplier, vertex_neighbor_displacement_multiplier, segment_length_per_vertex_diameter), size_ratio(size_ratio), count_ratio(count_ratio), n_vertex_per_small_particle(n_vertex_per_small_particle), n_vertex_per_large_particle(n_vertex_per_large_particle) {
+            dispersity_type = "Bidisperse";
+        }
+
+
+    nlohmann::json to_json() const override {
+        nlohmann::json j = BaseVertexParticleConfig::to_json();
+        j["size_ratio"] = size_ratio;
+        j["count_ratio"] = count_ratio;
+        j["n_vertex_per_small_particle"] = n_vertex_per_small_particle;
+        j["n_vertex_per_large_particle"] = n_vertex_per_large_particle;
+        return j;
+    };
+
+    static BidisperseVertexParticleConfig from_json(const nlohmann::json& j) {
+        BaseVertexParticleConfig base_config = BaseVertexParticleConfig::from_json(j);
+        return BidisperseVertexParticleConfig(base_config.seed, base_config.n_particles, base_config.mass, base_config.e_c, base_config.n_c, base_config.packing_fraction, base_config.neighbor_cutoff_multiplier, base_config.neighbor_displacement_multiplier, base_config.num_particles_per_cell, base_config.cell_displacement_multiplier, base_config.neighbor_list_update_method, base_config.particle_dim_block, base_config.n_vertices, base_config.vertex_dim_block, base_config.vertex_neighbor_cutoff_multiplier, base_config.vertex_neighbor_displacement_multiplier, base_config.segment_length_per_vertex_diameter, j.at("size_ratio").get<double>(), j.at("count_ratio").get<double>(), j.at("n_vertex_per_small_particle").get<long>(), j.at("n_vertex_per_large_particle").get<long>() );
+    };
 };

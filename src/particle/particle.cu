@@ -37,7 +37,7 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
     if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
         this->config = std::make_unique<BidisperseParticleConfig>(*bidisperse_config);
     } else {
-        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+        throw std::runtime_error("ERROR: Particle::initializeFromConfig: Invalid configuration type.");
     }
 
     this->define_unique_dependencies();
@@ -89,6 +89,12 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
     // may want to check that the forces are balanced
 }
 
+double Particle::getForceBalance() {
+    double force_x = thrust::reduce(forces.x.d_vec.begin(), forces.x.d_vec.end(), 0.0, thrust::plus<double>());
+    double force_y = thrust::reduce(forces.y.d_vec.begin(), forces.y.d_vec.end(), 0.0, thrust::plus<double>());
+    return std::sqrt(force_x * force_x + force_y * force_y);
+}
+
 void Particle::setNeighborMethod(std::string method_name) {
     this->using_cell_list = false;
     this->neighbor_list_update_method = method_name;
@@ -116,6 +122,10 @@ void Particle::setNeighborMethod(std::string method_name) {
     } else {
         throw std::invalid_argument("Particle::setNeighborMethod: Invalid method name: " + method_name);
     }
+}
+
+void Particle::updatePositionsGradDesc(double alpha) {
+    kernelGradDescStep<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr, alpha);
 }
 
 void Particle::setSeed(long seed) {
@@ -169,7 +179,7 @@ void Particle::clearAdamVariables() {
 void Particle::updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) {
     double one_minus_beta1_pow_t = 1 - pow(beta1, step + 1);  // adam starts at t=1
     double one_minus_beta2_pow_t = 1 - pow(beta2, step + 1);
-    kernelAdamStep<<<particle_dim_grid, particle_dim_block>>>(first_moment.x.d_ptr, first_moment.y.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon);
+    kernelAdamStep<<<particle_dim_grid, particle_dim_block>>>(first_moment.x.d_ptr, first_moment.y.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr);
 }
 
 void Particle::setParticleCounts(long n_particles, long n_vertices) {
@@ -307,7 +317,7 @@ void Particle::handle_calculation_for_single_dependency(std::string dependency_c
 ArrayData Particle::getArrayData(const std::string& array_name) {
     ArrayData result;
     result.name = array_name;
-    if (array_name == "positions") {
+    if (array_name == "positions" || array_name == "particlePos") {
         result.type = DataType::Double;
         result.size = positions.size;
         result.data = std::make_pair(positions.getDataX(), positions.getDataY());
@@ -322,7 +332,7 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.size = forces.size;
         result.data = std::make_pair(forces.getDataX(), forces.getDataY());
         result.index_array_name = "static_particle_index";
-    } else if (array_name == "box_size") {
+    } else if (array_name == "box_size" || array_name == "boxSize") {
         result.type = DataType::Double;
         result.size = box_size.size;
         result.data = box_size.getData();
@@ -603,7 +613,7 @@ void Particle::setBiDispersity(double size_ratio, double count_ratio) {
     radii.setData(host_radii);
 }
 
-double Particle::getBoxArea() {
+double Particle::getBoxArea() const {
     return thrust::reduce(box_size.d_vec.begin(), box_size.d_vec.end(), 1.0, thrust::multiplies<double>());
 }
 
@@ -624,6 +634,7 @@ void Particle::scaleToPackingFraction(double packing_fraction) {
     scalePositions(scale_factor);
     thrust::host_vector<double> host_box_size(N_DIM, new_side_length);
     setBoxSize(host_box_size);
+    updateCellSize();
 }
 
 void Particle::scalePositions(double scale_factor) {  // scale the positions but not the particle sizes
@@ -760,6 +771,12 @@ bool Particle::setNeighborSize(double neighbor_cutoff_multiplier, double neighbo
         return false;
     }
     return true;
+}
+
+void Particle::updateCellSize() {
+    thrust::host_vector<double> host_box_size = box_size.getData();
+    cell_size = host_box_size[0] / n_cells_dim;
+    syncCellList();
 }
 
 bool Particle::setCellSize(double num_particles_per_cell, double cell_displacement_multiplier) {

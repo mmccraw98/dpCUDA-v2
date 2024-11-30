@@ -96,7 +96,13 @@ inline __device__ double pbcDistance(const double x1, const double x2, const lon
  * @param velocities The velocities of the particles.
  * @param dt The time step.
  */
-__global__ void kernelUpdatePositions(double* positions_x, double* positions_y, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, double* velocities_x, double* velocities_y, const double dt);
+__global__ void kernelUpdatePositions(double* positions_x, double* positions_y, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double dt);
+
+
+
+__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);
+
+
 
 /**
  * @brief Update the velocities of the particles using an explicit Euler method.
@@ -193,6 +199,19 @@ inline __device__ double calcPointPointInteraction(
  */
 __global__ void kernelCalcDiskForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy);
 
+inline __device__ double calcTorque(double force_x, double force_y, double pos_x, double pos_y, double center_x, double center_y) {
+    double dx = pos_x - center_x;
+    double dy = pos_y - center_y;
+    return force_x * dy - force_y * dx;
+}
+
+// vertex level
+__global__ void kernelCalcRigidBumpyForces1(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* vertex_forces_x, double* vertex_forces_y, double* vertex_torques, double* vertex_potential_energy);
+
+__global__ void kernelCalcRigidBumpyParticleForces1(const double* vertex_forces_x, const double* vertex_forces_y, const double* vertex_torques, const double* vertex_potential_energy, double* particle_forces_x, double* particle_forces_y, double* particle_torques, double* particle_potential_energy);
+
+// particle level
+__global__ void kernelCalcRigidBumpyForces2(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* particle_forces_x, double* particle_forces_y, double* particle_torques, double* particle_potential_energy);
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
@@ -298,7 +317,16 @@ __global__ void kernelAdamStep(
     double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ forces_x, const double* __restrict__ forces_y,
-    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon);
+    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq);
+
+__global__ void kernelGradDescStep(
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ forces_x, double* __restrict__ forces_y,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
+    double alpha);
 
 // initialize vertices
 

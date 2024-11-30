@@ -39,6 +39,8 @@ __constant__ long d_max_neighbors_allocated;
 __constant__ long* d_num_vertex_neighbors_ptr;
 __constant__ long* d_vertex_neighbor_list_ptr;
 __constant__ long d_max_vertex_neighbors_allocated;
+__constant__ double d_neighbor_displacement_threshold_sq;
+__constant__ double d_cell_displacement_threshold_sq;
 
 __constant__ long* d_particle_start_index_ptr;
 __constant__ long* d_num_vertices_in_particle_ptr;
@@ -58,7 +60,7 @@ __global__ void kernelUpdatePositions(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ last_neigh_positions_x, const double* __restrict__ last_neigh_positions_y,
     const double* __restrict__ last_cell_positions_x, const double* __restrict__ last_cell_positions_y,
-    double* __restrict__ neigh_displacements_sq, double* __restrict__ cell_displacements_sq,
+    bool* __restrict__ update_neigh_list, bool* __restrict__ update_cell_list,
     const double* __restrict__ velocities_x, const double* __restrict__ velocities_y, const double dt) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -79,18 +81,18 @@ __global__ void kernelUpdatePositions(
     // Calculate squared displacement for neighbor list
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
-    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+    double neigh_displacement_sq = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    update_neigh_list[particle_id] = neigh_displacement_sq > d_neighbor_displacement_threshold_sq;
 
     // Calculate squared displacement for cell list
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
-    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+    double cell_displacement_sq = dx_cell * dx_cell + dy_cell * dy_cell;
+    update_cell_list[particle_id] = cell_displacement_sq > d_cell_displacement_threshold_sq;
 }
 
 
-__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt) {
+__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, bool* update_neigh_list, bool* update_cell_list, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
 
@@ -119,14 +121,14 @@ __global__ void kernelUpdateRigidPositions(double* positions_x, double* position
     // Calculate squared displacement for neighbor list
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
-    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+    double neigh_displacement_sq = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    update_neigh_list[particle_id] = neigh_displacement_sq > d_neighbor_displacement_threshold_sq;
 
     // Calculate squared displacement for cell list
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
-    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
+    double cell_displacement_sq = dx_cell * dx_cell + dy_cell * dy_cell;
+    update_cell_list[particle_id] = cell_displacement_sq > d_cell_displacement_threshold_sq;
 }
 
 // TODO: use the __restrict__ keyword for the pointers since they are not overlapping
@@ -374,7 +376,7 @@ __global__ void kernelCalcRigidBumpyForces2(const double* __restrict__ positions
 __global__ void kernelUpdateNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y, 
     double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
-    double* __restrict__ neigh_displacements_sq,
+    bool* __restrict__ update_neigh_list,
     const double cutoff) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -406,7 +408,7 @@ __global__ void kernelUpdateNeighborList(
     }
     last_neigh_positions_x[particle_id] = pos_x;
     last_neigh_positions_y[particle_id] = pos_y;
-    neigh_displacements_sq[particle_id] = 0.0;
+    update_neigh_list[particle_id] = false;
     d_num_neighbors_ptr[particle_id] = added_neighbors;
 }
 
@@ -546,7 +548,7 @@ __global__ void kernelUpdateCellNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
     const double cutoff, const long* __restrict__ cell_index,
-    const long* __restrict__ cell_start, double* __restrict__ neigh_displacements_sq) 
+    const long* __restrict__ cell_start, bool* __restrict__ update_neigh_list) 
 {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -603,7 +605,7 @@ __global__ void kernelUpdateCellNeighborList(
 
     // Update the number of neighbors for this particle and reset the neighbor displacements
     d_num_neighbors_ptr[particle_id] = added_neighbors;
-    neigh_displacements_sq[particle_id] = 0.0;
+    update_neigh_list[particle_id] = false;
     last_neigh_positions_x[particle_id] = pos_x;
     last_neigh_positions_y[particle_id] = pos_y;
 }
@@ -620,7 +622,7 @@ __global__ void kernelReorderParticleData(
 	double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
 	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
 	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
-	double* __restrict__ cell_displacements_sq) {
+	bool* __restrict__ update_cell_list) {
 
     // This is the new index of the particle in the sorted list
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -643,7 +645,7 @@ __global__ void kernelReorderParticleData(
     // Reset the last cell positions and cell displacements since the cell list has been rebuilt
     last_cell_positions_x[particle_id] = positions_x[old_particle_id];
     last_cell_positions_y[particle_id] = positions_y[old_particle_id];
-    cell_displacements_sq[particle_id] = 0.0;
+    update_cell_list[particle_id] = false;
 }
 
 // ----------------------------------------------------------------------
@@ -657,8 +659,8 @@ __global__ void kernelAdamStep(
     const double* __restrict__ forces_x, const double* __restrict__ forces_y,
     double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, 
     double one_minus_beta2_pow_t, double epsilon, double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
-    double* __restrict__ neigh_displacements_sq, double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
-    double* __restrict__ cell_displacements_sq) {
+    bool* __restrict__ update_neigh_list, double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    bool* __restrict__ update_cell_list) {
 
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -700,11 +702,13 @@ __global__ void kernelAdamStep(
 
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
-    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    double neigh_displacement_sq = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    update_neigh_list[particle_id] = neigh_displacement_sq > d_neighbor_displacement_threshold_sq;
 
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
-    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+    double cell_displacement_sq = dx_cell * dx_cell + dy_cell * dy_cell;
+    update_cell_list[particle_id] = cell_displacement_sq > d_cell_displacement_threshold_sq;
 
     // Store updated moments back
     first_moment_x[particle_id] = first_m_x;
@@ -716,8 +720,8 @@ __global__ void kernelAdamStep(
 __global__ void kernelGradDescStep(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     double* __restrict__ forces_x, double* __restrict__ forces_y,
-    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
-    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, bool* __restrict__ update_neigh_list,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, bool* __restrict__ update_cell_list,
     double alpha) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -731,12 +735,14 @@ __global__ void kernelGradDescStep(
     // Calculate squared displacement for neighbor list
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
-    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    double neigh_displacement_sq = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+    update_neigh_list[particle_id] = neigh_displacement_sq > d_neighbor_displacement_threshold_sq;
 
     // Calculate squared displacement for cell list
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
-    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+    double cell_displacement_sq = dx_cell * dx_cell + dy_cell * dy_cell;
+    update_cell_list[particle_id] = cell_displacement_sq > d_cell_displacement_threshold_sq;
 }
 
 

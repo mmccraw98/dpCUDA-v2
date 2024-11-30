@@ -97,8 +97,8 @@ public:
     SwapData2D<double> forces;
     Data2D<double> last_neigh_positions;
     Data2D<double> last_cell_positions;
-    Data1D<double> neigh_displacements_sq;
-    Data1D<double> cell_displacements_sq;
+    Data1D<bool> update_neigh_list;
+    Data1D<bool> update_cell_list;
     SwapData1D<double> radii;
     SwapData1D<double> masses;
     Data1D<double> kinetic_energy;
@@ -148,6 +148,10 @@ public:
     // ----------------------------------------------------------------------
     // -------------------- Universally Defined Methods ---------------------
     // ----------------------------------------------------------------------
+
+    void setNeighborDisplacementThreshold(double neighbor_displacement_threshold);
+    void setCellDisplacementThreshold(double cell_displacement_threshold);
+
 
     /**
      * @brief Set the neighbor list update method for the particles.
@@ -438,19 +442,8 @@ public:
      */
     virtual void updateVelocities(double dt);
 
-    /**
-     * @brief Get the maximum squared displacement of the particles since the last neighbor list update.
-     * 
-     * @return The maximum squared displacement.
-     */
-    virtual double getMaxSquaredNeighborDisplacement();
-
-    /**
-     * @brief Get the maximum squared displacement of the particles since the last cell list update.
-     * 
-     * @return The maximum squared displacement.
-     */
-    virtual double getMaxSquaredCellDisplacement();
+    virtual bool shouldUpdateNeighborList();
+    virtual bool shouldUpdateCellList();
 
     /**
      * @brief Check if the neighbor list of the particles needs to be updated (if maximum squared displacement is greater than the neighbor cutoff squared).

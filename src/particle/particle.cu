@@ -20,6 +20,7 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
+#include <thrust/logical.h>
 
 
 
@@ -125,7 +126,7 @@ void Particle::setNeighborMethod(std::string method_name) {
 }
 
 void Particle::updatePositionsGradDesc(double alpha) {
-    kernelGradDescStep<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr, alpha);
+    kernelGradDescStep<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, update_neigh_list.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, update_cell_list.d_ptr, alpha);
 }
 
 void Particle::setSeed(long seed) {
@@ -179,7 +180,7 @@ void Particle::clearAdamVariables() {
 void Particle::updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) {
     double one_minus_beta1_pow_t = 1 - pow(beta1, step + 1);  // adam starts at t=1
     double one_minus_beta2_pow_t = 1 - pow(beta2, step + 1);
-    kernelAdamStep<<<particle_dim_grid, particle_dim_block>>>(first_moment.x.d_ptr, first_moment.y.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr);
+    kernelAdamStep<<<particle_dim_grid, particle_dim_block>>>(first_moment.x.d_ptr, first_moment.y.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, update_neigh_list.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, update_cell_list.d_ptr);
 }
 
 void Particle::setParticleCounts(long n_particles, long n_vertices) {
@@ -271,8 +272,8 @@ void Particle::clearNeighborVariables() {
     cell_start.clear();
     last_neigh_positions.clear();
     last_cell_positions.clear();
-    neigh_displacements_sq.clear();
-    cell_displacements_sq.clear();
+    update_neigh_list.clear();
+    update_cell_list.clear();
 }
 
 void Particle::define_unique_dependencies() {
@@ -654,24 +655,24 @@ double Particle::totalEnergy() const {
 }
 
 void Particle::updatePositions(double dt) {
-    kernelUpdatePositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, neigh_displacements_sq.d_ptr, cell_displacements_sq.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, dt);
+    kernelUpdatePositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, update_neigh_list.d_ptr, update_cell_list.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, dt);
 }
 
 void Particle::updateVelocities(double dt) {
     kernelUpdateVelocities<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, masses.d_ptr, dt);
 }
 
-double Particle::getMaxSquaredNeighborDisplacement() {
-    return thrust::reduce(neigh_displacements_sq.d_vec.begin(), neigh_displacements_sq.d_vec.end(), 0.0, thrust::maximum<double>());
+bool Particle::shouldUpdateNeighborList() {
+    return thrust::any_of(update_neigh_list.d_vec.begin(), update_neigh_list.d_vec.end(), thrust::identity<bool>());
 }
 
-double Particle::getMaxSquaredCellDisplacement() {
-    return thrust::reduce(cell_displacements_sq.d_vec.begin(), cell_displacements_sq.d_vec.end(), 0.0, thrust::maximum<double>());
+bool Particle::shouldUpdateCellList() {
+    return thrust::any_of(update_cell_list.d_vec.begin(), update_cell_list.d_vec.end(), thrust::identity<bool>());
 }
 
 void Particle::updateVerletList() {
     neighbor_list.fill(-1L);
-    kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
+    kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, update_neigh_list.d_ptr, neighbor_cutoff);
     long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
@@ -679,7 +680,7 @@ void Particle::updateVerletList() {
         neighbor_list.resize(n_particles * max_neighbors_allocated);
         neighbor_list.fill(-1L);
         syncNeighborList();
-        kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, neighbor_cutoff);
+        kernelUpdateNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, update_neigh_list.d_ptr, neighbor_cutoff);
     }
 }
 
@@ -692,22 +693,17 @@ void Particle::checkForNeighborUpdate() {
 }
 
 void Particle::checkForVerletListUpdate() {
-    double tolerance = 3.0;
-    double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-    if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
+    if (shouldUpdateNeighborList()) {
         updateVerletList();
     }
 }
 
 void Particle::checkForCellListUpdate() {
-    double tolerance = 3.0;
-    double max_squared_cell_displacement = getMaxSquaredCellDisplacement();
-    if (tolerance * max_squared_cell_displacement > cell_displacement_threshold_sq) {
+    if (shouldUpdateCellList()) {  // check for cell list update first
         updateCellList();
         updateCellNeighborList();
-    } else {
-        double max_squared_neighbor_displacement = getMaxSquaredNeighborDisplacement();
-        if (tolerance * max_squared_neighbor_displacement > neighbor_displacement_threshold_sq) {
+    } else {  // still check for neighbor list update if cell list is not updated
+        if (shouldUpdateNeighborList()) {
             updateCellNeighborList();
         }
     }
@@ -721,9 +717,9 @@ void Particle::initVerletListVariables() {
     neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     num_neighbors.resizeAndFill(n_particles, 0L);
     last_neigh_positions.resizeAndFill(n_particles, 0.0, 0.0);
-    neigh_displacements_sq.resizeAndFill(n_particles, 0.0);
+    update_neigh_list.resizeAndFill(n_particles, false);
     last_cell_positions.resizeAndFill(n_particles, 0.0, 0.0);  // TODO: this is a waste of memory for non-cell list usage but would require defining a new position update kernel
-    cell_displacements_sq.resizeAndFill(n_particles, 0.0);
+    update_cell_list.resizeAndFill(n_particles, false);
 }
 
 void Particle::initVerletList() {
@@ -760,10 +756,28 @@ void Particle::initCellList() {
     updateCellNeighborList();
 }
 
+void Particle::setNeighborDisplacementThreshold(double neighbor_displacement_threshold) {
+    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_threshold, 2);
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_neighbor_displacement_threshold_sq, &neighbor_displacement_threshold_sq, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setNeighborDisplacementThreshold: Error copying neighbor_displacement_threshold_sq to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
+void Particle::setCellDisplacementThreshold(double cell_displacement_threshold) {
+    this->cell_displacement_threshold_sq = std::pow(cell_displacement_threshold, 2);
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_cell_displacement_threshold_sq, &cell_displacement_threshold_sq, sizeof(double));
+    if (cuda_err != cudaSuccess) {
+        std::cerr << "Particle::setCellDisplacementThreshold: Error copying cell_displacement_threshold_sq to device: " << cudaGetErrorString(cuda_err) << std::endl;
+        exit(EXIT_FAILURE);
+    }
+}
+
 bool Particle::setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
     this->max_neighbors_allocated = 4;  // initial assumption, probably could be refined
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
-    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * neighbor_cutoff, 2);
+    setNeighborDisplacementThreshold(neighbor_displacement_multiplier * neighbor_cutoff);
     thrust::host_vector<double> host_box_size = box_size.getData();
     double box_diagonal = std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
     if (neighbor_cutoff >= box_diagonal) {
@@ -805,7 +819,7 @@ bool Particle::setCellSize(double num_particles_per_cell, double cell_displaceme
             return false;
         }
     }
-    cell_displacement_threshold_sq = std::pow(cell_displacement_multiplier * cell_size, 2);
+    setCellDisplacementThreshold(cell_displacement_multiplier * cell_size);
     std::cout << "Particle::setCellSize: Cell size set to " << cell_size << " and cell displacement set to " << cell_displacement_threshold_sq << " for " << n_cells << " cells" << std::endl;
     syncCellList();
     return true;
@@ -831,7 +845,7 @@ void Particle::syncCellList() {
 
 void Particle::reorderParticleData() {
     thrust::sort_by_key(cell_index.d_vec.begin(), cell_index.d_vec.end(), thrust::make_zip_iterator(thrust::make_tuple(particle_index.d_vec.begin(), static_particle_index.d_vec.begin())));
-    kernelReorderParticleData<<<particle_dim_grid, particle_dim_block>>>(particle_index.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, radii.d_ptr, positions.x.d_temp_ptr, positions.y.d_temp_ptr, forces.x.d_temp_ptr, forces.y.d_temp_ptr, velocities.x.d_temp_ptr, velocities.y.d_temp_ptr, masses.d_temp_ptr, radii.d_temp_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr);
+    kernelReorderParticleData<<<particle_dim_grid, particle_dim_block>>>(particle_index.d_ptr, positions.x.d_ptr, positions.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, radii.d_ptr, positions.x.d_temp_ptr, positions.y.d_temp_ptr, forces.x.d_temp_ptr, forces.y.d_temp_ptr, velocities.x.d_temp_ptr, velocities.y.d_temp_ptr, masses.d_temp_ptr, radii.d_temp_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, update_cell_list.d_ptr);
     // TODO: - all swappable data needs to be swapped here; however, adam variables need to swap only when doing adam - can this be generalized?
     positions.swap();
     forces.swap();
@@ -859,14 +873,14 @@ void Particle::updateCellList() {
 // TODO: look into better ways to structure the grid and block sizes
 void Particle::updateCellNeighborList() {
     neighbor_list.fill(-1L);
-    kernelUpdateCellNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neighbor_cutoff, cell_index.d_ptr, cell_start.d_ptr, neigh_displacements_sq.d_ptr);
+    kernelUpdateCellNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neighbor_cutoff, cell_index.d_ptr, cell_start.d_ptr, update_neigh_list.d_ptr);
     long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_neighbors > max_neighbors_allocated) {
         max_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_neighbors)));
         std::cout << "Particle::updateCellNeighborList: Resizing neighbor list to " << max_neighbors_allocated << std::endl;
         neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
         syncNeighborList();
-        kernelUpdateCellNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neighbor_cutoff, cell_index.d_ptr, cell_start.d_ptr, neigh_displacements_sq.d_ptr);
+        kernelUpdateCellNeighborList<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neighbor_cutoff, cell_index.d_ptr, cell_start.d_ptr, update_neigh_list.d_ptr);
     }
 }
 

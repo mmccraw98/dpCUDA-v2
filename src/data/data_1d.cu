@@ -143,7 +143,10 @@ void SwapData1D<T>::swap() {
 // Explicit template instantiation
 template class BaseData1D<long>;
 template class BaseData1D<double>;
+template class BaseData1D<bool>;
 template class Data1D<long>;
 template class Data1D<double>;
+template class Data1D<bool>;
 template class SwapData1D<double>;
 template class SwapData1D<long>;
+template class SwapData1D<bool>;

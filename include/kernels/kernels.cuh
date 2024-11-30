@@ -40,6 +40,8 @@ extern __constant__ long d_max_neighbors_allocated;  // maximum number of neighb
 extern __constant__ long* d_num_vertex_neighbors_ptr;
 extern __constant__ long* d_vertex_neighbor_list_ptr;
 extern __constant__ long d_max_vertex_neighbors_allocated;
+extern __constant__ double d_neighbor_displacement_threshold_sq;
+extern __constant__ double d_cell_displacement_threshold_sq;
 
 extern __constant__ long* d_particle_start_index_ptr;
 extern __constant__ long* d_num_vertices_in_particle_ptr;
@@ -86,21 +88,12 @@ inline __device__ double pbcDistance(const double x1, const double x2, const lon
 // ----------------------- Dynamics and Updates -------------------------
 // ----------------------------------------------------------------------
 
-/**
- * @brief Update the positions of the particles using an explicit Euler method.
- * Also updates the displacements of the particles from the last neighbor list update.
- * 
- * @param positions The positions of the particles.
- * @param last_positions The positions of the particles at the last time step.
- * @param displacements The displacements of the particles.
- * @param velocities The velocities of the particles.
- * @param dt The time step.
- */
-__global__ void kernelUpdatePositions(double* positions_x, double* positions_y, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double dt);
+
+__global__ void kernelUpdatePositions(double* positions_x, double* positions_y, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, bool* update_neigh_list, bool* update_cell_list, const double* velocities_x, const double* velocities_y, const double dt);
 
 
 
-__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);
+__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, bool* update_neigh_list, bool* update_cell_list, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);
 
 
 
@@ -241,7 +234,7 @@ inline __device__ bool isWithinCutoffSquared(
 __global__ void kernelUpdateNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y, 
     double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
-    double* __restrict__ neigh_displacements_sq,
+    bool* __restrict__ update_neigh_list,
     const double cutoff);
 
 /**
@@ -294,7 +287,7 @@ __global__ void kernelUpdateCellNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
     const double cutoff, const long* __restrict__ cell_index, 
-    const long* __restrict__ cell_start, double* __restrict__ cell_displacements_sq);
+    const long* __restrict__ cell_start, bool* __restrict__ update_cell_list);
 
 __global__ void kernelReorderParticleData(
 	const long* __restrict__ particle_index,
@@ -307,7 +300,7 @@ __global__ void kernelReorderParticleData(
 	double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
 	double* __restrict__ temp_masses, double* __restrict__ temp_radii,
 	double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
-	double* __restrict__ cell_displacements_sq);
+	bool* __restrict__ update_cell_list);
 
 
 // minimizers
@@ -318,14 +311,14 @@ __global__ void kernelAdamStep(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     const double* __restrict__ forces_x, const double* __restrict__ forces_y,
     double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon,
-    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
-    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq);
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, bool* __restrict__ update_neigh_list,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, bool* __restrict__ update_cell_list);
 
 __global__ void kernelGradDescStep(
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     double* __restrict__ forces_x, double* __restrict__ forces_y,
-    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
-    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, bool* __restrict__ update_neigh_list,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, bool* __restrict__ update_cell_list,
     double alpha);
 
 // initialize vertices

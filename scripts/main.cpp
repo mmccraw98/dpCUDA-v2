@@ -93,7 +93,7 @@ int main() {
     double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 256, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
     
     // TODO: all-to-all neighbor list does not conserve energy in nve - may need explicit all-to-all neighbor list definition as some may be left out for some reason

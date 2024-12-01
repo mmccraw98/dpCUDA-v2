@@ -23,7 +23,7 @@ struct BidisperseRigidBumpyConfig : public BidisperseVertexParticleConfig {
         double num_particles_per_cell, double cell_displacement_multiplier, std::string neighbor_list_update_method, 
         long particle_dim_block,
         long n_vertices, long vertex_dim_block, double vertex_neighbor_cutoff_multiplier, 
-        double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter, bool rotation,  // moved rotation here
+        double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter, bool rotation, double vertex_radius,
         double size_ratio, double count_ratio, long n_vertex_per_small_particle, long n_vertex_per_large_particle
     ) : BidisperseVertexParticleConfig(
         seed, n_particles, mass, e_c, n_c, packing_fraction, 
@@ -31,7 +31,7 @@ struct BidisperseRigidBumpyConfig : public BidisperseVertexParticleConfig {
         num_particles_per_cell, cell_displacement_multiplier, neighbor_list_update_method, 
         particle_dim_block, n_vertices, vertex_dim_block, 
         vertex_neighbor_cutoff_multiplier, vertex_neighbor_displacement_multiplier, 
-        segment_length_per_vertex_diameter, rotation,  // rotation matches base class position
+        segment_length_per_vertex_diameter, rotation, vertex_radius,
         size_ratio, count_ratio, n_vertex_per_small_particle, n_vertex_per_large_particle
     ) {
         type_name = "RigidBumpy";
@@ -57,8 +57,7 @@ public:
 
     Data1D<double> angle_delta;  // for tracking particle rotation for vertex neighbor list updates
     Data2D<double> delta;  // for tracking particle translation for vertex neighbor list updates
-    Data1D<double> angle_displacements_sq;
-
+    
     // particle rotational variables
     SwapData1D<double> angles;
     SwapData1D<double> angular_velocities;
@@ -86,7 +85,7 @@ public:
 
     double segment_length_per_vertex_diameter;
 
-    ArrayData getArrayData(const std::string& array_name);
+    ArrayData getArrayData(const std::string& array_name) override;
 
     void calculateParticleArea();
 
@@ -108,6 +107,9 @@ public:
     void scalePositions(double scale_factor) override;
 
     void initGeometricVariables();
+
+    void scaleVelocitiesToTemperature(double temperature) override;
+    void setRandomVelocities(double temperature) override;
 
     void syncVertexIndices();
 
@@ -145,4 +147,6 @@ public:
     void initVerletList() override;
 
     void updateVerletList() override;
+
+    bool setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) override;
 };

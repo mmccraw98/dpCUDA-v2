@@ -16,7 +16,7 @@
  */
 class EnergyLog : public ScalarLog {
 private:
-    std::string delimiter = "\t";  // delimiter for the csv file
+    std::string delimiter = ",";  // delimiter for the csv file
     std::ofstream log_file;  // the file stream
     std::string file_name;  // the name of the file
     long precision = DECIMAL_PRECISION;  // the precision of the numbers in the file

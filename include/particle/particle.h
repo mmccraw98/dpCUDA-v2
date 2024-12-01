@@ -138,7 +138,7 @@ public:
     double cell_size = -1;  // size of the cells
 
 
-    ArrayData getArrayData(const std::string& array_name);
+    virtual ArrayData getArrayData(const std::string& array_name);
 
     virtual void initAdamVariables();
     virtual void clearAdamVariables();

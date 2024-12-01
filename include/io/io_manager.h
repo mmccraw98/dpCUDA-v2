@@ -58,10 +58,12 @@ public:
      */
     void write_integrator_config(std::filesystem::path path);
 
+    void write_restart_file(long step);
+
     // /**
     //  * @brief Writes the current state of the system to a file
     //  */
-    // void write_state();
+    // void write_state_to_path();
 
 private:
     ThreadPool thread_pool;  // thread pool for parallel IO - declared first to ensure destruction order
@@ -78,7 +80,7 @@ private:
 
     std::string root_path;  // root path for all output files
     
-    std::string energy_file_extension = ".dat";//".csv";  // file extension for energy files
+    std::string energy_file_extension = ".csv";//".csv";  // file extension for energy files
     std::string state_file_extension = ".dat";//".txt";  // file extension for state files
     std::string indexed_file_prefix = "t";  // indexed file prefix - trajectory/t{step}/state
     std::string energy_file_name = "energy";  // file name for energy files

@@ -40,7 +40,7 @@ int main() {
     long n_vertices_per_small_particle = 26;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 3;
+    long n_particles = 256;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -60,13 +60,13 @@ int main() {
     double vertex_neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the vertex neighbor cutoff, the vertex neighbor list will be updated
 
     double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+    double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
 
     long seed = 0;
     bool rotation = false;
-
+    double vertex_radius = 0.5;  // arbitrary value
     BidisperseRigidBumpyConfig config(
         seed, 
         n_particles,
@@ -86,6 +86,7 @@ int main() {
         vertex_neighbor_displacement_multiplier,
         segment_length_per_vertex_diameter,
         rotation,
+        vertex_radius,
         size_ratio,
         count_ratio,
         n_vertices_per_small_particle,
@@ -93,7 +94,6 @@ int main() {
     );
 
     RigidBumpy rb;
-    rb.config = std::make_unique<BidisperseRigidBumpyConfig>(config);
 
     // TODO: use shared memory for all vertex data for a single particle stored on a single block
 
@@ -103,7 +103,7 @@ int main() {
 
     // make a function that defines a system of disks and then minimizes their overlaps to a target potential energy using adam
     BidisperseDiskConfig disk_config(config.seed, config.n_particles, config.mass, config.e_c, config.n_c, config.packing_fraction, config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier, config.num_particles_per_cell, config.cell_displacement_multiplier, config.neighbor_list_update_method, particle_dim_block, size_ratio, count_ratio);
-    auto [positions, radii] = get_minimal_overlap_positions_and_radii(disk_config);
+    auto [positions, radii, box_size] = get_minimal_overlap_positions_and_radii(disk_config);
     double disk_area = 0.0;
     thrust::host_vector<double> h_radii = radii.getData();
     for (double radius : h_radii) {
@@ -125,25 +125,30 @@ int main() {
 
     std::cout << "done with initializeVerticesFromDiskPacking" << std::endl;
 
-    rb.calculateParticleArea();
+    rb.setBoxSize(box_size.getData());
+    // TODO: these have a bug
+    // rb.calculateParticleArea();
+    // rb.initializeBox(config.packing_fraction);
 
-    rb.initializeBox(config.packing_fraction);
 
+    double vertex_diameter = 2.0 * rb.getVertexRadius();
+    config.vertex_radius = rb.getVertexRadius();
+    double particle_diameter = rb.getDiameter("max");
+    double geom_scale = vertex_diameter / rb.getDiameter("mean");
+    config.e_c *= (geom_scale * geom_scale);
     rb.setEnergyScale(config.e_c, "c");
     rb.setExponent(config.n_c, "c");
     rb.setMass(config.mass);
+    rb.config = std::make_unique<BidisperseRigidBumpyConfig>(config);
 
-    double vertex_diameter = 2.0 * rb.getVertexRadius();
-    double particle_diameter = rb.getDiameter("max");
 
-    rb.vertex_particle_neighbor_cutoff = particle_diameter;  // particles within this distance of a vertex will be checked for vertex neighbors
-    rb.vertex_neighbor_cutoff = 2.0 * vertex_diameter;  // vertices within this distance of each other are neighbors
+
 
     // rb.updateVerletList();
 
     rb.setNeighborMethod("verlet");
     rb.setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    rb.max_vertex_neighbors_allocated = 4;
+    rb.max_vertex_neighbors_allocated = 8;
 
     // init the neighbor list for the particles    
     // rb.initVerletList();
@@ -157,44 +162,59 @@ int main() {
     std::cout << "force_balance: " << force_balance << std::endl;
 
 
-    double dt_dimless = 1e-2;  // 1e-3 might be the best option
+    double dt_dimless = 1e-4;  // 1e-3 might be the best option
     NVEConfig nve_config(dt_dimless * rb.getTimeUnit());
     std::cout << "dt: " << nve_config.dt << std::endl;
     NVE nve(rb, nve_config);
 
     long num_steps = 1e5;
-    long num_energy_saves = 1e2;
-    long num_state_saves = 1e3;
+    long num_energy_saves = 1e1;
+    long num_state_saves = 1e1;
     long min_state_save_decade = 1e1;
     std::cout << "num_steps: " << num_steps << std::endl;
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
-        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
+        config_from_names_lin({"step", "KE/N", "PE/N", "TE/N", "T"}, num_steps, 1e1, "console"),  // logs to the console
+        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        // config_from_names_lin({"positions", "velocities", "forces"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 4, true);
+    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 1, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
     std::cout << "stepping" << std::endl;
 
-    // TODO: add kinetic energy and rotation and temperature
+    // TODO: set sensible energy and time units for bumpy to match with disk
+    // TODO: set neighbor list bounds
+    // TODO: build cell list
+    // TODO: fix all-all neighbor list
     // TODO: test dynamics
+    // TODO: test performance of the different kernel types (particle level, vertex level)
+    // TODO: fix area, packing fraction, and (set)box size calculations
+    // TODO: nondimensionalize all units in terms of the particle size, mass, and energy
 
-    double total_energy;
+    // start the timer
+    auto start = std::chrono::high_resolution_clock::now();
 
-    for (long step = 0; step < num_steps; step++) {
+    rb.setRandomVelocities(1e-4);
+
+    long step = 0;
+    while (step < num_steps) {
         nve.step();
-
-        rb.calculateKineticEnergy();
-        total_energy = rb.totalEnergy();
-        std::cout << "total_energy: " << total_energy << std::endl;
+        io_manager.log(step);
+        step++;
     }
+
+    // stop the timer
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
+    std::cout << "Time taken: " << duration * 1e-3 << " seconds for " << rb.n_particles << " particles" << std::endl;
+
 
     return 0;
 }

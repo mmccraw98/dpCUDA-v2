@@ -1,6 +1,6 @@
 #include "../../include/routines/initialization.h"
 
-std::tuple<SwapData2D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(const BaseParticleConfig& config) {
+std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(const BaseParticleConfig& config) {
     std::cout << "Running Routine: get_minimal_overlap_positions_and_radii" << std::endl;
     auto particle = create_particle(config);
 
@@ -44,7 +44,9 @@ std::tuple<SwapData2D<double>, SwapData1D<double>> get_minimal_overlap_positions
     positions.copyFrom(particle->positions);
     SwapData1D<double> radii;
     radii.copyFrom(particle->radii);
+    SwapData1D<double> box_size;
+    box_size.copyFrom(particle->box_size);
     std::cout << "Finished Routine: get_minimal_overlap_positions_and_radii" << std::endl;
 
-    return std::make_tuple(positions, radii);
+    return std::make_tuple(positions, radii, box_size);
 }

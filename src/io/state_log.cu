@@ -39,6 +39,6 @@ void StateLog::log(long step) {
     write_values(timestep_root_path);
 }
 
-void StateLog::write_state() {
-    write_values(root_path);
+void StateLog::write_state_to_path(const std::filesystem::path& path) {
+    write_values(path);
 }

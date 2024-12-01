@@ -46,8 +46,16 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
     }
 
     if (state_log != nullptr) {
+        // make the init and restart directories
+        init_dir_path = system_dir_path / init_dir_name;
+        make_dir(init_dir_path.string(), true);
+        restart_dir_path = system_dir_path / restart_dir_name;
+        make_dir(restart_dir_path.string(), true);
+
+        // gather the data
         state_log->gather_data(0);
-        state_log->write_state();
+        // write the data
+        state_log->write_state_to_path(init_dir_path);
     }
 }
 
@@ -56,6 +64,13 @@ IOManager::~IOManager() {
     for (auto& log_group : log_groups) {
         delete log_group;
     }
+}
+
+void IOManager::write_restart_file(long step) {
+    // write the state to the restart directory
+    state_log->write_state_to_path(restart_dir_path);
+    // write the current step to a file using the write_json_to_file function
+    write_json_to_file(restart_dir_path / "current_step.json", nlohmann::json{{"step", step}});
 }
 
 void IOManager::init_path(std::filesystem::path& path, const std::string& path_name) {
@@ -146,10 +161,10 @@ void IOManager::write_params() {
     // TODO: write run params
 }
 
-// void IOManager::write_state() {
+// void IOManager::write_state_to_path() {
 //     if (state_log == nullptr) {
-//         std::cerr << "ERROR: IOManager::write_state: state_log is not initialized" << std::endl;
+//         std::cerr << "ERROR: IOManager::write_state_to_path: state_log is not initialized" << std::endl;
 //         return;
 //     }
-//     state_log->write_state();
+//     state_log->write_state_to_path();
 // }

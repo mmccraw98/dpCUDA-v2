@@ -172,6 +172,24 @@ void RigidBumpy::setDegreesOfFreedom() {
     }
 }
 
+void RigidBumpy::scaleVelocitiesToTemperature(double temperature) {
+    double current_temp = calculateTemperature();
+    if (current_temp <= 0.0) {
+        std::cout << "WARNING: RigidBumpy::scaleVelocitiesToTemperature: Current temperature is " << current_temp << ", there will be an error!" << std::endl;
+    }
+    double scale_factor = std::sqrt(temperature / current_temp);
+    velocities.scale(scale_factor, scale_factor);
+    angular_velocities.scale(scale_factor);
+}
+
+
+void RigidBumpy::setRandomVelocities(double temperature) {
+    velocities.fillRandomNormal(0.0, std::sqrt(temperature), 0.0, std::sqrt(temperature), 1, seed);
+    angular_velocities.fillRandomNormal(0.0, std::sqrt(temperature), 1, seed);
+    removeMeanVelocities();
+    scaleVelocitiesToTemperature(temperature);
+}
+
 void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_positions, SwapData1D<double>& disk_radii, long num_vertices_in_small_particle, long particle_dim_block, long vertex_dim_block) {
     // set the number of particles from the disk data
     setNumParticles(disk_positions.size[0]);
@@ -295,10 +313,16 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.size = static_vertex_index.size;
             result.data = static_vertex_index.getData();
             result.index_array_name = "";
+        } else if (array_name == "moments_of_inertia") {
+            result.type = DataType::Double;
+            result.size = moments_of_inertia.size;
+            result.data = moments_of_inertia.getData();
+            result.index_array_name = "static_particle_index";
 
         } else {
             throw std::invalid_argument("RigidBumpy::getArrayData: array_name " + array_name + " not found");
         }
+        return result;
     }
 }
 
@@ -456,3 +480,21 @@ void RigidBumpy::initVerletList() {
     updateVerletList();
 }
 
+
+bool RigidBumpy::setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) {
+    this->max_neighbors_allocated = 4;  // initial assumption, probably could be refined
+    this->max_vertex_neighbors_allocated = 4;  // initial assumption, probably could be refined
+    this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
+    this->vertex_neighbor_cutoff = neighbor_cutoff_multiplier * 2.0 * getVertexRadius();
+    this->vertex_particle_neighbor_cutoff = getDiameter("max");  // particles within this distance of a vertex will be checked for vertex neighbors
+    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * vertex_neighbor_cutoff, 2);
+    thrust::host_vector<double> host_box_size = box_size.getData();
+    double box_diagonal = std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
+    if (neighbor_cutoff >= box_diagonal) {
+        std::cout << "Particle::setNeighborSize: Neighbor radius exceeds the box size" << std::endl;
+        return false;
+    }
+    return true;
+
+    // rb.vertex_neighbor_cutoff = 2.0 * vertex_diameter;  // vertices within this distance of each other are neighbors
+}

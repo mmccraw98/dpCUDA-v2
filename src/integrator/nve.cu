@@ -16,8 +16,7 @@ void NVE::step() {
     particle.updateVelocities(0.5 * dt);  // v(t+dt) = v(t) + dt / 2 * f(t) / m
     particle.updatePositions(dt);  // x(t+dt) = x(t) + dt * v(t+dt)
 
-    // TODO: may want to consider moving the zero-out and neigh-update into the force calc
-    particle.zeroForceAndPotentialEnergy();  // not needed since forces are calculated in place
+    // TODO: may want to consider moving the neigh-update into the force calc since it is essentially part of the force calculation
     particle.checkForNeighborUpdate();
     particle.calculateForces();
     

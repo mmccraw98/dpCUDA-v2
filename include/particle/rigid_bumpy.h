@@ -22,10 +22,18 @@ struct BidisperseRigidBumpyConfig : public BidisperseVertexParticleConfig {
         double packing_fraction, double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier, 
         double num_particles_per_cell, double cell_displacement_multiplier, std::string neighbor_list_update_method, 
         long particle_dim_block,
-        long n_vertices, long vertex_dim_block, double vertex_neighbor_cutoff_multiplier, double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter,
-        // new arguments
+        long n_vertices, long vertex_dim_block, double vertex_neighbor_cutoff_multiplier, 
+        double vertex_neighbor_displacement_multiplier, double segment_length_per_vertex_diameter, bool rotation,  // moved rotation here
         double size_ratio, double count_ratio, long n_vertex_per_small_particle, long n_vertex_per_large_particle
-    ) : BidisperseVertexParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, neighbor_list_update_method, particle_dim_block, n_vertices, vertex_dim_block, vertex_neighbor_cutoff_multiplier, vertex_neighbor_displacement_multiplier, segment_length_per_vertex_diameter, size_ratio, count_ratio, n_vertex_per_small_particle, n_vertex_per_large_particle) {
+    ) : BidisperseVertexParticleConfig(
+        seed, n_particles, mass, e_c, n_c, packing_fraction, 
+        neighbor_cutoff_multiplier, neighbor_displacement_multiplier, 
+        num_particles_per_cell, cell_displacement_multiplier, neighbor_list_update_method, 
+        particle_dim_block, n_vertices, vertex_dim_block, 
+        vertex_neighbor_cutoff_multiplier, vertex_neighbor_displacement_multiplier, 
+        segment_length_per_vertex_diameter, rotation,  // rotation matches base class position
+        size_ratio, count_ratio, n_vertex_per_small_particle, n_vertex_per_large_particle
+    ) {
         type_name = "RigidBumpy";
     }
 };
@@ -45,6 +53,7 @@ public:
     SwapData1D<double> vertex_torques;
     SwapData1D<double> vertex_masses;
     SwapData1D<double> vertex_potential_energy;
+    SwapData1D<double> moments_of_inertia;
 
     Data1D<double> angle_delta;  // for tracking particle rotation for vertex neighbor list updates
     Data2D<double> delta;  // for tracking particle translation for vertex neighbor list updates
@@ -67,6 +76,8 @@ public:
 
     Data1D<long> vertex_index;
     Data1D<long> static_vertex_index;
+
+    bool rotation = true;
 
     double vertex_neighbor_cutoff;  // vertices within this distance of each other are neighbors
     double vertex_particle_neighbor_cutoff;  // particles within this distance of a vertex will be checked for vertex neighbors
@@ -100,6 +111,8 @@ public:
 
     void syncVertexIndices();
 
+    void setMomentsOfInertia();
+
     void syncVertexNeighborList();
 
     void initDynamicVariables();
@@ -117,9 +130,9 @@ public:
     
     void calculateForces() override;
 
-    void updatePositions();
+    void updatePositions(double dt) override;
 
-    void updateVelocities();
+    void updateVelocities(double dt) override;
 
     void calculateKineticEnergy();
 
@@ -127,9 +140,9 @@ public:
 
     void updateVertexVerletList();
 
-    void initVerletListVariables();
+    void initVerletListVariables() override;
 
-    void initVerletList();
+    void initVerletList() override;
 
-
+    void updateVerletList() override;
 };

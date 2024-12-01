@@ -718,6 +718,7 @@ void Particle::initNeighborList() {
 }
 
 void Particle::initVerletListVariables() {
+    std::cout << "Particle::initVerletListVariables" << std::endl;
     neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     num_neighbors.resizeAndFill(n_particles, 0L);
     last_neigh_positions.resizeAndFill(n_particles, 0.0, 0.0);
@@ -870,7 +871,7 @@ void Particle::updateCellNeighborList() {
     }
 }
 
-// TODO: this should be a single kernel
+// TODO: this should be in the force kernel
 void Particle::zeroForceAndPotentialEnergy() {
     kernelZeroForceAndPotentialEnergy<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
 }

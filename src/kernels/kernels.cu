@@ -156,6 +156,90 @@ __global__ void kernelUpdateVelocities(
     velocities_y[particle_id] = vel_y;
 }
 
+__global__ void kernelUpdateRigidVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double* masses, const double* moments_of_inertia, const double dt, bool rotation) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    // Load values into registers to minimize global memory access
+    double force_x = forces_x[particle_id];
+    double force_y = forces_y[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double torque = torques[particle_id];
+    double moment_of_inertia = moments_of_inertia[particle_id];
+    double mass = masses[particle_id];
+    double ang_vel = angular_velocities[particle_id];
+
+    // Update velocities
+    if (rotation) {
+        ang_vel += torque * dt / moment_of_inertia;
+    } else {
+        ang_vel = 0.0;
+    }
+    vel_x += force_x * dt / mass;
+    vel_y += force_y * dt / mass;
+
+    // Store the results back to global memory
+    velocities_x[particle_id] = vel_x;
+    velocities_y[particle_id] = vel_y;
+    angular_velocities[particle_id] = ang_vel;
+}
+
+
+__global__ void kernelTranslateAndRotateVertices1(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+    
+    // Load particle data into registers to minimize repeated global memory access
+    long particle_id = d_vertex_particle_index_ptr[vertex_id];
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double vertex_pos_x = vertex_positions_x[vertex_id];
+    double vertex_pos_y = vertex_positions_y[vertex_id];
+    double delta_x_vertex = delta_x[particle_id];
+    double delta_y_vertex = delta_y[particle_id];
+    double angle_delta_vertex = angle_delta[particle_id];
+
+    // Get vertex position relative to particle center
+    double rel_x = vertex_pos_x - pos_x;
+    double rel_y = vertex_pos_y - pos_y;
+
+    // Rotate
+    double rot_x = rel_x * cos(angle_delta_vertex) - rel_y * sin(angle_delta_vertex);
+    double rot_y = rel_x * sin(angle_delta_vertex) + rel_y * cos(angle_delta_vertex);
+
+    // Translate
+    vertex_positions_x[vertex_id] = rot_x + pos_x + delta_x_vertex;
+    vertex_positions_y[vertex_id] = rot_y + pos_y + delta_y_vertex;
+}
+
+__global__ void kernelTranslateAndRotateVertices2(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double delta_x_particle = delta_x[particle_id];
+    double delta_y_particle = delta_y[particle_id];
+    double angle_delta_particle = angle_delta[particle_id];
+    double cos_angle = cos(angle_delta_particle);
+    double sin_angle = sin(angle_delta_particle);
+
+    // Apply the transformation to all vertices of the particle
+    for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
+        long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+        double vertex_pos_x = vertex_positions_x[vertex_id];
+        double vertex_pos_y = vertex_positions_y[vertex_id];
+
+        // Rotate
+        double rot_x = vertex_pos_x * cos_angle - vertex_pos_y * sin_angle;
+        double rot_y = vertex_pos_x * sin_angle + vertex_pos_y * cos_angle;
+
+        // Translate
+        vertex_positions_x[vertex_id] = rot_x + pos_x + delta_x_particle;
+        vertex_positions_y[vertex_id] = rot_y + pos_y + delta_y_particle;
+    }
+}
 
 __global__ void kernelRemoveMeanVelocities(double* __restrict__ velocities_x, double* __restrict__ velocities_y, const double mean_vel_x, const double mean_vel_y) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -199,6 +283,23 @@ __global__ void kernelCalculateTranslationalKineticEnergy(
     kinetic_energy[particle_id] = 0.5 * mass * velocity_sq;
 }
 
+
+__global__ void kernelCalculateTranslationalAndRotationalKineticEnergy(
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ masses, const double* __restrict__ angular_velocities,
+    const double* __restrict__ moments_of_inertia, double* __restrict__ kinetic_energy) 
+{
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double mass = masses[particle_id];
+    double ang_vel = angular_velocities[particle_id];
+    double moment_of_inertia = moments_of_inertia[particle_id];
+
+    kinetic_energy[particle_id] = 0.5 * mass * (vel_x * vel_x + vel_y * vel_y) + 0.5 * moment_of_inertia * ang_vel * ang_vel;
+}
 
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
@@ -795,6 +896,33 @@ __global__ void kernelInitializeVerticesOnParticles(
     }
 }
 
+__global__ void kernelGetVertexMasses(const double* __restrict__ radii, double* __restrict__ vertex_masses, const double* __restrict__ particle_masses) {
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+    long particle_id = d_vertex_particle_index_ptr[vertex_id];
+    vertex_masses[vertex_id] = particle_masses[particle_id] / static_cast<double>(d_num_vertices_in_particle_ptr[particle_id]);
+}
+
+__global__ void kernelGetMomentsOfInertia(const double* __restrict__ positions_x, const double* __restrict__ positions_y, const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, const double* __restrict__ vertex_masses, double* __restrict__ moments_of_inertia) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long first_vertex_index = d_particle_start_index_ptr[particle_id];
+    long num_vertices = d_num_vertices_in_particle_ptr[particle_id];
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double mass = vertex_masses[first_vertex_index];  // assuming uniform mass for vertices within a particle
+    double rel_pos_x = 0.0;
+    double rel_pos_y = 0.0;
+    double moment_of_inertia = 0.0;
+    for (long i = 0; i < num_vertices; i++) {
+        rel_pos_x = vertex_positions_x[first_vertex_index + i] - pos_x;
+        rel_pos_y = vertex_positions_y[first_vertex_index + i] - pos_y;
+        moment_of_inertia += mass * (rel_pos_x * rel_pos_x + rel_pos_y * rel_pos_y);
+    }
+    moments_of_inertia[particle_id] = moment_of_inertia;
+}
+
 // area
 
 __global__ void kernelCalculateParticlePolygonArea(
@@ -1008,6 +1136,7 @@ __global__ void kernelUpdateVertexNeighborList(
             }
         }
     }
+    d_num_vertex_neighbors_ptr[vertex_id] = added_vertex_neighbors;
 }
 
 

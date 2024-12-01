@@ -1,3 +1,10 @@
+- consolidate kernels (zero force and potential energy into force calculation)
+- cell list binary search
+- replica mode
+
+
+
+
 - add integrators
 - damped nve, nose hoover, adam, conjugate gradient
 - add logger

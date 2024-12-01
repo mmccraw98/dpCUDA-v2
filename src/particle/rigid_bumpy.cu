@@ -77,6 +77,7 @@ void RigidBumpy::initVertexVariables() {
     vertex_particle_index.resizeAndFill(n_vertices, 0);
     vertex_masses.resizeAndFill(n_vertices, 0.0);
     vertex_potential_energy.resizeAndFill(n_vertices, 0.0);
+    moments_of_inertia.resizeAndFill(n_particles, 0.0);
 }
 
 void RigidBumpy::initDynamicVariables() {
@@ -84,6 +85,8 @@ void RigidBumpy::initDynamicVariables() {
     angles.resizeAndFill(n_particles, 0.0);
     angular_velocities.resizeAndFill(n_particles, 0.0);
     torques.resizeAndFill(n_particles, 0.0);
+    angle_delta.resizeAndFill(n_particles, 0.0);
+    delta.resizeAndFill(n_particles, 0.0, 0.0);
     particle_start_index.resizeAndFill(n_particles, 0);
     num_vertices_in_particle.resizeAndFill(n_particles, 0);
 }
@@ -139,26 +142,6 @@ double RigidBumpy::getVertexRadius() {
     return vertex_radius;
 }
 
-
-// void Particle::setBiDispersity(double size_ratio, double count_ratio) {
-//     if (size_ratio < 1.0) {
-//         throw std::invalid_argument("Particle::setBiDispersity: size_ratio must be > 1.0");
-//     }
-//     if (count_ratio < 0.0 || count_ratio > 1.0) {
-//         throw std::invalid_argument("Particle::setBiDispersity: count_ratio must be < 1.0 and > 0.0");
-//     }
-//     thrust::host_vector<double> host_radii(n_particles);
-//     long n_large = static_cast<long>(n_particles * count_ratio);
-//     double diam_large = size_ratio;
-//     double diam_small = 1.0;
-//     for (long i = 0; i < n_large; i++) {
-//         host_radii[i] = diam_large / 2.0;
-//     }
-//     for (long i = n_large; i < n_particles; i++) {
-//         host_radii[i] = diam_small / 2.0;
-//     }
-//     radii.setData(host_radii);
-// }
 long RigidBumpy::setVertexBiDispersity(long num_vertices_in_small_particle) {
     double max_particle_diam = getDiameter("max");
     double min_particle_diam = getDiameter("min");
@@ -182,7 +165,11 @@ long RigidBumpy::setVertexBiDispersity(long num_vertices_in_small_particle) {
 }
 
 void RigidBumpy::setDegreesOfFreedom() {
-    this->n_dof = n_particles * (N_DIM + 1);  // two translation and one rotation
+    if (rotation) {
+        this->n_dof = n_particles * (N_DIM + 1);  // two translation and one rotation
+    } else {
+        this->n_dof = n_particles * N_DIM;  // two translation
+    }
 }
 
 void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_positions, SwapData1D<double>& disk_radii, long num_vertices_in_small_particle, long particle_dim_block, long vertex_dim_block) {
@@ -210,11 +197,6 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     double min_particle_diam = getDiameter("min");
     double max_particle_diam = getDiameter("max");
 
-    std::cout << "min_particle_diam: " << min_particle_diam << std::endl;
-    std::cout << "max_particle_diam: " << max_particle_diam << std::endl;
-    std::cout << "num_vertices_in_small_particle: " << num_vertices_in_small_particle << std::endl;
-    std::cout << "num_vertices_in_large_particle: " << num_vertices_in_large_particle << std::endl;
-
     // set the number of vertices in each particle
     kernelGetNumVerticesInParticles<<<particle_dim_grid, particle_dim_block>>>(
         radii.d_ptr, min_particle_diam, num_vertices_in_small_particle, max_particle_diam, num_vertices_in_large_particle, num_vertices_in_particle.d_ptr);
@@ -229,8 +211,6 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // sync the vertex indices
     syncVertexIndices();
 }
-
-
 
 
 ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
@@ -371,10 +351,15 @@ void RigidBumpy::syncVertexNeighborList() {
 
 void RigidBumpy::setMass(double mass) {
     Particle::setMass(mass);
-    vertex_masses.scale(mass);
+    kernelGetVertexMasses<<<particle_dim_grid, particle_dim_block>>>(
+        radii.d_ptr, vertex_masses.d_ptr, masses.d_ptr);
+
+    kernelGetMomentsOfInertia<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_masses.d_ptr, moments_of_inertia.d_ptr);
+
     // check if sum of vertex masses is equal to particle mass for each particle
     double total_vertex_mass = thrust::reduce(vertex_masses.d_vec.begin(), vertex_masses.d_vec.end(), 0.0, thrust::plus<double>());
-    if (std::abs(total_vertex_mass / n_particles - mass) > 1e-6) {
+    if (std::abs(total_vertex_mass / n_particles - mass) > 1e-16) {
         std::cout << "WARNING: RigidBumpy::setMass: Total vertex mass does not match particle mass" << std::endl;
     }
 }
@@ -399,13 +384,34 @@ void RigidBumpy::calculateForces() {
     // );
 }
 
-void RigidBumpy::updatePositions() {
+void RigidBumpy::updatePositions(double dt) {
+    kernelUpdateRigidPositions<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, angles.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, neigh_displacements_sq.d_ptr, cell_displacements_sq.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, dt
+    );
+    
+    // version 1: vertex level
+    kernelTranslateAndRotateVertices1<<<vertex_dim_grid, vertex_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr
+    );
+
+    // version 2: particle level
+    // kernelTranslateAndRotateVertices2<<<particle_dim_grid, particle_dim_block>>>(
+    //     positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr
+    // );
 }
 
-void RigidBumpy::updateVelocities() {
+void RigidBumpy::updateVelocities(double dt) {
+    kernelUpdateRigidVelocities<<<particle_dim_grid, particle_dim_block>>>(
+        velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, masses.d_ptr, moments_of_inertia.d_ptr, dt, rotation
+    );
 }
 
 void RigidBumpy::calculateKineticEnergy() {
+    if (rotation) {
+        kernelCalculateTranslationalAndRotationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, angular_velocities.d_ptr, moments_of_inertia.d_ptr, kinetic_energy.d_ptr);
+    } else {
+        kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, kinetic_energy.d_ptr);
+    }
 }
 
 void RigidBumpy::calculateParticlePositions() {
@@ -415,13 +421,11 @@ void RigidBumpy::calculateParticlePositions() {
 }
 
 void RigidBumpy::updateVertexVerletList() {
-    std::cout << "Updating vertex verlet list" << std::endl;
     vertex_neighbor_list.fill(-1L);
     kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
         vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff
     );
     long max_vertex_neighbors = thrust::reduce(num_vertex_neighbors.d_vec.begin(), num_vertex_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
-    std::cout << "max_vertex_neighbors: " << max_vertex_neighbors << std::endl;
     if (max_vertex_neighbors > max_vertex_neighbors_allocated) {
         max_vertex_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_vertex_neighbors)));
         std::cout << "RigidBumpy::updateVertexVerletList: Resizing vertex neighbor list to " << max_vertex_neighbors_allocated << std::endl;
@@ -432,6 +436,11 @@ void RigidBumpy::updateVertexVerletList() {
             vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff
         );
     }
+}
+
+void RigidBumpy::updateVerletList() {
+    Particle::updateVerletList();
+    updateVertexVerletList();
 }
 
 void RigidBumpy::initVerletListVariables() {
@@ -445,6 +454,5 @@ void RigidBumpy::initVerletList() {
     syncNeighborList();
     syncVertexNeighborList();
     updateVerletList();
-    updateVertexVerletList();
 }
 

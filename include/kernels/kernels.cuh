@@ -115,6 +115,14 @@ __global__ void kernelUpdateRigidPositions(double* positions_x, double* position
 __global__ void kernelUpdateVelocities(double* velocities_x, double* velocities_y, const double* forces_x, const double* forces_y, const double* masses, const double dt);
 
 
+__global__ void kernelUpdateRigidVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double* masses, const double* moments_of_inertia, const double dt, bool rotation);
+
+// vertex level
+__global__ void kernelTranslateAndRotateVertices1(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta);
+
+// particle level
+__global__ void kernelTranslateAndRotateVertices2(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta);
+
 /**
  * @brief Removes the average velocity of the particles along a specified dimension.
  * 
@@ -135,6 +143,11 @@ __global__ void kernelZeroForceAndPotentialEnergy(double* forces_x, double* forc
 __global__ void kernelCalculateTranslationalKineticEnergy(
     const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
     const double* __restrict__ masses, double* __restrict__ kinetic_energy);
+
+__global__ void kernelCalculateTranslationalAndRotationalKineticEnergy(
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ masses, const double* __restrict__ angular_velocities,
+    const double* __restrict__ moments_of_inertia, double* __restrict__ kinetic_energy);
 
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
@@ -346,6 +359,10 @@ __global__ void kernelInitializeVerticesOnParticles(
     const long* __restrict__ num_vertices_in_particle,
     double* __restrict__ vertex_masses,
     double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y);
+
+__global__ void kernelGetVertexMasses(const double* __restrict__ radii, double* __restrict__ vertex_masses, const double* __restrict__ particle_masses);
+
+__global__ void kernelGetMomentsOfInertia(const double* __restrict__ positions_x, const double* __restrict__ positions_y, const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, const double* __restrict__ vertex_masses, double* __restrict__ moments_of_inertia);
 
 
 // vertex utilities

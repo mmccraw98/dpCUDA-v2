@@ -65,6 +65,7 @@ int main() {
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
 
     long seed = 0;
+    bool rotation = false;
 
     BidisperseRigidBumpyConfig config(
         seed, 
@@ -84,6 +85,7 @@ int main() {
         vertex_neighbor_cutoff_multiplier,
         vertex_neighbor_displacement_multiplier,
         segment_length_per_vertex_diameter,
+        rotation,
         size_ratio,
         count_ratio,
         n_vertices_per_small_particle,
@@ -108,7 +110,7 @@ int main() {
         disk_area += PI * radius * radius;
     }
 
-
+    rb.rotation = config.rotation;
 
     rb.segment_length_per_vertex_diameter = config.segment_length_per_vertex_diameter;
     
@@ -144,7 +146,8 @@ int main() {
     rb.max_vertex_neighbors_allocated = 4;
 
     // init the neighbor list for the particles    
-    rb.initVerletList();
+    // rb.initVerletList();
+    rb.initNeighborList();
 
 
     double force_balance = rb.getForceBalance();
@@ -152,10 +155,6 @@ int main() {
     rb.calculateForces();
     force_balance = rb.getForceBalance();
     std::cout << "force_balance: " << force_balance << std::endl;
-    // this->calculateForces();  // make sure forces are calculated before the integration starts
-    // // may want to check that the forces are balanced
-
-
 
 
     double dt_dimless = 1e-2;  // 1e-3 might be the best option
@@ -182,7 +181,20 @@ int main() {
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
+    std::cout << "stepping" << std::endl;
 
+    // TODO: add kinetic energy and rotation and temperature
+    // TODO: test dynamics
+
+    double total_energy;
+
+    for (long step = 0; step < num_steps; step++) {
+        nve.step();
+
+        rb.calculateKineticEnergy();
+        total_energy = rb.totalEnergy();
+        std::cout << "total_energy: " << total_energy << std::endl;
+    }
 
     return 0;
 }

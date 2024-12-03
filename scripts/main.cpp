@@ -177,8 +177,8 @@ int main() {
     NVE nve(*particle, nve_config);
 
     long num_steps = 1e5;
-    long num_energy_saves = 1e2;
-    long num_state_saves = 1e3;
+    long num_energy_saves = 1e1;
+    long num_state_saves = 1e1;
     long min_state_save_decade = 1e1;
 
     // Make the io manager

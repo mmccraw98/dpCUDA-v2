@@ -13,7 +13,7 @@ std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minim
 
     double avg_pe_target = 1e-16;
     double avg_pe_diff_target = 1e-16;
-    long num_steps = 1e5;
+    long num_steps = 6e3;
 
     AdamConfig adam_config(alpha, beta1, beta2, epsilon);
     Adam adam(*particle, adam_config);

@@ -336,6 +336,8 @@ public:
      */
     virtual void setRandomVelocities(double temperature);
 
+    virtual double getGeometryScale();
+
     /**
      * @brief Get the diameter of the particles.
      * 

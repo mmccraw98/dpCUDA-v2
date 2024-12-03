@@ -231,9 +231,12 @@ __global__ void kernelTranslateAndRotateVertices2(const double* positions_x, con
         double vertex_pos_x = vertex_positions_x[vertex_id];
         double vertex_pos_y = vertex_positions_y[vertex_id];
 
+        double rel_x = vertex_pos_x - pos_x;
+        double rel_y = vertex_pos_y - pos_y;
+
         // Rotate
-        double rot_x = vertex_pos_x * cos_angle - vertex_pos_y * sin_angle;
-        double rot_y = vertex_pos_x * sin_angle + vertex_pos_y * cos_angle;
+        double rot_x = rel_x * cos_angle - rel_y * sin_angle;
+        double rot_y = rel_x * sin_angle + rel_y * cos_angle;
 
         // Translate
         vertex_positions_x[vertex_id] = rot_x + pos_x + delta_x_particle;
@@ -747,6 +750,78 @@ __global__ void kernelReorderParticleData(
     cell_displacements_sq[particle_id] = 0.0;
 }
 
+__global__ void kernelReorderRigidBumpyParticleData(
+    const long* __restrict__ particle_index,
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ angular_velocities, const double* __restrict__ torques,
+    const double* __restrict__ masses, const double* __restrict__ radii,
+    const double* __restrict__ moments_of_inertia,
+    const long* __restrict__ num_vertices_in_particle,
+    double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
+    double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
+    double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
+    double* __restrict__ temp_angular_velocities, double* __restrict__ temp_torques,
+    double* __restrict__ temp_masses, double* __restrict__ temp_radii,
+    double* __restrict__ temp_moments_of_inertia,
+    long* __restrict__ temp_num_vertices_in_particle,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, 
+    double* __restrict__ cell_displacements_sq,
+    long* __restrict__ inverse_particle_index  // maps old -> new particle indices
+) {
+    long i_n = blockIdx.x * blockDim.x + threadIdx.x;
+    if (i_n >= d_n_particles) return;
+
+    long i = particle_index[i_n];
+    
+    // Create mapping from old particle indices to new particle indices
+    inverse_particle_index[i] = i_n;
+
+    // Reorder particle data
+    temp_positions_x[i_n] = positions_x[i];
+    temp_positions_y[i_n] = positions_y[i];
+    temp_forces_x[i_n] = forces_x[i];
+    temp_forces_y[i_n] = forces_y[i];
+    temp_velocities_x[i_n] = velocities_x[i];
+    temp_velocities_y[i_n] = velocities_y[i];
+    temp_angular_velocities[i_n] = angular_velocities[i];
+    temp_torques[i_n] = torques[i];
+    temp_masses[i_n] = masses[i];
+    temp_radii[i_n] = radii[i];
+    temp_moments_of_inertia[i_n] = moments_of_inertia[i];
+    temp_num_vertices_in_particle[i_n] = num_vertices_in_particle[i];
+    last_cell_positions_x[i_n] = positions_x[i];
+    last_cell_positions_y[i_n] = positions_y[i];
+    cell_displacements_sq[i_n] = 0.0;
+}
+
+__global__ void kernelReorderRigidBumpyVertexData(
+    const long* __restrict__ vertex_particle_index,      // maps vertex -> old particle index
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    long* __restrict__ temp_vertex_particle_index,
+    double* __restrict__ temp_vertex_positions_x, double* __restrict__ temp_vertex_positions_y,
+    const long* __restrict__ particle_start_index,       // old start indices
+    const long* __restrict__ particle_start_index_n,     // new start indices
+    const long* __restrict__ inverse_particle_index      // maps old -> new particle indices
+) {
+    long j = blockIdx.x * blockDim.x + threadIdx.x;
+    if (j >= d_n_vertices) return;
+
+    // Get old particle index and relative vertex position
+    long i = vertex_particle_index[j];
+    long dj = j - particle_start_index[i];
+    
+    // Get new particle index and calculate new vertex position
+    long i_n = inverse_particle_index[i];
+    long j_n = particle_start_index_n[i_n] + dj;
+    
+    // Copy data to new position
+    temp_vertex_positions_x[j_n] = vertex_positions_x[j];
+    temp_vertex_positions_y[j_n] = vertex_positions_y[j];
+    temp_vertex_particle_index[j_n] = i_n;
+}
+
 // ----------------------------------------------------------------------
 // --------------------- Minimizers -------------------------------
 // ----------------------------------------------------------------------
@@ -862,7 +937,6 @@ __global__ void kernelGetNumVerticesInParticles(
     } else {
         printf("Error: particle radius %f is not equal to min or max particle diameter\n", radius);
     }
-    printf("particle_id: %ld, num_vertices_in_particle: %ld\n", particle_id, num_vertices_in_particle[particle_id]);
 }
 
 __global__ void kernelInitializeVerticesOnParticles(
@@ -1110,6 +1184,11 @@ __global__ void kernelUpdateVertexNeighborList(
     long num_particle_neighbors = d_num_neighbors_ptr[particle_id];
 
     // iterate over neighboring particles in the particle neighbor list
+    // printf("vertex_id: %ld - %ld: %ld / %ld\n", vertex_id, num_particle_neighbors, added_vertex_neighbors, d_max_vertex_neighbors_allocated);
+    // printf("d_vertex_particle_index_ptr[%ld]: %ld\n", vertex_id, d_vertex_particle_index_ptr[vertex_id]);
+    // printf("d_vertex_neighbor_list_ptr[%ld]: %ld\n", vertex_id, d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated]);
+    // printf("d_max_vertex_neighbors_allocated: %ld\n", d_max_vertex_neighbors_allocated);
+    
     for (long n = 0; n < num_particle_neighbors; n++) {
         long other_particle_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
         if (other_particle_id == -1 || other_particle_id == particle_id) continue;
@@ -1137,6 +1216,7 @@ __global__ void kernelUpdateVertexNeighborList(
         }
     }
     d_num_vertex_neighbors_ptr[vertex_id] = added_vertex_neighbors;
+    printf("vertex_id: %ld - %ld\n", vertex_id, added_vertex_neighbors);
 }
 
 

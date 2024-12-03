@@ -37,10 +37,10 @@ int main() {
 
     // make a config for the rb partcle
     // set the config large vertex numbers after creation
-    long n_vertices_per_small_particle = 26;
+    long n_vertices_per_small_particle = 12;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 256;
+    long n_particles = 32;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -56,16 +56,16 @@ int main() {
     long particle_dim_block = 256;
     long vertex_dim_block = 256;
 
-    double vertex_neighbor_cutoff_multiplier = 1.5;  // vertices within this multiple of the maximum vertex diameter will be considered neighbors
+    double vertex_neighbor_cutoff_multiplier = 100.5;  // vertices within this multiple of the maximum vertex diameter will be considered neighbors
     double vertex_neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the vertex neighbor cutoff, the vertex neighbor list will be updated
 
-    double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
+    double neighbor_cutoff_multiplier = 10.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
 
     long seed = 0;
-    bool rotation = false;
+    bool rotation = true;
     double vertex_radius = 0.5;  // arbitrary value
     BidisperseRigidBumpyConfig config(
         seed, 
@@ -131,43 +131,43 @@ int main() {
     // rb.initializeBox(config.packing_fraction);
 
 
-    double vertex_diameter = 2.0 * rb.getVertexRadius();
     config.vertex_radius = rb.getVertexRadius();
-    double particle_diameter = rb.getDiameter("max");
-    double geom_scale = vertex_diameter / rb.getDiameter("mean");
+    double geom_scale = rb.getGeometryScale();
     config.e_c *= (geom_scale * geom_scale);
     rb.setEnergyScale(config.e_c, "c");
     rb.setExponent(config.n_c, "c");
     rb.setMass(config.mass);
     rb.config = std::make_unique<BidisperseRigidBumpyConfig>(config);
 
-
-
-
     // rb.updateVerletList();
-
-    rb.setNeighborMethod("verlet");
+    rb.setNeighborMethod("cell");
+    std::cout << "setting neighbor size" << std::endl;
     rb.setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+    std::cout << "setting cell size" << std::endl;
+    rb.setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
+
     rb.max_vertex_neighbors_allocated = 8;
+    rb.syncVertexNeighborList();
 
     // init the neighbor list for the particles    
     // rb.initVerletList();
+    std::cout << "initializing neighbor list" << std::endl;
     rb.initNeighborList();
+    std::cout << "done initializing neighbor list" << std::endl;
+    rb.syncVertexNeighborList();
 
 
-    double force_balance = rb.getForceBalance();
-    std::cout << "force_balance: " << force_balance << std::endl;
-    rb.calculateForces();
-    force_balance = rb.getForceBalance();
-    std::cout << "force_balance: " << force_balance << std::endl;
+    std::cout << "geom_scale: " << geom_scale << std::endl;
+
+    double dt_dimless = 1e-2;
+    double dt = dt_dimless * rb.getTimeUnit() * geom_scale;
 
 
-    double dt_dimless = 1e-4;  // 1e-3 might be the best option
-    NVEConfig nve_config(dt_dimless * rb.getTimeUnit());
-    std::cout << "dt: " << nve_config.dt << std::endl;
+    NVEConfig nve_config(dt);
     NVE nve(rb, nve_config);
 
-    long num_steps = 1e5;
+    long num_steps = 1e4;
+    long num_saves = 1e2;
     long num_energy_saves = 1e1;
     long num_state_saves = 1e1;
     long min_state_save_decade = 1e1;
@@ -176,27 +176,45 @@ int main() {
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
-        config_from_names_lin({"step", "KE/N", "PE/N", "TE/N", "T"}, num_steps, 1e1, "console"),  // logs to the console
+        config_from_names_lin({"step", "KE/N", "PE/N", "TE/N", "T"}, num_steps, num_saves, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces", "angular_velocities", "torques", "vertex_torques"}, num_steps, num_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 1, true);
+    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 8, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
+    // rb.updateVerletList();
+    rb.updateCellList();
+    rb.updateCellNeighborList();
+    rb.calculateForces();
+    // TODO: fix the cell list then increase the number of steps in the disk minimization and decrease the neighbor distance
+
+    thrust::host_vector<double> h_forces_x = rb.forces.x.getData();
+    thrust::host_vector<double> h_forces_y = rb.forces.y.getData();
+    for (long i = 0; i < rb.n_particles; i++) {
+        std::cout << "forces[" << i << "]: " << h_forces_x[i] << ", " << h_forces_y[i] << std::endl;
+    }
+
+
+    exit(0);
+
     std::cout << "stepping" << std::endl;
 
+    // TODO: move the vertex indices to global indices
     // TODO: set sensible energy and time units for bumpy to match with disk
     // TODO: set neighbor list bounds
     // TODO: build cell list
     // TODO: fix all-all neighbor list
     // TODO: test dynamics
-    // TODO: test performance of the different kernel types (particle level, vertex level)
     // TODO: fix area, packing fraction, and (set)box size calculations
+    // TODO: check if can remove the force ptrs from the reorder kernels - i dont think they are needed
     // TODO: nondimensionalize all units in terms of the particle size, mass, and energy
+    // TODO: fix bug with the multi-processing data saving
+    // TODO: reorganize files so that the particle classes are each in their own folders with their own kernels
 
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();

@@ -66,14 +66,15 @@ public:
     SwapData1D<double> area;
 
     // vertex-based particle variables
-    Data1D<long> vertex_particle_index;  // index of the particle that each vertex belongs to (n_vertices, 1)
-    Data1D<long> particle_start_index;  // index of the first vertex in each particle (n_particles, 1)
-    Data1D<long> num_vertices_in_particle;  // number of vertices in each particle (n_particles, 1)
+    Data1D<long> inverse_particle_index;
+    SwapData1D<long> vertex_particle_index;  // index of the particle that each vertex belongs to (n_vertices, 1)
+    SwapData1D<long> particle_start_index;  // index of the first vertex in each particle (n_particles, 1)
+    SwapData1D<long> num_vertices_in_particle;  // number of vertices in each particle (n_particles, 1)
 
     Data1D<long> vertex_neighbor_list;
     Data1D<long> num_vertex_neighbors;
 
-    Data1D<long> vertex_index;
+    SwapData1D<long> vertex_index;
     Data1D<long> static_vertex_index;
 
     bool rotation = true;
@@ -142,6 +143,8 @@ public:
 
     void updateVertexVerletList();
 
+    double getGeometryScale() override;
+
     void initVerletListVariables() override;
 
     void initVerletList() override;
@@ -149,4 +152,10 @@ public:
     void updateVerletList() override;
 
     bool setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) override;
+
+    void reorderParticleData() override;
+
+    void initCellListVariables() override;
+
+    void updateCellNeighborList() override;
 };

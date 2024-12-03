@@ -718,7 +718,6 @@ void Particle::initNeighborList() {
 }
 
 void Particle::initVerletListVariables() {
-    std::cout << "Particle::initVerletListVariables" << std::endl;
     neighbor_list.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     num_neighbors.resizeAndFill(n_particles, 0L);
     last_neigh_positions.resizeAndFill(n_particles, 0.0, 0.0);
@@ -849,7 +848,7 @@ void Particle::updateCellList() {
     cell_start.d_vec[n_cells] = n_particles;
     kernelGetCellIndexForParticle<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, cell_index.d_ptr, particle_index.d_ptr);
     reorderParticleData();
-    cudaDeviceSynchronize();
+    cudaDeviceSynchronize();  // TODO: do we need this?
     // TODO: this is a kernel over cells - could probably be parallelized better
     long width_offset = 2;
     long width = n_particles / n_cells;
@@ -893,4 +892,8 @@ void Particle::setMass(double mass) {
 
 double Particle::getNumberDensity() {
     return n_particles / getBoxArea();
+}
+
+double Particle::getGeometryScale() {
+    return 1.0;
 }

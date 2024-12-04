@@ -37,10 +37,10 @@ int main() {
 
     // make a config for the rb partcle
     // set the config large vertex numbers after creation
-    long n_vertices_per_small_particle = 12;
+    long n_vertices_per_small_particle = 26;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 32;
+    long n_particles = 1024;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -48,7 +48,7 @@ int main() {
 
     long segment_length_per_vertex_diameter = 1.0;
 
-    double packing_fraction = 0.5;
+    double packing_fraction = 0.2;
 
     double size_ratio = 1.4;
     double count_ratio = 0.5;
@@ -56,10 +56,10 @@ int main() {
     long particle_dim_block = 256;
     long vertex_dim_block = 256;
 
-    double vertex_neighbor_cutoff_multiplier = 100.5;  // vertices within this multiple of the maximum vertex diameter will be considered neighbors
+    double vertex_neighbor_cutoff_multiplier = 1.5;  // vertices within this multiple of the maximum vertex diameter will be considered neighbors
     double vertex_neighbor_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the vertex neighbor cutoff, the vertex neighbor list will be updated
 
-    double neighbor_cutoff_multiplier = 10.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
+    double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
     double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
@@ -156,7 +156,6 @@ int main() {
     std::cout << "done initializing neighbor list" << std::endl;
     rb.syncVertexNeighborList();
 
-
     std::cout << "geom_scale: " << geom_scale << std::endl;
 
     double dt_dimless = 1e-2;
@@ -166,7 +165,7 @@ int main() {
     NVEConfig nve_config(dt);
     NVE nve(rb, nve_config);
 
-    long num_steps = 1e4;
+    long num_steps = 1e5;
     long num_saves = 1e2;
     long num_energy_saves = 1e1;
     long num_state_saves = 1e1;
@@ -179,28 +178,13 @@ int main() {
         config_from_names_lin({"step", "KE/N", "PE/N", "TE/N", "T"}, num_steps, num_saves, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces", "angular_velocities", "torques", "vertex_torques"}, num_steps, num_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces", "angular_velocities", "torques", "vertex_torques", "cell_index", "vertex_particle_index", "particle_start_index", "num_vertices_in_particle", "particle_index", "static_particle_index", "num_neighbors", "num_vertex_neighbors", "cell_start", "neighbor_list", "vertex_neighbor_list", "angles", "potential_energy", "kinetic_energy"}, num_steps, num_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
     IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 8, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
-
-    // rb.updateVerletList();
-    rb.updateCellList();
-    rb.updateCellNeighborList();
-    rb.calculateForces();
-    // TODO: fix the cell list then increase the number of steps in the disk minimization and decrease the neighbor distance
-
-    thrust::host_vector<double> h_forces_x = rb.forces.x.getData();
-    thrust::host_vector<double> h_forces_y = rb.forces.y.getData();
-    for (long i = 0; i < rb.n_particles; i++) {
-        std::cout << "forces[" << i << "]: " << h_forces_x[i] << ", " << h_forces_y[i] << std::endl;
-    }
-
-
-    exit(0);
 
     std::cout << "stepping" << std::endl;
 
@@ -219,7 +203,7 @@ int main() {
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    rb.setRandomVelocities(1e-4);
+    rb.setRandomVelocities(1e-3);
 
     long step = 0;
     while (step < num_steps) {

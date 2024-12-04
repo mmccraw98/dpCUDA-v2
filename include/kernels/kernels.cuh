@@ -325,32 +325,34 @@ __global__ void kernelReorderParticleData(
 
 __global__ void kernelReorderRigidBumpyParticleData(
     const long* __restrict__ particle_index,
-    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
-    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
-    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
-    const double* __restrict__ angular_velocities, const double* __restrict__ torques,
-    const double* __restrict__ masses, const double* __restrict__ radii,
-    const double* __restrict__ moments_of_inertia,
+    long* __restrict__ old_to_new_particle_index,
     const long* __restrict__ num_vertices_in_particle,
-    double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
-    double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
-    double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
-    double* __restrict__ temp_angular_velocities, double* __restrict__ temp_torques,
-    double* __restrict__ temp_masses, double* __restrict__ temp_radii,
-    double* __restrict__ temp_moments_of_inertia,
-    long* __restrict__ temp_num_vertices_in_particle,
-    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, 
-    double* __restrict__ cell_displacements_sq,
-    long* __restrict__ inverse_particle_index);
+    long* __restrict__ num_vertices_in_particle_new,
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    double* __restrict__ positions_x_new, double* __restrict__ positions_y_new,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    double* __restrict__ forces_x_new, double* __restrict__ forces_y_new,
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    double* __restrict__ velocities_x_new, double* __restrict__ velocities_y_new,
+    const double* __restrict__ angular_velocities, const double* __restrict__ torques,
+    double* __restrict__ angular_velocities_new, double* __restrict__ torques_new,
+    const double* __restrict__ masses, const double* __restrict__ radii,
+    double* __restrict__ masses_new, double* __restrict__ radii_new,
+    const double* __restrict__ moments_of_inertia,
+    double* __restrict__ moments_of_inertia_new,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    double* __restrict__ cell_displacements_sq);
 
 __global__ void kernelReorderRigidBumpyVertexData(
     const long* __restrict__ vertex_particle_index,
-    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
-    long* __restrict__ temp_vertex_particle_index,
-    double* __restrict__ temp_vertex_positions_x, double* __restrict__ temp_vertex_positions_y,
+    long* __restrict__ vertex_particle_index_new,
+    const long* __restrict__ old_to_new_particle_index,
     const long* __restrict__ particle_start_index,
-    const long* __restrict__ particle_start_index_n,
-    const long* __restrict__ inverse_particle_index);
+    const long* __restrict__ particle_start_index_new,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    double* __restrict__ vertex_positions_x_new, double* __restrict__ vertex_positions_y_new,
+    const long* __restrict__ static_vertex_index,
+    long* __restrict__ static_vertex_index_new);
 
 // minimizers
 

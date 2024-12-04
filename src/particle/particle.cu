@@ -361,7 +361,7 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Long;
         result.size = neighbor_list.size;
         result.data = neighbor_list.getData();
-        result.index_array_name = ""; // this is a tricky one to incorporate in the reordering process in a general way
+        result.index_array_name = ""; // can handle this by saying it is an (n_particles x max_neighbors_allocated) array
     } else if (array_name == "num_neighbors") {
         result.type = DataType::Long;
         result.size = num_neighbors.size;

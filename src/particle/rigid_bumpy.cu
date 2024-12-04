@@ -90,6 +90,7 @@ void RigidBumpy::initDynamicVariables() {
     particle_start_index.resizeAndFill(n_particles, 0);
     num_vertices_in_particle.resizeAndFill(n_particles, 0);
     inverse_particle_index.resizeAndFill(n_particles, 0);
+    old_to_new_particle_index.resizeAndFill(n_particles, 0);
 }
 
 void RigidBumpy::initGeometricVariables() {
@@ -110,6 +111,9 @@ void RigidBumpy::clearDynamicVariables() {
     particle_start_index.clear();
     num_vertices_in_particle.clear();
     inverse_particle_index.clear();
+    old_to_new_particle_index.clear();
+    static_vertex_index.clear();
+    vertex_index.clear();
 }
 
 void RigidBumpy::syncVertexIndices() {
@@ -401,13 +405,17 @@ double RigidBumpy::getOverlapFraction() const {
 }
 
 void RigidBumpy::calculateForces() {
+    forces.fill(0.0, 0.0);
+    torques.fill(0.0);
+    vertex_torques.fill(0.0);
+    vertex_forces.fill(0.0, 0.0);
+    vertex_potential_energy.fill(0.0);
+    potential_energy.fill(0.0);
     // version 1: 2 kernels, 1 vertex level and 1 particle level
     kernelCalcRigidBumpyForces1<<<vertex_dim_grid, vertex_dim_block>>>(
-        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr
-    );
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr);
     kernelCalcRigidBumpyParticleForces1<<<particle_dim_grid, particle_dim_block>>>(
-        vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, potential_energy.d_ptr
-    );
+        vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, potential_energy.d_ptr);
 
     // // version 2: 1 particle level kernel  -- 3 times slower than version 1
     // kernelCalcRigidBumpyForces2<<<particle_dim_grid, particle_dim_block>>>(
@@ -422,8 +430,7 @@ void RigidBumpy::updatePositions(double dt) {
     
     // version 1: vertex level
     kernelTranslateAndRotateVertices1<<<vertex_dim_grid, vertex_dim_block>>>(
-        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr
-    );
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr);
 
     // // version 2: particle level  -- 10% slower than version 1
     // kernelTranslateAndRotateVertices2<<<particle_dim_grid, particle_dim_block>>>(
@@ -454,17 +461,15 @@ void RigidBumpy::calculateParticlePositions() {
 void RigidBumpy::updateVertexVerletList() {
     vertex_neighbor_list.fill(-1L);
     kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
-        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff
-    );
+        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff);
     long max_vertex_neighbors = thrust::reduce(num_vertex_neighbors.d_vec.begin(), num_vertex_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     if (max_vertex_neighbors > max_vertex_neighbors_allocated) {
         max_vertex_neighbors_allocated = std::pow(2, std::ceil(std::log2(max_vertex_neighbors)));
-        vertex_neighbor_list.resize(n_vertices * max_vertex_neighbors_allocated);
-        vertex_neighbor_list.fill(-1L);
+        std::cout << "RigidBumpy::updateVertexVerletList: Resizing neighbor list to " << max_vertex_neighbors_allocated << std::endl;
+        vertex_neighbor_list.resizeAndFill(n_vertices * max_vertex_neighbors_allocated, -1L);
         syncVertexNeighborList();
         kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
-            vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff
-        );
+            vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff);
     }
 }
 
@@ -539,26 +544,26 @@ void RigidBumpy::reorderParticleData() {
     // Reorder particle data and create inverse mapping
     kernelReorderRigidBumpyParticleData<<<particle_dim_grid, particle_dim_block>>>(
         particle_index.d_ptr,
-        positions.x.d_ptr, positions.y.d_ptr,
-        forces.x.d_ptr, forces.y.d_ptr,
-        velocities.x.d_ptr, velocities.y.d_ptr,
-        angular_velocities.d_ptr, torques.d_ptr,
-        masses.d_ptr, radii.d_ptr,
-        moments_of_inertia.d_ptr,
+        old_to_new_particle_index.d_ptr,
         num_vertices_in_particle.d_ptr,
-        positions.x.d_temp_ptr, positions.y.d_temp_ptr,
-        forces.x.d_temp_ptr, forces.y.d_temp_ptr,
-        velocities.x.d_temp_ptr, velocities.y.d_temp_ptr,
-        angular_velocities.d_temp_ptr, torques.d_temp_ptr,
-        masses.d_temp_ptr, radii.d_temp_ptr,
-        moments_of_inertia.d_temp_ptr,
         num_vertices_in_particle.d_temp_ptr,
+        positions.x.d_ptr, positions.y.d_ptr,
+        positions.x.d_temp_ptr, positions.y.d_temp_ptr,
+        forces.x.d_ptr, forces.y.d_ptr,
+        forces.x.d_temp_ptr, forces.y.d_temp_ptr,
+        velocities.x.d_ptr, velocities.y.d_ptr,
+        velocities.x.d_temp_ptr, velocities.y.d_temp_ptr,
+        angular_velocities.d_ptr, torques.d_ptr,
+        angular_velocities.d_temp_ptr, torques.d_temp_ptr,
+        masses.d_ptr, radii.d_ptr,
+        masses.d_temp_ptr, radii.d_temp_ptr,
+        moments_of_inertia.d_ptr,
+        moments_of_inertia.d_temp_ptr,
         last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr,
-        cell_displacements_sq.d_ptr,
-        inverse_particle_index.d_ptr
+        cell_displacements_sq.d_ptr
     );
 
-    // Calculate new particle start indices
+    // Calculate new particle start indices using the temp data
     thrust::exclusive_scan(
         num_vertices_in_particle.d_temp_vec.begin(),
         num_vertices_in_particle.d_temp_vec.end(),
@@ -568,12 +573,14 @@ void RigidBumpy::reorderParticleData() {
     // Reorder vertex data
     kernelReorderRigidBumpyVertexData<<<vertex_dim_grid, vertex_dim_block>>>(
         vertex_particle_index.d_ptr,
-        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr,
         vertex_particle_index.d_temp_ptr,
-        vertex_positions.x.d_temp_ptr, vertex_positions.y.d_temp_ptr,
+        old_to_new_particle_index.d_ptr,
         particle_start_index.d_ptr,
         particle_start_index.d_temp_ptr,
-        inverse_particle_index.d_ptr
+        vertex_positions.x.d_ptr, vertex_positions.y.d_ptr,
+        vertex_positions.x.d_temp_ptr, vertex_positions.y.d_temp_ptr,
+        static_vertex_index.d_ptr,
+        static_vertex_index.d_temp_ptr
     );
 
     // Swap all reordered data
@@ -591,4 +598,6 @@ void RigidBumpy::reorderParticleData() {
     vertex_particle_index.swap();
     first_moment.swap();
     second_moment.swap();
+    static_vertex_index.swap();
+    syncVertexIndices();
 }

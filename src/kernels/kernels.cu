@@ -185,7 +185,6 @@ __global__ void kernelUpdateRigidVelocities(double* velocities_x, double* veloci
     angular_velocities[particle_id] = ang_vel;
 }
 
-
 __global__ void kernelTranslateAndRotateVertices1(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
     long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (vertex_id >= d_n_vertices) return;
@@ -212,6 +211,8 @@ __global__ void kernelTranslateAndRotateVertices1(const double* positions_x, con
     vertex_positions_x[vertex_id] = rot_x + pos_x + delta_x_vertex;
     vertex_positions_y[vertex_id] = rot_y + pos_y + delta_y_vertex;
 }
+
+
 
 __global__ void kernelTranslateAndRotateVertices2(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -356,7 +357,6 @@ __global__ void kernelCalcDiskForces(
     potential_energy[particle_id] = energy;
 }
 
-
 __global__ void kernelCalcRigidBumpyForces1(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, 
@@ -368,6 +368,7 @@ __global__ void kernelCalcRigidBumpyForces1(
     if (vertex_id >= d_n_vertices) return;
 
     long num_neighbors = d_num_vertex_neighbors_ptr[vertex_id];
+    // printf("vertex_id: %ld, num_neighbors: %ld\n", vertex_id, num_neighbors);
     if (num_neighbors == 0) return;
 
     double vertex_pos_x = vertex_positions_x[vertex_id];
@@ -710,6 +711,7 @@ __global__ void kernelUpdateCellNeighborList(
     neigh_displacements_sq[particle_id] = 0.0;
     last_neigh_positions_x[particle_id] = pos_x;
     last_neigh_positions_y[particle_id] = pos_y;
+    // printf("particle_id: %ld, added_neighbors: %ld\n", particle_id, added_neighbors);
 }
 
 // TODO: add __restrict__ back
@@ -752,74 +754,72 @@ __global__ void kernelReorderParticleData(
 
 __global__ void kernelReorderRigidBumpyParticleData(
     const long* __restrict__ particle_index,
-    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
-    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
-    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
-    const double* __restrict__ angular_velocities, const double* __restrict__ torques,
-    const double* __restrict__ masses, const double* __restrict__ radii,
-    const double* __restrict__ moments_of_inertia,
+    long* __restrict__ old_to_new_particle_index,
     const long* __restrict__ num_vertices_in_particle,
-    double* __restrict__ temp_positions_x, double* __restrict__ temp_positions_y,
-    double* __restrict__ temp_forces_x, double* __restrict__ temp_forces_y,
-    double* __restrict__ temp_velocities_x, double* __restrict__ temp_velocities_y,
-    double* __restrict__ temp_angular_velocities, double* __restrict__ temp_torques,
-    double* __restrict__ temp_masses, double* __restrict__ temp_radii,
-    double* __restrict__ temp_moments_of_inertia,
-    long* __restrict__ temp_num_vertices_in_particle,
-    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, 
-    double* __restrict__ cell_displacements_sq,
-    long* __restrict__ inverse_particle_index  // maps old -> new particle indices
-) {
-    long i_n = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_n >= d_n_particles) return;
+    long* __restrict__ num_vertices_in_particle_new,
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    double* __restrict__ positions_x_new, double* __restrict__ positions_y_new,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    double* __restrict__ forces_x_new, double* __restrict__ forces_y_new,
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    double* __restrict__ velocities_x_new, double* __restrict__ velocities_y_new,
+    const double* __restrict__ angular_velocities, const double* __restrict__ torques,
+    double* __restrict__ angular_velocities_new, double* __restrict__ torques_new,
+    const double* __restrict__ masses, const double* __restrict__ radii,
+    double* __restrict__ masses_new, double* __restrict__ radii_new,
+    const double* __restrict__ moments_of_inertia,
+    double* __restrict__ moments_of_inertia_new,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    double* __restrict__ cell_displacements_sq) {
 
-    long i = particle_index[i_n];
+    long new_particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (new_particle_id >= d_n_particles) return;
+
+    long old_particle_id = particle_index[new_particle_id];
     
     // Create mapping from old particle indices to new particle indices
-    inverse_particle_index[i] = i_n;
+    old_to_new_particle_index[old_particle_id] = new_particle_id;
 
     // Reorder particle data
-    temp_positions_x[i_n] = positions_x[i];
-    temp_positions_y[i_n] = positions_y[i];
-    temp_forces_x[i_n] = forces_x[i];
-    temp_forces_y[i_n] = forces_y[i];
-    temp_velocities_x[i_n] = velocities_x[i];
-    temp_velocities_y[i_n] = velocities_y[i];
-    temp_angular_velocities[i_n] = angular_velocities[i];
-    temp_torques[i_n] = torques[i];
-    temp_masses[i_n] = masses[i];
-    temp_radii[i_n] = radii[i];
-    temp_moments_of_inertia[i_n] = moments_of_inertia[i];
-    temp_num_vertices_in_particle[i_n] = num_vertices_in_particle[i];
-    last_cell_positions_x[i_n] = positions_x[i];
-    last_cell_positions_y[i_n] = positions_y[i];
-    cell_displacements_sq[i_n] = 0.0;
+    positions_x_new[new_particle_id] = positions_x[old_particle_id];
+    positions_y_new[new_particle_id] = positions_y[old_particle_id];
+    forces_x_new[new_particle_id] = forces_x[old_particle_id];
+    forces_y_new[new_particle_id] = forces_y[old_particle_id];
+    velocities_x_new[new_particle_id] = velocities_x[old_particle_id];
+    velocities_y_new[new_particle_id] = velocities_y[old_particle_id];
+    angular_velocities_new[new_particle_id] = angular_velocities[old_particle_id];
+    torques_new[new_particle_id] = torques[old_particle_id];
+    masses_new[new_particle_id] = masses[old_particle_id];
+    radii_new[new_particle_id] = radii[old_particle_id];
+    moments_of_inertia_new[new_particle_id] = moments_of_inertia[old_particle_id];
+    num_vertices_in_particle_new[new_particle_id] = num_vertices_in_particle[old_particle_id];
+    last_cell_positions_x[new_particle_id] = positions_x[old_particle_id];
+    last_cell_positions_y[new_particle_id] = positions_y[old_particle_id];
+    cell_displacements_sq[new_particle_id] = 0.0;
 }
 
 __global__ void kernelReorderRigidBumpyVertexData(
-    const long* __restrict__ vertex_particle_index,      // maps vertex -> old particle index
+    const long* __restrict__ vertex_particle_index,
+    long* __restrict__ vertex_particle_index_new,
+    const long* __restrict__ old_to_new_particle_index,
+    const long* __restrict__ particle_start_index,
+    const long* __restrict__ particle_start_index_new,
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
-    long* __restrict__ temp_vertex_particle_index,
-    double* __restrict__ temp_vertex_positions_x, double* __restrict__ temp_vertex_positions_y,
-    const long* __restrict__ particle_start_index,       // old start indices
-    const long* __restrict__ particle_start_index_n,     // new start indices
-    const long* __restrict__ inverse_particle_index      // maps old -> new particle indices
-) {
-    long j = blockIdx.x * blockDim.x + threadIdx.x;
-    if (j >= d_n_vertices) return;
+    double* __restrict__ vertex_positions_x_new, double* __restrict__ vertex_positions_y_new,
+    const long* __restrict__ static_vertex_index,
+    long* __restrict__ static_vertex_index_new) {
 
-    // Get old particle index and relative vertex position
-    long i = vertex_particle_index[j];
-    long dj = j - particle_start_index[i];
-    
-    // Get new particle index and calculate new vertex position
-    long i_n = inverse_particle_index[i];
-    long j_n = particle_start_index_n[i_n] + dj;
-    
-    // Copy data to new position
-    temp_vertex_positions_x[j_n] = vertex_positions_x[j];
-    temp_vertex_positions_y[j_n] = vertex_positions_y[j];
-    temp_vertex_particle_index[j_n] = i_n;
+    long old_vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (old_vertex_id >= d_n_vertices) return;
+
+    long old_particle_id = vertex_particle_index[old_vertex_id];
+    long new_particle_id = old_to_new_particle_index[old_particle_id];
+    long relative_vertex_id = old_vertex_id - particle_start_index[old_particle_id];
+    long new_vertex_id = particle_start_index_new[new_particle_id] + relative_vertex_id;
+    vertex_particle_index_new[new_vertex_id] = new_particle_id;
+    vertex_positions_x_new[new_vertex_id] = vertex_positions_x[old_vertex_id];
+    vertex_positions_y_new[new_vertex_id] = vertex_positions_y[old_vertex_id];
+    static_vertex_index_new[new_vertex_id] = static_vertex_index[old_vertex_id];
 }
 
 // ----------------------------------------------------------------------
@@ -1216,7 +1216,7 @@ __global__ void kernelUpdateVertexNeighborList(
         }
     }
     d_num_vertex_neighbors_ptr[vertex_id] = added_vertex_neighbors;
-    printf("vertex_id: %ld - %ld\n", vertex_id, added_vertex_neighbors);
+    // printf("vertex_id: %ld - %ld\n", vertex_id, added_vertex_neighbors);
 }
 
 

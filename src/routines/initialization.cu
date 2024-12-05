@@ -1,7 +1,8 @@
 #include "../../include/routines/initialization.h"
 
-std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(const BaseParticleConfig& config) {
+std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(BaseParticleConfig& config, double overcompression_factor) {
     std::cout << "Running Routine: get_minimal_overlap_positions_and_radii" << std::endl;
+    config.packing_fraction += overcompression_factor;
     auto particle = create_particle(config);
 
     particle->initAdamVariables();
@@ -38,6 +39,9 @@ std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minim
         }
         step++;
     }
+
+    // scale the disk positions and radii back down to the target packing fraction
+    particle->scaleToPackingFraction(config.packing_fraction - overcompression_factor);
 
     // copy the disk positions and radii and then use that to determine the rigid particle positions
     SwapData2D<double> positions;

@@ -8,4 +8,4 @@
 #include "../../include/io/io_manager.h"
 #include "../../include/particle/particle_factory.h"
 
-std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(const BaseParticleConfig& config);
+std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_positions_and_radii(BaseParticleConfig& config, double overcompression_factor = 0.0);

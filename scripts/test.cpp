@@ -48,7 +48,7 @@ int main() {
 
     long segment_length_per_vertex_diameter = 1.0;
 
-    double packing_fraction = 0.2;
+    double packing_fraction = 0.8;
 
     double size_ratio = 1.4;
     double count_ratio = 0.5;
@@ -94,73 +94,16 @@ int main() {
     );
 
     RigidBumpy rb;
+    rb.initializeFromConfig(config);
 
-    // TODO: use shared memory for all vertex data for a single particle stored on a single block
-
-    // make disk into a base class for point-like particles
-
-    // make rigid bumpy into a base class for vertex-based particles
-
-    // make a function that defines a system of disks and then minimizes their overlaps to a target potential energy using adam
-    BidisperseDiskConfig disk_config(config.seed, config.n_particles, config.mass, config.e_c, config.n_c, config.packing_fraction, config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier, config.num_particles_per_cell, config.cell_displacement_multiplier, config.neighbor_list_update_method, particle_dim_block, size_ratio, count_ratio);
-    auto [positions, radii, box_size] = get_minimal_overlap_positions_and_radii(disk_config);
-    double disk_area = 0.0;
-    thrust::host_vector<double> h_radii = radii.getData();
-    for (double radius : h_radii) {
-        disk_area += PI * radius * radius;
-    }
-
-    rb.rotation = config.rotation;
-
-    rb.segment_length_per_vertex_diameter = config.segment_length_per_vertex_diameter;
     
-    rb.initializeVerticesFromDiskPacking(positions, radii, config.n_vertex_per_small_particle, config.particle_dim_block, config.vertex_dim_block);
-
-    rb.define_unique_dependencies();
-
-    rb.setSeed(config.seed);
-
-    // set random angles
-    rb.angles.fillRandomUniform(0, 2 * M_PI, 0, config.seed);
-
-    std::cout << "done with initializeVerticesFromDiskPacking" << std::endl;
-
-    rb.setBoxSize(box_size.getData());
-    // TODO: these have a bug
-    // rb.calculateParticleArea();
-    // rb.initializeBox(config.packing_fraction);
-
-
-    config.vertex_radius = rb.getVertexRadius();
-    double geom_scale = rb.getGeometryScale();
-    config.e_c *= (geom_scale * geom_scale);
-    rb.setEnergyScale(config.e_c, "c");
-    rb.setExponent(config.n_c, "c");
-    rb.setMass(config.mass);
-    rb.config = std::make_unique<BidisperseRigidBumpyConfig>(config);
-
-    // rb.updateVerletList();
-    rb.setNeighborMethod("cell");
-    std::cout << "setting neighbor size" << std::endl;
-    rb.setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    std::cout << "setting cell size" << std::endl;
-    rb.setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
-
-    rb.max_vertex_neighbors_allocated = 8;
-    rb.syncVertexNeighborList();
-
-    // init the neighbor list for the particles    
-    // rb.initVerletList();
-    std::cout << "initializing neighbor list" << std::endl;
-    rb.initNeighborList();
-    std::cout << "done initializing neighbor list" << std::endl;
-    rb.syncVertexNeighborList();
-
-    std::cout << "geom_scale: " << geom_scale << std::endl;
+    // TODO: use shared memory for all vertex data for a single particle stored on a single block
+    // make disk into a base class for point-like particles
+    // make rigid bumpy into a base class for vertex-based particles
+    
 
     double dt_dimless = 1e-2;
-    double dt = dt_dimless * rb.getTimeUnit() * geom_scale;
-
+    double dt = dt_dimless * rb.getTimeUnit() * rb.getGeometryScale();
 
     NVEConfig nve_config(dt);
     NVE nve(rb, nve_config);
@@ -188,17 +131,19 @@ int main() {
 
     std::cout << "stepping" << std::endl;
 
+    // TODO: clean up the rigid bumpy initialization
     // TODO: move the vertex indices to global indices
     // TODO: set sensible energy and time units for bumpy to match with disk
     // TODO: set neighbor list bounds
-    // TODO: build cell list
     // TODO: fix all-all neighbor list
-    // TODO: test dynamics
     // TODO: fix area, packing fraction, and (set)box size calculations
     // TODO: check if can remove the force ptrs from the reorder kernels - i dont think they are needed
     // TODO: nondimensionalize all units in terms of the particle size, mass, and energy
     // TODO: fix bug with the multi-processing data saving
     // TODO: reorganize files so that the particle classes are each in their own folders with their own kernels
+    // TODO: replica mode
+    // TODO: check max displacement every N steps
+    // TODO: make disk class using adam
 
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();

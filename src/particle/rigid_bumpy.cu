@@ -20,6 +20,9 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
+#include "../include/particle/disk.h"
+#include "../include/routines/initialization.h"
+
 
 RigidBumpy::RigidBumpy() {
 }
@@ -30,6 +33,40 @@ RigidBumpy::~RigidBumpy() {
 // ----------------------------------------------------------------------
 // --------------------- Overridden Methods -----------------------------
 // ----------------------------------------------------------------------
+
+void RigidBumpy::initializeFromConfig(BidisperseRigidBumpyConfig& config) {
+    BidisperseDiskConfig disk_config(config.seed, config.n_particles, config.mass, config.e_c, config.n_c, config.packing_fraction, config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier, config.num_particles_per_cell, config.cell_displacement_multiplier, config.neighbor_list_update_method, config.particle_dim_block, config.size_ratio, config.count_ratio);
+    auto [positions, radii, box_size] = get_minimal_overlap_positions_and_radii(disk_config);
+    double disk_area = 0.0;
+    thrust::host_vector<double> h_radii = radii.getData();
+    for (double radius : h_radii) {
+        disk_area += PI * radius * radius;
+    }
+    rotation = config.rotation;
+    segment_length_per_vertex_diameter = config.segment_length_per_vertex_diameter;
+    initializeVerticesFromDiskPacking(positions, radii, config.n_vertex_per_small_particle, config.particle_dim_block, config.vertex_dim_block);
+    define_unique_dependencies();
+    setSeed(config.seed);
+    angles.fillRandomUniform(0, 2 * M_PI, 0, config.seed);
+    setBoxSize(box_size.getData());
+    // TODO: these have a bug
+    // rb.calculateParticleArea();
+    // rb.initializeBox(config.packing_fraction);
+    config.vertex_radius = getVertexRadius();
+    double geom_scale = getGeometryScale();
+    config.e_c *= (geom_scale * geom_scale);
+    setEnergyScale(config.e_c, "c");
+    setExponent(config.n_c, "c");
+    setMass(config.mass);
+    this->config = std::make_unique<BidisperseRigidBumpyConfig>(config);
+    setNeighborMethod(config.neighbor_list_update_method);
+    setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+    setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
+    max_vertex_neighbors_allocated = 8;
+    syncVertexNeighborList();
+    initNeighborList();
+    syncVertexNeighborList();
+}
 
 
 void RigidBumpy::setKernelDimensions(long particle_dim_block, long vertex_dim_block) {
@@ -405,12 +442,12 @@ double RigidBumpy::getOverlapFraction() const {
 }
 
 void RigidBumpy::calculateForces() {
-    forces.fill(0.0, 0.0);
-    torques.fill(0.0);
-    vertex_torques.fill(0.0);
-    vertex_forces.fill(0.0, 0.0);
-    vertex_potential_energy.fill(0.0);
-    potential_energy.fill(0.0);
+    // forces.fill(0.0, 0.0);
+    // torques.fill(0.0);
+    // vertex_torques.fill(0.0);
+    // vertex_forces.fill(0.0, 0.0);
+    // vertex_potential_energy.fill(0.0);
+    // potential_energy.fill(0.0);
     // version 1: 2 kernels, 1 vertex level and 1 particle level
     kernelCalcRigidBumpyForces1<<<vertex_dim_grid, vertex_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr);
@@ -490,6 +527,15 @@ void RigidBumpy::initVerletList() {
     syncNeighborList();
     syncVertexNeighborList();
     updateVerletList();
+}
+
+void RigidBumpy::initCellList() {
+    initVerletListVariables();
+    syncNeighborList();
+    syncVertexNeighborList();
+    initCellListVariables();
+    updateCellList();
+    updateCellNeighborList();
 }
 
 void RigidBumpy::updateCellNeighborList() {
@@ -600,4 +646,9 @@ void RigidBumpy::reorderParticleData() {
     second_moment.swap();
     static_vertex_index.swap();
     syncVertexIndices();
+}
+
+void RigidBumpy::zeroForceAndPotentialEnergy() {
+    kernelZeroRigidBumpyParticleForceAndPotentialEnergy<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, potential_energy.d_ptr);
+    kernelZeroRigidBumpyVertexForceAndPotentialEnergy<<<vertex_dim_grid, vertex_dim_block>>>(vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr);
 }

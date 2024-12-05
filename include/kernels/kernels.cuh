@@ -133,6 +133,10 @@ __global__ void kernelRemoveMeanVelocities(double* __restrict__ velocities_x, do
 
 __global__ void kernelZeroForceAndPotentialEnergy(double* forces_x, double* forces_y, double* potential_energy);
 
+__global__ void kernelZeroRigidBumpyParticleForceAndPotentialEnergy(double* forces_x, double* forces_y, double* torques, double* potential_energy);
+
+__global__ void kernelZeroRigidBumpyVertexForceAndPotentialEnergy(double* vertex_forces_x, double* vertex_forces_y, double* vertex_torques, double* vertex_potential_energy);
+
 /**
  * @brief Calculate the translational kinetic energy of the particles.
  * 

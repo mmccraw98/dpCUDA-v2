@@ -86,7 +86,10 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
     }
     this->initNeighborList();
     this->calculateForces();  // make sure forces are calculated before the integration starts
-    // may want to check that the forces are balanced
+    double force_balance = this->getForceBalance();
+    if (force_balance / this->n_particles > 1e-14) {
+        std::cout << "WARNING: Particle::initializeFromConfig: Force balance is " << force_balance << ", there will be an error!" << std::endl;
+    }
 }
 
 double Particle::getForceBalance() {

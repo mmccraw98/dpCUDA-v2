@@ -159,4 +159,10 @@ public:
     void initCellListVariables() override;
 
     void updateCellNeighborList() override;
+
+    void zeroForceAndPotentialEnergy() override;
+
+    void initializeFromConfig(BidisperseRigidBumpyConfig& config);
+
+    void initCellList() override;
 };

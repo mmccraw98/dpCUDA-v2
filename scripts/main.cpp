@@ -93,7 +93,7 @@ int main() {
     double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 256, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.8, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
     
     // TODO: all-to-all neighbor list does not conserve energy in nve - may need explicit all-to-all neighbor list definition as some may be left out for some reason
@@ -177,8 +177,8 @@ int main() {
     NVE nve(*particle, nve_config);
 
     long num_steps = 1e5;
-    long num_energy_saves = 1e1;
-    long num_state_saves = 1e1;
+    long num_energy_saves = 1e2;
+    long num_state_saves = 1e2;
     long min_state_save_decade = 1e1;
 
     // Make the io manager
@@ -202,7 +202,7 @@ int main() {
 
     // TODO: make an io manager config?
 
-    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-11-08/jamming/1-run", 4, true);
+    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-11-08/jamming/1-run", 16, true);
     io_manager.write_params();  // TODO: move this into the io manager constructor
 
     // add a start time and an end time to the io manager, should be added to the config file - the end time will be used to determine if the program finished (if empty,it didnt finish)
@@ -223,7 +223,7 @@ int main() {
     while (step < 1e4) {
         nve.step();
         if (step % 1000 == 0) {
-            particle->scaleVelocitiesToTemperature(1e-2);
+            particle->scaleVelocitiesToTemperature(1e-4);
         }
         step++;
     }

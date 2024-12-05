@@ -267,6 +267,25 @@ __global__ void kernelZeroForceAndPotentialEnergy(
     potential_energy[particle_id] = 0.0;
 }
 
+__global__ void kernelZeroRigidBumpyParticleForceAndPotentialEnergy(double* forces_x, double* forces_y, double* torques, double* potential_energy) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    forces_x[particle_id] = 0.0;
+    forces_y[particle_id] = 0.0;
+    torques[particle_id] = 0.0;
+    potential_energy[particle_id] = 0.0;
+}
+
+__global__ void kernelZeroRigidBumpyVertexForceAndPotentialEnergy(double* vertex_forces_x, double* vertex_forces_y, double* vertex_torques, double* vertex_potential_energy) {
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+
+    vertex_forces_x[vertex_id] = 0.0;
+    vertex_forces_y[vertex_id] = 0.0;
+    vertex_torques[vertex_id] = 0.0;
+    vertex_potential_energy[vertex_id] = 0.0;
+}
 
 __global__ void kernelCalculateTranslationalKineticEnergy(
     const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,

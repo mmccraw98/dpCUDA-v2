@@ -71,7 +71,10 @@ public:
         {"TE", {"calculate_kinetic_energy"}},
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
-        {"kinetic_energy", {"calculate_kinetic_energy"}}  // kinetic energy array
+        {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
+        {"force_pairs", {"calculate_force_distance_pairs"}},
+        {"distance_pairs", {"calculate_force_distance_pairs"}},
+        {"pair_ids", {"calculate_force_distance_pairs"}}
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
@@ -109,6 +112,9 @@ public:
     Data1D<long> particle_index;
     Data1D<long> static_particle_index;
     Data1D<long> cell_start;
+    Data2D<double> force_pairs;
+    Data2D<double> distance_pairs;
+    Data2D<long> pair_ids;
 
     // adam minimizer variables
     SwapData2D<double> first_moment;
@@ -601,4 +607,6 @@ public:
      * @brief Virtual method to calculate the kinetic energy of the particles.
      */
     virtual void calculateKineticEnergy() = 0;
+
+    virtual void calculateForceDistancePairs() = 0;
 };

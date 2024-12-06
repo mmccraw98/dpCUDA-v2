@@ -55,6 +55,9 @@ public:
     SwapData1D<double> vertex_potential_energy;
     SwapData1D<double> moments_of_inertia;
 
+    Data1D<double> first_moment_angle;
+    Data1D<double> second_moment_angle;
+
     Data1D<double> angle_delta;  // for tracking particle rotation for vertex neighbor list updates
     Data2D<double> delta;  // for tracking particle translation for vertex neighbor list updates
     
@@ -165,4 +168,10 @@ public:
     void initializeFromConfig(BidisperseRigidBumpyConfig& config);
 
     void initCellList() override;
+
+    void calculateForceDistancePairs();
+
+    void initAdamVariables() override;
+    void clearAdamVariables() override;
+    void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) override;
 };

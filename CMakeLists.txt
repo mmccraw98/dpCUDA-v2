@@ -84,3 +84,7 @@ target_link_libraries(test_exec PRIVATE common_sources)
 # Fast Jam executable
 add_executable(fast_jam scripts/fast_jam.cpp)
 target_link_libraries(fast_jam PRIVATE common_sources)
+
+# Jam executable
+add_executable(jam scripts/jam.cpp)
+target_link_libraries(jam PRIVATE common_sources)

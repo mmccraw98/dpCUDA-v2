@@ -87,7 +87,7 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
     this->initNeighborList();
     this->calculateForces();  // make sure forces are calculated before the integration starts
     double force_balance = this->getForceBalance();
-    if (force_balance / this->n_particles > 1e-14) {
+    if (force_balance / this->n_particles / this->e_c > 1e-14) {
         std::cout << "WARNING: Particle::initializeFromConfig: Force balance is " << force_balance << ", there will be an error!" << std::endl;
     }
 }
@@ -309,7 +309,9 @@ void Particle::handle_calculation_for_single_dependency(std::string dependency_c
     // logic to calculate the dependency goes here - need one for each value in unique_dependencies
     if (dependency_calculation_name == "calculate_kinetic_energy") {
         calculateKineticEnergy();
-    } 
+    } else if (dependency_calculation_name == "calculate_force_distance_pairs") {
+        calculateForceDistancePairs();
+    }
     // fill in the rest here....
 
     else {
@@ -390,6 +392,22 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.size = cell_start.size;
         result.data = cell_start.getData();
         result.index_array_name = "";
+    } else if (array_name == "force_pairs") {
+        result.type = DataType::Double;
+        result.size = force_pairs.size;
+        result.data = std::make_pair(force_pairs.getDataX(), force_pairs.getDataY());
+        result.index_array_name = "";
+    } else if (array_name == "distance_pairs") {
+        result.type = DataType::Double;
+        result.size = distance_pairs.size;
+        result.data = std::make_pair(distance_pairs.getDataX(), distance_pairs.getDataY());
+        result.index_array_name = "";
+    } else if (array_name == "pair_ids") {
+        result.type = DataType::Long;
+        result.size = pair_ids.size;
+        result.data = std::make_pair(pair_ids.getDataX(), pair_ids.getDataY());
+        result.index_array_name = "";
+
     } else {
         throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
     }

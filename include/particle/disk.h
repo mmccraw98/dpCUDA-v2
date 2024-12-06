@@ -93,4 +93,6 @@ public:
      * @brief Calculate the kinetic energy of the particles.
      */
     void calculateKineticEnergy();
+
+    void calculateForceDistancePairs() override;
 };

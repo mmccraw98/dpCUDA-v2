@@ -87,3 +87,10 @@ void Disk::calculateKineticEnergy() {
     // kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(d_velocities_x_ptr, d_velocities_y_ptr, d_masses_ptr, d_kinetic_energy_ptr);
     kernelCalculateTranslationalKineticEnergy<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, kinetic_energy.d_ptr);
 }
+
+void Disk::calculateForceDistancePairs() {
+    force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
+    distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
+    pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
+    kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, radii.d_ptr);
+}

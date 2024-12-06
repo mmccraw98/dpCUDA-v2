@@ -216,6 +216,8 @@ inline __device__ double calcPointPointInteraction(
  */
 __global__ void kernelCalcDiskForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy);
 
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, const double* radii);
+
 inline __device__ double calcTorque(double force_x, double force_y, double pos_x, double pos_y, double center_x, double center_y) {
     double dx = pos_x - center_x;
     double dy = pos_y - center_y;
@@ -375,6 +377,32 @@ __global__ void kernelGradDescStep(
     double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
     double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
     double alpha);
+
+__global__ void kernelRigidBumpyAdamStep(
+    double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
+    double* __restrict__ first_moment_angle,
+    double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
+    double* __restrict__ second_moment_angle,
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ angles,
+    double* __restrict__ delta_x, double* __restrict__ delta_y,
+    double* __restrict__ angle_delta,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    const double* __restrict__ torques,
+    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, double one_minus_beta2_pow_t, double epsilon,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq, bool rotation);
+
+__global__ void kernelRigidBumpyGradDescStep(
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ angles,
+    double* __restrict__ delta_x, double* __restrict__ delta_y,
+    double* __restrict__ angle_delta,
+    const double* __restrict__ torques,
+    double* __restrict__ forces_x, double* __restrict__ forces_y,
+    double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y, double* __restrict__ neigh_displacements_sq,
+    double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq,
+    double alpha, bool rotation);
 
 // initialize vertices
 

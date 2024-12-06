@@ -48,7 +48,7 @@ int main() {
 
     long segment_length_per_vertex_diameter = 1.0;
 
-    double packing_fraction = 0.8;
+    double packing_fraction = 0.75;
 
     double size_ratio = 1.4;
     double count_ratio = 0.5;
@@ -108,24 +108,25 @@ int main() {
     NVEConfig nve_config(dt);
     NVE nve(rb, nve_config);
 
-    long num_steps = 1e5;
-    long num_saves = 1e2;
-    long num_energy_saves = 1e1;
-    long num_state_saves = 1e1;
+    long num_steps = 1e7;
+    long num_saves = 1e4;
+    long num_energy_saves = 1e4;
+    long num_state_saves = 1e3;
     long min_state_save_decade = 1e1;
     std::cout << "num_steps: " << num_steps << std::endl;
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
-        config_from_names_lin({"step", "KE/N", "PE/N", "TE/N", "T"}, num_steps, num_saves, "console"),  // logs to the console
-        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
+        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia", "num_vertices_in_particle"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "velocities", "forces", "vertex_positions", "vertex_forces", "angular_velocities", "torques", "vertex_torques", "cell_index", "vertex_particle_index", "particle_start_index", "num_vertices_in_particle", "particle_index", "static_particle_index", "num_neighbors", "num_vertex_neighbors", "cell_start", "neighbor_list", "vertex_neighbor_list", "angles", "potential_energy", "kinetic_energy"}, num_steps, num_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_saves, "energy"),  // saves the energy data to the energy file
+        // config_from_names_log({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb1", 8, true);
+    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb-test-10", 4, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
@@ -144,11 +145,12 @@ int main() {
     // TODO: replica mode
     // TODO: check max displacement every N steps
     // TODO: make disk class using adam
+    // TODO: use define unique dependencies to initialize any extra data arrays needed for the calculations
 
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    rb.setRandomVelocities(1e-3);
+    rb.setRandomVelocities(1e-5);
 
     long step = 0;
     while (step < num_steps) {

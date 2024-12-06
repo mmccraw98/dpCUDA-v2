@@ -376,6 +376,47 @@ __global__ void kernelCalcDiskForces(
     potential_energy[particle_id] = energy;
 }
 
+
+
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, const double* radii) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long num_neighbors = d_num_neighbors_ptr[particle_id];
+    if (num_neighbors == 0) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double rad = radii[particle_id];
+    double force_acc_x = 0.0, force_acc_y = 0.0;
+    double energy = 0.0;
+
+    for (long n = 0; n < num_neighbors; n++) {
+        long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_id == -1 || other_id == particle_id) continue;
+
+        // Load neighbor's data
+        double other_x = positions_x[other_id];
+        double other_y = positions_y[other_id];
+        double other_rad = radii[other_id];
+
+        // Calculate force and energy using the interaction function
+        double force_x, force_y;
+        double interaction_energy = calcPointPointInteraction(
+            pos_x, pos_y, rad, other_x, other_y, other_rad, 
+            force_x, force_y
+        );
+        force_pairs_x[particle_id * num_neighbors + n] = force_x;
+        force_pairs_y[particle_id * num_neighbors + n] = force_y;
+        distance_pairs_x[particle_id * num_neighbors + n] = pbcDistance(pos_x, other_x, 0);
+        distance_pairs_y[particle_id * num_neighbors + n] = pbcDistance(pos_y, other_y, 1);
+        this_pair_id[particle_id * num_neighbors + n] = particle_id;
+        other_pair_id[particle_id * num_neighbors + n] = other_id;
+    }
+}
+
+
+
 __global__ void kernelCalcRigidBumpyForces1(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, 
@@ -932,6 +973,90 @@ __global__ void kernelGradDescStep(
     double dx_cell = pos_x - last_cell_positions_x[particle_id];
     double dy_cell = pos_y - last_cell_positions_y[particle_id];
     cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+}
+
+
+
+__global__ void kernelRigidBumpyAdamStep(
+    double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
+    double* __restrict__ first_moment_angle,
+    double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
+    double* __restrict__ second_moment_angle,
+    double* __restrict__ positions_x, double* __restrict__ positions_y,
+    double* __restrict__ angles,
+    double* __restrict__ delta_x, double* __restrict__ delta_y,
+    double* __restrict__ angle_delta,
+    const double* __restrict__ forces_x, const double* __restrict__ forces_y,
+    const double* __restrict__ torques,
+    double alpha, double beta1, double beta2, double one_minus_beta1_pow_t, 
+    double one_minus_beta2_pow_t, double epsilon, double* __restrict__ last_neigh_positions_x, double* __restrict__ last_neigh_positions_y,
+    double* __restrict__ neigh_displacements_sq, double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y,
+    double* __restrict__ cell_displacements_sq, bool rotation) {
+
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    // Prefetch forces into registers
+    double force_x = forces_x[particle_id];
+    double force_y = forces_y[particle_id];
+    double torque = torques[particle_id];
+
+    // Load moments into registers
+    double first_m_x = first_moment_x[particle_id];
+    double first_m_y = first_moment_y[particle_id];
+    double first_m_angle = first_moment_angle[particle_id];
+    double second_m_x = second_moment_x[particle_id];
+    double second_m_y = second_moment_y[particle_id];
+    double second_m_angle = second_moment_angle[particle_id];
+
+    // Update moments using fma for better performance
+    first_m_x = fma(beta1, first_m_x, (beta1 - 1) * force_x);
+    first_m_y = fma(beta1, first_m_y, (beta1 - 1) * force_y);
+    first_m_angle = fma(beta1, first_m_angle, (beta1 - 1) * torque);
+
+    second_m_x = fma(beta2, second_m_x, (1 - beta2) * force_x * force_x);
+    second_m_y = fma(beta2, second_m_y, (1 - beta2) * force_y * force_y);
+    second_m_angle = fma(beta2, second_m_angle, (1 - beta2) * torque * torque);
+
+    // Compute bias-corrected moments
+    double m_hat_x = first_m_x / one_minus_beta1_pow_t;
+    double m_hat_y = first_m_y / one_minus_beta1_pow_t;
+    double m_hat_angle = first_m_angle / one_minus_beta1_pow_t;
+
+    double v_hat_x = second_m_x / one_minus_beta2_pow_t;
+    double v_hat_y = second_m_y / one_minus_beta2_pow_t;
+    double v_hat_angle = second_m_angle / one_minus_beta2_pow_t;
+
+    // Compute position updates
+    double update_x = -alpha * m_hat_x / (sqrt(v_hat_x) + epsilon);
+    double update_y = -alpha * m_hat_y / (sqrt(v_hat_y) + epsilon);
+    double update_angle = -alpha * m_hat_angle / (sqrt(v_hat_angle) + epsilon);
+
+    // Update positions
+    positions_x[particle_id] += update_x;
+    positions_y[particle_id] += update_y;
+    if (rotation) {
+        angles[particle_id] += update_angle;
+    }
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+
+    double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
+    double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
+    neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
+
+    double dx_cell = pos_x - last_cell_positions_x[particle_id];
+    double dy_cell = pos_y - last_cell_positions_y[particle_id];
+    cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
+
+    // Store updated moments back
+    first_moment_x[particle_id] = first_m_x;
+    first_moment_y[particle_id] = first_m_y;
+    first_moment_angle[particle_id] = first_m_angle;
+    second_moment_x[particle_id] = second_m_x;
+    second_moment_y[particle_id] = second_m_y;
+    second_moment_angle[particle_id] = second_m_angle;
 }
 
 

@@ -139,6 +139,7 @@ int main() {
     if (random_angles) {
         rb.angles.fillRandomUniform(0, 2 * M_PI, 0, config.seed);
     }
+    rb.velocities.copyFrom(source_velocities);
 
     thrust::host_vector<double> host_box_size(N_DIM);
     host_box_size[0] = length;

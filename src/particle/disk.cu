@@ -94,3 +94,7 @@ void Disk::calculateForceDistancePairs() {
     pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
     kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, radii.d_ptr);
 }
+
+void Disk::calculateWallForces() {
+    kernelCalcDiskWallForces<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
+}

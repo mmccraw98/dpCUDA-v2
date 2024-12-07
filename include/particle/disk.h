@@ -95,4 +95,6 @@ public:
     void calculateKineticEnergy();
 
     void calculateForceDistancePairs() override;
+
+    void calculateWallForces() override;
 };

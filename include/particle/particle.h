@@ -609,4 +609,6 @@ public:
     virtual void calculateKineticEnergy() = 0;
 
     virtual void calculateForceDistancePairs() = 0;
+
+    virtual void calculateWallForces() = 0;
 };

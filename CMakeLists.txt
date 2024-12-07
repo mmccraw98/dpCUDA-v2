@@ -88,3 +88,15 @@ target_link_libraries(fast_jam PRIVATE common_sources)
 # Jam executable
 add_executable(jam scripts/jam.cpp)
 target_link_libraries(jam PRIVATE common_sources)
+
+# Rigid Bumpy Jam executable
+add_executable(rb_jam scripts/rb_jam.cpp)
+target_link_libraries(rb_jam PRIVATE common_sources)
+
+# Disk Pool executable
+add_executable(disk_pool scripts/disk_pool.cpp)
+target_link_libraries(disk_pool PRIVATE common_sources)
+
+# Rigid Bumpy Pool executable
+add_executable(rb_pool scripts/rb_pool.cpp)
+target_link_libraries(rb_pool PRIVATE common_sources)

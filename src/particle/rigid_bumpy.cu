@@ -37,11 +37,14 @@ RigidBumpy::~RigidBumpy() {
 void RigidBumpy::initializeFromConfig(BidisperseRigidBumpyConfig& config) {
     BidisperseDiskConfig disk_config(config.seed, config.n_particles, config.mass, config.e_c, config.n_c, config.packing_fraction, config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier, config.num_particles_per_cell, config.cell_displacement_multiplier, config.neighbor_list_update_method, config.particle_dim_block, config.size_ratio, config.count_ratio);
     auto [positions, radii, box_size] = get_minimal_overlap_positions_and_radii(disk_config);
-    double disk_area = 0.0;
     thrust::host_vector<double> h_radii = radii.getData();
+    // is this block necessary?
+    // --------- //
+    double disk_area = 0.0;
     for (double radius : h_radii) {
         disk_area += PI * radius * radius;
     }
+    // ---------- //
     rotation = config.rotation;
     segment_length_per_vertex_diameter = config.segment_length_per_vertex_diameter;
     initializeVerticesFromDiskPacking(positions, radii, config.n_vertex_per_small_particle, config.particle_dim_block, config.vertex_dim_block);
@@ -678,4 +681,11 @@ void RigidBumpy::updatePositionsAdam(long step, double alpha, double beta1, doub
 
     kernelTranslateAndRotateVertices1<<<vertex_dim_grid, vertex_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr);
+}
+
+void RigidBumpy::calculateWallForces() {
+    // calculates the forces from the walls on the vertices which is then later applied to the total particle forces
+    kernelCalcRigidBumpyWallForces<<<vertex_dim_grid, vertex_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr
+    );
 }

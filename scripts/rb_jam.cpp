@@ -48,7 +48,7 @@ int main() {
 
     long segment_length_per_vertex_diameter = 1.0;
 
-    double packing_fraction = 0.75;
+    double packing_fraction = 0.6;
 
     double size_ratio = 1.4;
     double count_ratio = 0.5;
@@ -95,71 +95,83 @@ int main() {
 
     RigidBumpy rb;
     rb.initializeFromConfig(config);
-
+    rb.initAdamVariables();
     
     // TODO: use shared memory for all vertex data for a single particle stored on a single block
     // make disk into a base class for point-like particles
     // make rigid bumpy into a base class for vertex-based particles
     
-
-    double dt_dimless = 1e-2;
-    double dt = dt_dimless * rb.getTimeUnit() * rb.getGeometryScale();
-
-    NVEConfig nve_config(dt);
-    NVE nve(rb, nve_config);
-
-    long num_steps = 1e7;
-    long num_saves = 1e4;
-    long num_energy_saves = 1e4;
+    double packing_fraction_target = 0.8;
+    double packing_fraction_increment = 1e-4;
+    long num_compression_steps = 1e5;
+    long num_adam_steps = 1e5;
     long num_state_saves = 1e3;
-    long min_state_save_decade = 1e1;
-    std::cout << "num_steps: " << num_steps << std::endl;
+    long num_energy_saves = 1e3;
+
+    double alpha = 1e-4;
+    double beta1 = 0.9;
+    double beta2 = 0.999;
+    double epsilon = 1e-8;
+
+    double avg_pe_target = 1e-16;
+    double avg_pe_diff_target = 1e-16;
+
+    AdamConfig adam_config(alpha, beta1, beta2, epsilon);
+    Adam adam(rb, adam_config);
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
-        config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
+        config_from_names_lin_everyN({"step", "PE/N", "phi"}, 1e4, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia", "num_vertices_in_particle"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        config_from_names_lin({"positions", "forces", "angles"}, num_compression_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_compression_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-10-14/working-on-bumpy/rb-test-10", 4, true);
+    IOManager io_manager(log_group_configs, rb, &adam, "/home/mmccraw/dev/data/24-12-06/rb-jam", 1, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
     std::cout << "stepping" << std::endl;
 
-    // TODO: change configs for all particles to be simpler
-    // TODO: make a load from function for particles
-    
-    // TODO: clean up the rigid bumpy initialization
-    // TODO: move the vertex indices to global indices
-    // TODO: set sensible energy and time units for bumpy to match with disk
-    // TODO: set neighbor list bounds
-    // TODO: fix all-all neighbor list
-    // TODO: fix area, packing fraction, and (set)box size calculations
-    // TODO: check if can remove the force ptrs from the reorder kernels - i dont think they are needed
-    // TODO: nondimensionalize all units in terms of the particle size, mass, and energy
-    // TODO: fix bug with the multi-processing data saving
-    // TODO: reorganize files so that the particle classes are each in their own folders with their own kernels
-    // TODO: replica mode
-    // TODO: check max displacement every N steps
-    // TODO: make disk class using adam
-    // TODO: use define unique dependencies to initialize any extra data arrays needed for the calculations
-
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    rb.setRandomVelocities(1e-5);
 
-    long step = 0;
-    while (step < num_steps) {
-        nve.step();
-        io_manager.log(step);
-        step++;
+
+    rb.calculateParticleArea();
+    packing_fraction = rb.getPackingFraction();
+    std::cout << "initial packing fraction: " << packing_fraction << std::endl;
+    // exit(0);
+
+    long compression_step = 0;
+    double avg_pe_past_jamming = 1e-9;  // marks being above jamming (might be too high)
+    double avg_pe = 0.0;
+    while (packing_fraction < packing_fraction_target && compression_step < num_compression_steps) {
+        long adam_step = 0;
+        double dof = static_cast<double>(rb.n_dof);
+        double last_avg_pe = 0.0;
+        double avg_pe_diff = 0.0;
+        while (adam_step < num_adam_steps) {
+            adam.minimize(adam_step);
+            avg_pe = rb.totalPotentialEnergy() / dof / rb.e_c;
+            avg_pe_diff = std::abs(avg_pe - last_avg_pe);
+            last_avg_pe = avg_pe;
+            if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target) {
+                break;
+            }
+            adam_step++;
+        }
+        if (adam_step == num_adam_steps) {
+            std::cout << "Adam failed to converge" << std::endl;
+            break;
+        }
+        io_manager.log(compression_step);
+        rb.scaleToPackingFraction(packing_fraction + packing_fraction_increment);
+        packing_fraction = rb.getPackingFraction();
+        compression_step++;
     }
 
     // stop the timer

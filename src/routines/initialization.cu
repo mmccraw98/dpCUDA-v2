@@ -20,7 +20,7 @@ std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minim
     Adam adam(*particle, adam_config);
 
     std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e3, "console"),  // logs to the console
+        config_from_names_lin_everyN({"step", "PE/N", "phi"}, 1e3, "console"),  // logs to the console
     };
     IOManager io_manager(log_group_configs, *particle, &adam, "", 1, true);
 

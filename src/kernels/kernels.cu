@@ -371,11 +371,40 @@ __global__ void kernelCalcDiskForces(
     }
 
     // Store results in global memory
-    forces_x[particle_id] = force_acc_x;
-    forces_y[particle_id] = force_acc_y;
-    potential_energy[particle_id] = energy;
+    forces_x[particle_id] += force_acc_x;
+    forces_y[particle_id] += force_acc_y;
+    potential_energy[particle_id] += energy;
 }
 
+__global__ void kernelCalcDiskWallForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double rad = radii[particle_id];
+    double force_x = 0.0, force_y = 0.0;
+    double interaction_energy = calcWallInteraction(pos_x, pos_y, rad, force_x, force_y);
+    forces_x[particle_id] += force_x;
+    forces_y[particle_id] += force_y;
+    potential_energy[particle_id] += interaction_energy;
+}
+
+__global__ void kernelCalcRigidBumpyWallForces(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* vertex_forces_x, double* vertex_forces_y, double* vertex_torques, double* vertex_potential_energy) {
+    long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (vertex_id >= d_n_vertices) return;
+
+    double vertex_pos_x = vertex_positions_x[vertex_id];
+    double vertex_pos_y = vertex_positions_y[vertex_id];
+    double particle_pos_x = positions_x[d_vertex_particle_index_ptr[vertex_id]];
+    double particle_pos_y = positions_y[d_vertex_particle_index_ptr[vertex_id]];
+    double force_x, force_y;
+    double interaction_energy = calcWallInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, force_x, force_y);
+    vertex_forces_x[vertex_id] += force_x;
+    vertex_forces_y[vertex_id] += force_y;
+    vertex_torques[vertex_id] += calcTorque(force_x, force_y, vertex_pos_x, vertex_pos_y, particle_pos_x, particle_pos_y);
+    vertex_potential_energy[vertex_id] += interaction_energy;
+}
 
 
 __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, const double* radii) {
@@ -464,10 +493,10 @@ __global__ void kernelCalcRigidBumpyForces1(
     double torque = calcTorque(force_acc_x, force_acc_y, vertex_pos_x, vertex_pos_y, particle_pos_x, particle_pos_y);
 
     // Store results in global memory
-    vertex_forces_x[vertex_id] = force_acc_x;
-    vertex_forces_y[vertex_id] = force_acc_y;
-    vertex_torques[vertex_id] = torque;
-    vertex_potential_energy[vertex_id] = energy;
+    vertex_forces_x[vertex_id] += force_acc_x;
+    vertex_forces_y[vertex_id] += force_acc_y;
+    vertex_torques[vertex_id] += torque;
+    vertex_potential_energy[vertex_id] += energy;
 }
 
 __global__ void kernelCalcRigidBumpyParticleForces1(
@@ -489,10 +518,10 @@ __global__ void kernelCalcRigidBumpyParticleForces1(
         energy += vertex_potential_energy[vertex_id];
     }
 
-    particle_forces_x[particle_id] = force_acc_x;
-    particle_forces_y[particle_id] = force_acc_y;
-    particle_torques[particle_id] = torque_acc;
-    particle_potential_energy[particle_id] = energy;
+    particle_forces_x[particle_id] += force_acc_x;
+    particle_forces_y[particle_id] += force_acc_y;
+    particle_torques[particle_id] += torque_acc;
+    particle_potential_energy[particle_id] += energy;
 }
 
 __global__ void kernelCalcRigidBumpyForces2(const double* __restrict__ positions_x, const double* __restrict__ positions_y, const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y, double* __restrict__ particle_forces_x, double* __restrict__ particle_forces_y, double* __restrict__ particle_torques, double* __restrict__ particle_potential_energy) {

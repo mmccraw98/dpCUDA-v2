@@ -199,6 +199,58 @@ inline __device__ double calcPointPointInteraction(
     return energy;
 }
 
+inline __device__ double calcWallInteraction(const double pos_x, const double pos_y, const double rad, double& force_x, double& force_y) {
+    double energy = 0.0;
+    force_x = 0.0;
+    force_y = 0.0;
+    
+    // Left wall
+    if (pos_x < rad) {
+        double dx = pos_x;  // distance from wall
+        double overlap = rad - dx;
+        if (overlap > 0) {
+            double overlap_pow = pow(overlap / rad, d_n_c - 1);
+            force_x += d_e_c * overlap_pow / rad;
+            energy += d_e_c * overlap * overlap_pow / (d_n_c * rad);
+        }
+    }
+    
+    // Right wall
+    if (pos_x > d_box_size[0] - rad) {
+        double dx = d_box_size[0] - pos_x;  // distance from wall
+        double overlap = rad - dx;
+        if (overlap > 0) {
+            double overlap_pow = pow(overlap / rad, d_n_c - 1);
+            force_x -= d_e_c * overlap_pow / rad;
+            energy += d_e_c * overlap * overlap_pow / (d_n_c * rad);
+        }
+    }
+    
+    // Bottom wall
+    if (pos_y < rad) {
+        double dy = pos_y;  // distance from wall
+        double overlap = rad - dy;
+        if (overlap > 0) {
+            double overlap_pow = pow(overlap / rad, d_n_c - 1);
+            force_y += d_e_c * overlap_pow / rad;
+            energy += d_e_c * overlap * overlap_pow / (d_n_c * rad);
+        }
+    }
+    
+    // Top wall
+    if (pos_y > d_box_size[1] - rad) {
+        double dy = d_box_size[1] - pos_y;  // distance from wall
+        double overlap = rad - dy;
+        if (overlap > 0) {
+            double overlap_pow = pow(overlap / rad, d_n_c - 1);
+            force_y -= d_e_c * overlap_pow / rad;
+            energy += d_e_c * overlap * overlap_pow / (d_n_c * rad);
+        }
+    }
+    
+    return energy;
+}
+
 
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
@@ -215,6 +267,10 @@ inline __device__ double calcPointPointInteraction(
  * @param potential_energy Pointer to the array of potential energies of the particles.
  */
 __global__ void kernelCalcDiskForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy);
+
+__global__ void kernelCalcDiskWallForces(const double* positions_x, const double* positions_y, const double* radii, double* forces_x, double* forces_y, double* potential_energy);
+
+__global__ void kernelCalcRigidBumpyWallForces(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* vertex_forces_x, double* vertex_forces_y, double* vertex_torques, double* vertex_potential_energy);
 
 __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, const double* radii);
 

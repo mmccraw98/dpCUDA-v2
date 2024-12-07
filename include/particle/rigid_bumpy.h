@@ -174,4 +174,6 @@ public:
     void initAdamVariables() override;
     void clearAdamVariables() override;
     void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) override;
+
+    void calculateWallForces();
 };

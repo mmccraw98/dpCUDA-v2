@@ -90,7 +90,7 @@ int main() {
     RigidBumpy rb;
 
     bool random_angles = true;
-    double cue_speed = 1.0;
+    double cue_speed = 0.01;
     double cue_angle = 0.0;
 
     double length = 2.0;
@@ -163,7 +163,7 @@ int main() {
 
     // make the integrator
     double dt_dimless = 1e-2;  // 1e-3 might be the best option
-    NVEConfig nve_config(dt_dimless * rb.getTimeUnit());
+    NVEConfig nve_config(dt_dimless * rb.getTimeUnit() * rb.getGeometryScale());
     NVE nve(rb, nve_config);
 
     long num_steps = 1e6;

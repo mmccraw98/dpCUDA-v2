@@ -611,4 +611,8 @@ public:
     virtual void calculateForceDistancePairs() = 0;
 
     virtual void calculateWallForces() = 0;
+
+    virtual void calculateDampedForces(double damping_coefficient);
+
+    virtual void calculateParticleArea() {};
 };

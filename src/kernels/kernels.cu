@@ -89,6 +89,22 @@ __global__ void kernelUpdatePositions(
     // TODO: check for max displacement threshold here to avoid the thrust reduce call
 }
 
+__global__ void kernelCalculateDampedForces(double* forces_x, double* forces_y, const double* velocities_x, const double* velocities_y, const double damping_coefficient) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    forces_x[particle_id] -= damping_coefficient * velocities_x[particle_id];
+    forces_y[particle_id] -= damping_coefficient * velocities_y[particle_id];
+}
+
+__global__ void kernelCalculateRigidDampedForces(double* forces_x, double* forces_y, double* torques, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double damping_coefficient) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    forces_x[particle_id] -= damping_coefficient * velocities_x[particle_id];
+    forces_y[particle_id] -= damping_coefficient * velocities_y[particle_id];
+    torques[particle_id] -= damping_coefficient * angular_velocities[particle_id];
+}
 
 __global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;

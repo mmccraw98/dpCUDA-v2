@@ -176,4 +176,6 @@ public:
     void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) override;
 
     void calculateWallForces();
+
+    void calculateDampedForces(double damping_coefficient);
 };

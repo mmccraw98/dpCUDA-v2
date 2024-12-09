@@ -918,3 +918,7 @@ double Particle::getNumberDensity() {
 double Particle::getGeometryScale() {
     return 1.0;
 }
+
+void Particle::calculateDampedForces(double damping_coefficient) {
+    kernelCalculateDampedForces<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, damping_coefficient);
+}

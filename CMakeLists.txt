@@ -55,11 +55,13 @@ add_library(common_sources STATIC
     src/io/state_log.cu
     src/integrator/integrator.cu
     src/integrator/nve.cu
+    src/integrator/damped_nve.cu
     src/integrator/grad_desc.cu
     src/particle/disk.cu
     src/particle/rigid_bumpy.cu
     src/integrator/adam.cu
     src/routines/initialization.cu
+    src/routines/compression.cu
     src/io/utils.cu
     src/utils/thread_pool.cpp
 )
@@ -100,3 +102,7 @@ target_link_libraries(disk_pool PRIVATE common_sources)
 # Rigid Bumpy Pool executable
 add_executable(rb_pool scripts/rb_pool.cpp)
 target_link_libraries(rb_pool PRIVATE common_sources)
+
+# Rigid Bumpy Damped Jam executable
+add_executable(rb_damped_jam scripts/rb_damped_jam.cpp)
+target_link_libraries(rb_damped_jam PRIVATE common_sources)

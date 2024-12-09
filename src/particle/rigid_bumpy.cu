@@ -268,6 +268,9 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // set the particle start index
     setParticleStartIndex();
 
+    // set random angles
+    angles.fillRandomUniform(0.0, 2 * M_PI, 0.0, seed);
+
     // initialize the vertices on the particles
     kernelInitializeVerticesOnParticles<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, angles.d_ptr, vertex_particle_index.d_ptr, particle_start_index.d_ptr, num_vertices_in_particle.d_ptr, vertex_masses.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr);
@@ -691,4 +694,8 @@ void RigidBumpy::calculateWallForces() {
     kernelCalcRigidBumpyWallForces<<<vertex_dim_grid, vertex_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr
     );
+}
+
+void RigidBumpy::calculateDampedForces(double damping_coefficient) {
+    kernelCalculateRigidDampedForces<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, damping_coefficient);
 }

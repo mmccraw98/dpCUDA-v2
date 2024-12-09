@@ -678,6 +678,9 @@ void RigidBumpy::updatePositionsAdam(long step, double alpha, double beta1, doub
     double one_minus_beta2_pow_t = 1 - pow(beta2, step + 1);
     kernelRigidBumpyAdamStep<<<particle_dim_grid, particle_dim_block>>>(
         first_moment.x.d_ptr, first_moment.y.d_ptr, first_moment_angle.d_ptr, second_moment.x.d_ptr, second_moment.y.d_ptr, second_moment_angle.d_ptr, positions.x.d_ptr, positions.y.d_ptr, angles.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, alpha, beta1, beta2, one_minus_beta1_pow_t, one_minus_beta2_pow_t, epsilon, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, neigh_displacements_sq.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, cell_displacements_sq.d_ptr, rotation);
+    // kernelUpdateRigidPositions<<<particle_dim_grid, particle_dim_block>>>(
+    //     positions.x.d_ptr, positions.y.d_ptr, angles.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr, last_neigh_positions.x.d_ptr, last_neigh_positions.y.d_ptr, last_cell_positions.x.d_ptr, last_cell_positions.y.d_ptr, neigh_displacements_sq.d_ptr, cell_displacements_sq.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, dt
+    // );
 
     kernelTranslateAndRotateVertices1<<<vertex_dim_grid, vertex_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, delta.x.d_ptr, delta.y.d_ptr, angle_delta.d_ptr);

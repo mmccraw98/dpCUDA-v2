@@ -37,13 +37,13 @@
 #include <nlohmann/json.hpp>
 
 int main() {
-    long n_vertices_per_small_particle = 26;
+    long n_vertices_per_small_particle = 3;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
     long n_particles = 16;
 
     double particle_mass = 1.0;
-    double e_c = 1.0;
+    double e_c = 1e2;
     double n_c = 2.0;
     long segment_length_per_vertex_diameter = 1.0;
     double packing_fraction = 0.6;
@@ -90,7 +90,7 @@ int main() {
     RigidBumpy rb;
 
     bool random_angles = true;
-    double cue_speed = 0.01;
+    double cue_speed = 0.1;
     double cue_angle = 0.0;
 
     double length = 2.0;
@@ -100,7 +100,7 @@ int main() {
     double ball_radius = 0.04;
     double rack_x = 0.75 * length;
     double rack_y = 0.5 * width;
-    double spacing = ball_radius * 2.0 * 1.1;
+    double spacing = ball_radius * 2.0 * 1.01;
 
     SwapData2D<double> source_positions;
     SwapData2D<double> source_velocities;
@@ -166,19 +166,19 @@ int main() {
     NVEConfig nve_config(dt_dimless * rb.getTimeUnit() * rb.getGeometryScale());
     NVE nve(rb, nve_config);
 
-    long num_steps = 1e6;
+    long num_steps = 2e7;
     long num_energy_saves = 1e2;
-    long num_state_saves = 1e3;
+    long num_state_saves = 2e3;
     long min_state_save_decade = 1e1;
 
     std::vector<LogGroupConfig> log_group_configs = {
         config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e4, "console"),  // logs to the console
-        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_velocities"}, "init"),
+        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_velocities", "num_vertices_in_particle"}, "init"),
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),
         config_from_names_lin({"positions", "velocities", "vertex_positions", "vertex_velocities", "forces"}, num_steps, num_state_saves, "state"),
     };
 
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-12-07/rb-pool-1", 1, true);
+    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-12-07/rb-pool-6", 1, true);
     io_manager.write_params();
 
     long step = 0;

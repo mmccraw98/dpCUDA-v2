@@ -1064,8 +1064,11 @@ __global__ void kernelRigidBumpyAdamStep(
     // Update positions
     positions_x[particle_id] += update_x;
     positions_y[particle_id] += update_y;
+    delta_x[particle_id] = update_x;
+    delta_y[particle_id] = update_y;
     if (rotation) {
         angles[particle_id] += update_angle;
+        angle_delta[particle_id] = update_angle;
     }
 
     double pos_x = positions_x[particle_id];

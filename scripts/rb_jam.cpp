@@ -37,10 +37,10 @@ int main() {
 
     // make a config for the rb partcle
     // set the config large vertex numbers after creation
-    long n_vertices_per_small_particle = 26;
+    long n_vertices_per_small_particle = 3;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 1024;
+    long n_particles = 32;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -50,7 +50,7 @@ int main() {
 
     double packing_fraction = 0.6;
 
-    double size_ratio = 1.4;
+    double size_ratio = 1.0;
     double count_ratio = 0.5;
 
     long particle_dim_block = 256;
@@ -122,15 +122,15 @@ int main() {
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
-        config_from_names_lin_everyN({"step", "PE/N", "phi"}, 1e4, "console"),  // logs to the console
+        config_from_names_lin_everyN({"step", "PE/N", "phi"}, 1e2, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia", "num_vertices_in_particle"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "forces", "angles"}, num_compression_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin({"positions", "forces", "angles", "box_size", "vertex_positions", "vertex_forces"}, num_compression_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_compression_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &adam, "/home/mmccraw/dev/data/24-12-06/rb-jam", 1, true);
+    IOManager io_manager(log_group_configs, rb, &adam, "/home/mmccraw/dev/data/24-12-06/rb-jam-3", 1, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
@@ -149,11 +149,14 @@ int main() {
     long compression_step = 0;
     double avg_pe_past_jamming = 1e-9;  // marks being above jamming (might be too high)
     double avg_pe = 0.0;
+    double dof = static_cast<double>(rb.n_dof);
+    double last_avg_pe = 0.0;
+    double avg_pe_diff = 0.0;
+    long adam_step = 0;
     while (packing_fraction < packing_fraction_target && compression_step < num_compression_steps) {
-        long adam_step = 0;
-        double dof = static_cast<double>(rb.n_dof);
-        double last_avg_pe = 0.0;
-        double avg_pe_diff = 0.0;
+        adam_step = 0;
+        last_avg_pe = 0.0;
+        avg_pe_diff = 0.0;
         while (adam_step < num_adam_steps) {
             adam.minimize(adam_step);
             avg_pe = rb.totalPotentialEnergy() / dof / rb.e_c;

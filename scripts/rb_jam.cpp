@@ -38,10 +38,10 @@ int main() {
 
     // make a config for the rb partcle
     // set the config large vertex numbers after creation
-    long n_vertices_per_small_particle = 3;
+    long n_vertices_per_small_particle = 8;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 32;
+    long n_particles = 1024 * 4;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -51,7 +51,7 @@ int main() {
 
     double packing_fraction = 0.6;
 
-    double size_ratio = 1.0;
+    double size_ratio = 1.4;
     double count_ratio = 0.5;
 
     long particle_dim_block = 256;
@@ -97,15 +97,12 @@ int main() {
     RigidBumpy rb;
     rb.initializeFromConfig(config);
     
-    // TODO: use shared memory for all vertex data for a single particle stored on a single block
-    // make disk into a base class for point-like particles
-    // make rigid bumpy into a base class for vertex-based particles
-    
     double packing_fraction_increment = 1e-4;
-    long num_compression_steps = 1e5;
+    long num_compression_steps = 1e7;
     long num_adam_steps = 1e5;
     long num_state_saves = 1e3;
     long num_energy_saves = 1e3;
+    long num_saves = 1e4;
 
     double alpha = 1e-4;
     double beta1 = 0.9;
@@ -120,31 +117,14 @@ int main() {
 
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
-        // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
         config_from_names_lin_everyN({"step", "PE/N", "phi"}, 1e2, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia", "num_vertices_in_particle", "vertex_particle_index"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        // config_from_names_log({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"positions", "forces", "angles", "box_size", "vertex_positions", "vertex_forces"}, num_compression_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_compression_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
+        config_from_names_lin_everyN({"positions", "forces", "angles", "box_size", "vertex_positions", "vertex_forces"}, num_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin_everyN({"step", "PE", "phi"}, num_saves, "energy"),  // saves the energy data to the energy file
     };
-    std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &adam, "/home/mmccraw/dev/data/24-12-06/rb-jam-6", 1, true);
-    std::cout << "writing params" << std::endl;
+    IOManager io_manager(log_group_configs, rb, &adam, "/home/mmccraw/dev/data/24-12-06/rb-jam-51", 1, true);
     io_manager.write_params();
 
-    std::cout << "stepping" << std::endl;
-
-    // start the timer
-    auto start = std::chrono::high_resolution_clock::now();
-
-    jam_adam(rb, adam, io_manager, num_compression_steps, num_adam_steps, avg_pe_target, avg_pe_diff_target, packing_fraction_increment, packing_fraction_increment * 1e-2, avg_pe_target * 1.01);
-
-    // stop the timer
-    auto end = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count();
-    std::cout << "Time taken: " << duration * 1e-3 << " seconds for " << rb.n_particles << " particles" << std::endl;
-
-
+    jam_adam(rb, adam, io_manager, num_compression_steps, num_adam_steps, avg_pe_target, avg_pe_diff_target, packing_fraction_increment, packing_fraction_increment * 1e-2, 1.0001);
     return 0;
 }

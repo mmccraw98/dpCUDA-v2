@@ -12,6 +12,8 @@
 #include "orchestrator.h"
 #include "../particle/particle.h"
 #include <nlohmann/json.hpp>
+#include "../include/data/data_1d.h"
+#include "../include/data/data_2d.h"
 
 /**
  * @brief Opens an input file
@@ -127,4 +129,58 @@ thrust::host_vector<T> read_array_from_file(const std::string& file_name, long n
 
     input_file.close();
     return data;
+}
+
+template <typename T>
+Data1D<T> read_1d_data_from_file(const std::string& file_name, long num_rows) {
+    auto data = read_array_from_file<T>(file_name, num_rows, 1);
+    Data1D<T> data_1d;
+    data_1d.resize(num_rows);
+    data_1d.setData(data);
+    return data_1d;
+}
+
+template <typename T>
+SwapData1D<T> read_1d_swap_data_from_file(const std::string& file_name, long num_rows) {
+    auto data = read_array_from_file<T>(file_name, num_rows, 1);
+    SwapData1D<T> data_1d;
+    data_1d.resize(num_rows);
+    data_1d.setData(data);
+    return data_1d;
+}
+
+template <typename T>
+Data2D<T> read_2d_data_from_file(const std::string& file_name, long num_rows, long num_cols) {
+    auto data = read_array_from_file<T>(file_name, num_rows, num_cols);
+    Data2D<T> data_2d;
+    data_2d.resize(num_rows);
+    thrust::host_vector<T> x_data(num_rows);
+    thrust::host_vector<T> y_data(num_rows);
+    
+    // Deinterleave the data
+    for(long i = 0; i < num_rows; i++) {
+        x_data[i] = data[i * 2];
+        y_data[i] = data[i * 2 + 1];
+    }
+    
+    data_2d.setData(x_data, y_data);
+    return data_2d;
+}
+
+template <typename T>
+SwapData2D<T> read_2d_swap_data_from_file(const std::string& file_name, long num_rows, long num_cols) {
+    auto data = read_array_from_file<T>(file_name, num_rows, num_cols);
+    SwapData2D<T> data_2d;
+    data_2d.resize(num_rows);
+    thrust::host_vector<T> x_data(num_rows);
+    thrust::host_vector<T> y_data(num_rows);
+    
+    // Deinterleave the data
+    for(long i = 0; i < num_rows; i++) {
+        x_data[i] = data[i * 2];
+        y_data[i] = data[i * 2 + 1];
+    }
+    
+    data_2d.setData(x_data, y_data);
+    return data_2d;
 }

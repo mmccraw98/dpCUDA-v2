@@ -41,6 +41,29 @@ struct BidisperseDiskConfig : public BidisperseParticleConfig {
         : BidisperseParticleConfig(seed, n_particles, mass, e_c, n_c, packing_fraction, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, neighbor_list_update_method, particle_dim_block, size_ratio, count_ratio) {
             type_name = "Disk";
         }
+
+    static BidisperseDiskConfig from_json(const nlohmann::json& j) {
+        // First get the base config
+        BidisperseParticleConfig base_config = BidisperseParticleConfig::from_json(j);
+        
+        // Construct and return the disk config
+        return BidisperseDiskConfig(
+            base_config.seed,
+            base_config.n_particles,
+            base_config.mass,
+            base_config.e_c,
+            base_config.n_c,
+            base_config.packing_fraction,
+            base_config.neighbor_cutoff_multiplier,
+            base_config.neighbor_displacement_multiplier,
+            base_config.num_particles_per_cell,
+            base_config.cell_displacement_multiplier,
+            base_config.neighbor_list_update_method,
+            base_config.particle_dim_block,
+            base_config.size_ratio,
+            base_config.count_ratio
+        );
+    }
 };
 
 

@@ -42,7 +42,7 @@ int main() {
     long n_vertices_per_small_particle = 3;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
-    long n_particles = 32;
+    long n_particles = 1024;
 
     double particle_mass = 1.0;
     double e_c = 1.0;
@@ -103,22 +103,21 @@ int main() {
     // make rigid bumpy into a base class for vertex-based particles
     
     double packing_fraction_increment = 1e-4;
-    double min_packing_fraction_increment = 1e-4;
-    long num_compression_steps = 1e5;
+    double min_packing_fraction_increment = 1e-5;
+    long num_compression_steps = 1e6;
     long num_dynamics_steps = 1e5;
     long num_state_saves = 1e3;
     long num_energy_saves = 1e3;
 
-    double alpha = 1e-4;
-    double beta1 = 0.9;
-    double beta2 = 0.999;
-    double epsilon = 1e-8;
-
-    double avg_pe_target = 1e-16;
-    double avg_pe_diff_target = 1e-16;
-    double avg_ke_target = 1e-10;
+    double avg_pe_target = 1e-12;
+    double avg_pe_diff_target = 1e-12;
+    double avg_ke_target = 1e-15;
 
     double damping_coefficient = 1e0;
+    damping_coefficient *= (rb.getTimeUnit() * rb.getGeometryScale());
+    std::cout << "damping_coefficient: " << damping_coefficient << std::endl;
+
+    long save_every = 1e0;
 
     double dt_dimless = 1e-2;  // 1e-3 might be the best option
     DampedNVEConfig damped_nve_config(dt_dimless * rb.getTimeUnit() * rb.getGeometryScale(), damping_coefficient);
@@ -127,15 +126,15 @@ int main() {
     // Make the io manager
     std::vector<LogGroupConfig> log_group_configs = {
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1e2, "console"),  // logs to the console
-        config_from_names_lin_everyN({"step", "PE/N", "KE/N", "phi"}, 1e3, "console"),  // logs to the console
+        config_from_names_lin_everyN({"step", "PE/N", "KE/N", "phi"}, save_every, "console"),  // logs to the console
         config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size", "vertex_positions", "vertex_forces", "vertex_masses", "angular_velocities", "moments_of_inertia", "num_vertices_in_particle", "vertex_particle_index"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_log({"positions", "velocities", "forces", "angular_velocities", "angles"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin_everyN({"positions", "forces", "angles", "box_size", "vertex_positions", "vertex_forces"}, 1e3, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin_everyN({"step", "KE", "PE", "TE", "T"}, 1e3, "energy"),  // saves the energy data to the energy file
+        config_from_names_lin_everyN({"positions", "forces", "angles", "box_size", "vertex_positions", "vertex_forces"}, save_every, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        config_from_names_lin_everyN({"step", "KE", "PE", "TE", "T"}, save_every, "energy"),  // saves the energy data to the energy file
     };
     std::cout << "creating io manager" << std::endl;
-    IOManager io_manager(log_group_configs, rb, &damped_nve, "/home/mmccraw/dev/data/24-12-06/rb-jam-9", 1, true);
+    IOManager io_manager(log_group_configs, rb, &damped_nve, "/home/mmccraw/dev/data/24-12-06/rb-jam-32", 1, true);
     std::cout << "writing params" << std::endl;
     io_manager.write_params();
 
@@ -144,7 +143,7 @@ int main() {
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
 
-    double max_pe_target = avg_pe_target * 1.001;
+    double max_pe_target = avg_pe_target * 1.000001;
 
     rb.calculateParticleArea();
     packing_fraction = rb.getPackingFraction();
@@ -157,36 +156,44 @@ int main() {
     double dof = static_cast<double>(rb.n_dof);
     long dynamics_step = 0;
     double sign = 1.0;
+    double last_packing_fraction = packing_fraction;
+    double delta_packing_fraction_save = 1e-3;
     while (compression_step < num_compression_steps) {
         dynamics_step = 0;
         while (dynamics_step < num_dynamics_steps) {
             damped_nve.step();
             rb.calculateKineticEnergy();
             avg_ke = rb.totalKineticEnergy() / dof;
+            // std::cout << avg_ke << std::endl;
+            avg_pe = rb.totalPotentialEnergy() / dof / rb.e_c;
             avg_pe_diff = std::abs(avg_pe - last_avg_pe);
-            if (avg_ke < avg_ke_target && (avg_pe < avg_pe_target || avg_pe_diff < avg_pe_diff_target)) {
+            if (avg_ke < avg_ke_target) {
                 break;
             }
             last_avg_pe = avg_pe;
             dynamics_step++;
         }
-        avg_pe = rb.totalPotentialEnergy() / dof / rb.e_c;
+        // std::cout << dynamics_step << std::endl;
         if (avg_pe > max_pe_target) {
-            // sign = -1.0;
-            // if (packing_fraction_increment > min_packing_fraction_increment) {
-            //     packing_fraction_increment /= 2.0;
-            // }
+            sign = -1.0;
+            if (packing_fraction_increment / 2.0 > min_packing_fraction_increment) {
+                packing_fraction_increment /= 2.0;
+            }
         } else if (avg_pe > avg_pe_target) {
             std::cout << "jamming complete" << std::endl;
             break;
         } else {
-            // sign = 1.0;
+            sign = 1.0;
         }
-        io_manager.log(compression_step);
         rb.scaleToPackingFraction(packing_fraction + packing_fraction_increment * sign);
         packing_fraction = rb.getPackingFraction();
+        if (packing_fraction - last_packing_fraction > delta_packing_fraction_save) {
+            io_manager.log(compression_step, true);
+            last_packing_fraction = packing_fraction;
+        }
         compression_step++;
     }
+    io_manager.log(compression_step, true);
 
     // stop the timer
     auto end = std::chrono::high_resolution_clock::now();

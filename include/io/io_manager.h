@@ -32,8 +32,9 @@ public:
     /**
      * @brief Logs the current state of the system using all log groups
      * @param step The current step of the simulation
+     * @param force Whether to force the logging even if no logs are required
      */
-    void log(long step);
+    void log(long step, bool force = false);
 
     /**
      * @brief Writes the parameters of the system to a file

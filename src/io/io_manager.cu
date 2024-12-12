@@ -81,12 +81,12 @@ void IOManager::init_path(std::filesystem::path& path, const std::string& path_n
     path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(path_name);
 }
 
-void IOManager::log(long step) {
+void IOManager::log(long step, bool force) {
     // figure out if any logs need to be written
     bool log_required = false;
     for (BaseLogGroup* log_group : log_groups) {
         log_group->update_log_status(step);
-        if (log_group->should_log) {
+        if (log_group->should_log || force) {
             log_required = true;
         }
     }
@@ -104,7 +104,7 @@ void IOManager::log(long step) {
 
         // gather the data
         for (BaseLogGroup* log_group : log_groups) {
-            if (log_group->should_log) {
+            if (log_group->should_log || force) {
                 log_group->gather_data(step);
             }
         }
@@ -114,7 +114,7 @@ void IOManager::log(long step) {
         // log
         std::vector<std::thread> threads;  // Store threads for async log groups
         for (BaseLogGroup* log_group : log_groups) {
-            if (log_group->should_log) {
+            if (log_group->should_log || force) {
                 if (log_group->parallel && use_parallel) {
                     thread_pool.enqueue([log_group, step]() {
                         log_group->log(step);

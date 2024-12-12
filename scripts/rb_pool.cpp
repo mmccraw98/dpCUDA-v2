@@ -37,7 +37,7 @@
 #include <nlohmann/json.hpp>
 
 int main() {
-    long n_vertices_per_small_particle = 3;
+    long n_vertices_per_small_particle = 12;
     long n_vertices_per_large_particle = 0;  // not known yet
     long n_vertices = 0;  // not known yet
     long n_particles = 16;
@@ -178,7 +178,7 @@ int main() {
         config_from_names_lin({"positions", "velocities", "vertex_positions", "vertex_velocities", "forces"}, num_steps, num_state_saves, "state"),
     };
 
-    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-12-07/rb-pool-6", 1, true);
+    IOManager io_manager(log_group_configs, rb, &nve, "/home/mmccraw/dev/data/24-12-07/rb-pool-7", 1, true);
     io_manager.write_params();
 
     long step = 0;

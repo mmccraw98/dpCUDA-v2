@@ -62,6 +62,10 @@ void Particle::initializeFromConfig(const BaseParticleConfig& config) {
     this->setExponent(config.n_c, "c");
     this->setMass(config.mass);
 
+    this->setupNeighbors(config);
+}
+
+void Particle::setupNeighbors(const BaseParticleConfig& config) {
     this->setNeighborMethod(config.neighbor_list_update_method);
     this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
 

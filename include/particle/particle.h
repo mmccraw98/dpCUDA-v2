@@ -155,6 +155,9 @@ public:
     // -------------------- Universally Defined Methods ---------------------
     // ----------------------------------------------------------------------
 
+
+    void setupNeighbors(const BaseParticleConfig& config);
+
     /**
      * @brief Set the neighbor list update method for the particles.
      * 

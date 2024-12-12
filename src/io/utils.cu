@@ -84,7 +84,7 @@ long get_largest_file_index(std::string dir_name, std::string file_prefix) {
     long largest_index = -1;
     for (const auto & entry : std::filesystem::directory_iterator(dir_name)) {
         std::string current_file = entry.path().filename().string();
-        if (current_file.find(file_prefix) == file_prefix.length()) {
+        if (current_file.find(file_prefix) == 0) {
             long step = std::stol(current_file.substr(file_prefix.length()));
             if (step > largest_index) {
                 largest_index = step;

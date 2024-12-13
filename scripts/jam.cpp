@@ -66,12 +66,12 @@ int main() {
     Adam adam(*particle, adam_config);
 
     long num_adam_steps = 1e5;
-    long num_compression_steps = 1e6;
+    long num_compression_steps = 3e6;
     long num_energy_saves = 1e2;
     long num_state_saves = 1e3;
     long min_state_save_decade = 1e1;
 
-    std::string root_path = "/home/mmccraw/dev/data/24-11-08/jamming/43";
+    std::string root_path = "/home/mmccraw/dev/data/24-11-08/jamming/44";
     std::string jamming_path = root_path + "/jamming";
     std::string dynamics_path = root_path + "/dynamics";
 

@@ -10,7 +10,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include "orchestrator.h"
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 #include <nlohmann/json.hpp>
 #include "../include/data/data_1d.h"
 #include "../include/data/data_2d.h"

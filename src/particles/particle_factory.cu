@@ -1,0 +1,5 @@
+#include "../../include/constants.h"
+#include "../../include/functors.h"
+#include "../../include/particles/base/particle.h"
+#include "../../include/particles/disk/disk.h"
+#include "../../include/particles/particle_factory.h"

@@ -19,7 +19,10 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/data
     ${CMAKE_SOURCE_DIR}/include/integrator
-    ${CMAKE_SOURCE_DIR}/include/particle
+    ${CMAKE_SOURCE_DIR}/include/particles
+    ${CMAKE_SOURCE_DIR}/include/particles/base
+    ${CMAKE_SOURCE_DIR}/include/particles/disk
+    ${CMAKE_SOURCE_DIR}/include/particles/rigid_bumpy
     ${CMAKE_SOURCE_DIR}/include/kernels
     ${CMAKE_SOURCE_DIR}/include/io
     ${CMAKE_SOURCE_DIR}/include/utils
@@ -43,10 +46,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 add_library(common_sources STATIC
     src/data/data_1d.cu
     src/data/data_2d.cu
-    src/kernels/kernels.cu
-    src/particle/config.cu
-    src/particle/particle.cu
-    src/particle/particle_factory.cu
+    src/particles/config.cu
+    src/particles/base/particle.cu
+    src/particles/base/kernels.cu
+    src/particles/particle_factory.cu
     src/io/orchestrator.cu
     src/io/io_manager.cu
     src/io/base_log_groups.cu
@@ -57,8 +60,10 @@ add_library(common_sources STATIC
     src/integrator/nve.cu
     src/integrator/damped_nve.cu
     src/integrator/grad_desc.cu
-    src/particle/disk.cu
-    src/particle/rigid_bumpy.cu
+    src/particles/disk/disk.cu
+    src/particles/disk/kernels.cu
+    src/particles/rigid_bumpy/rigid_bumpy.cu
+    src/particles/rigid_bumpy/kernels.cu
     src/integrator/adam.cu
     src/routines/initialization.cu
     src/routines/compression.cu

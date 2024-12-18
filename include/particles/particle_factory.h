@@ -2,9 +2,9 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "particle.h"
+#include "base/particle.h"
 #include "config.h"
-#include "disk.h"
+#include "disk/disk.h"
 #include <vector>
 #include <string>
 #include <memory>

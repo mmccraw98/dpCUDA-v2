@@ -10,7 +10,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include "orchestrator.h"
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 
 std::ifstream open_input_file(std::string file_name);
 std::ofstream open_output_file(std::string file_name);

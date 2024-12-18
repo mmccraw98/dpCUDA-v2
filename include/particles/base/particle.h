@@ -2,7 +2,7 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "config.h"
+#include "../../include/particles/config.h"
 
 #include "../../include/data/data_1d.h"
 #include "../../include/data/data_2d.h"

@@ -1,8 +1,8 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/particle/particle.h"
-#include "../../include/particle/rigid_bumpy.h"
-#include "../../include/kernels/kernels.cuh"
+#include "../../include/particles/base/particle.h"
+#include "../../include/particles/rigid_bumpy/rigid_bumpy.h"
+#include "../../include/particles/rigid_bumpy/kernels.cuh"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -20,8 +20,8 @@
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <thrust/functional.h>
-#include "../include/particle/disk.h"
-#include "../include/routines/initialization.h"
+#include "../../include/particles/disk/disk.h"
+#include "../../include/routines/initialization.h"
 
 
 RigidBumpy::RigidBumpy() {

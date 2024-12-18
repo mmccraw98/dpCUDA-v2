@@ -1,5 +1,5 @@
 #include "../../include/integrator/nve.h"
-#include "../../include/particle/particle.h"
+#include "../../include/particles/base/particle.h"
 #include <thrust/transform.h>
 #include <thrust/device_vector.h>
 

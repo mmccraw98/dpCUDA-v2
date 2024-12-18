@@ -2,8 +2,8 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "particle.h"
-#include "config.h"
+#include "../../include/particles/base/particle.h"
+#include "../../include/particles/config.h"
 #include <vector>
 #include <string>
 #include <memory>

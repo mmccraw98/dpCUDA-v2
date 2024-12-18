@@ -1,6 +1,5 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/kernels/kernels.cuh"
 #include "../../include/io/utils.h"
 #include <iostream>
 #include <string>

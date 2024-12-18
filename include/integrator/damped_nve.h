@@ -1,7 +1,7 @@
 #pragma once
 
 #include "integrator.h"
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 
 
 class DampedNVEConfig : public IntegratorConfig {

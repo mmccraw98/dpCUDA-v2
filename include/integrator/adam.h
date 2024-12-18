@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 #include "integrator.h"
 
 

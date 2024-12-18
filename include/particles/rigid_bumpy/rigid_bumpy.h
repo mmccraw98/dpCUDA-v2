@@ -4,8 +4,8 @@
 #include "../../include/functors.h"
 #include "../../include/data/data_2d.h"
 #include "../../include/data/data_1d.h"
-#include "particle.h"
-#include "config.h"
+#include "../../include/particles/base/particle.h"
+#include "../../include/particles/config.h"
 #include <vector>
 #include <string>
 #include <memory>

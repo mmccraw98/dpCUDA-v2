@@ -1,7 +1,6 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/particle/particle.h"
-#include "../../include/kernels/kernels.cuh"
+#include "../../include/particles/base/particle.h"
 #include "../../include/io/utils.h"
 #include "../../include/io/orchestrator.h"
 #include <iostream>

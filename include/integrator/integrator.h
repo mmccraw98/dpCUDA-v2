@@ -5,7 +5,7 @@
 #include <vector>
 #include <cmath>
 #include <random>
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 
 #include <nlohmann/json.hpp>
 

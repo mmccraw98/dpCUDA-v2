@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../../include/particle/particle.h"
+#include "../../include/particles/base/particle.h"
 #include "../../include/integrator/adam.h"
 #include "../../include/integrator/damped_nve.h"
 #include "../../include/io/io_manager.h"

@@ -7,7 +7,7 @@
 #include <cmath>
 #include <set>
 #include <unordered_set>
-#include "../particle/particle.h"
+#include "../particles/base/particle.h"
 #include "../integrator/integrator.h"
 #include "utils.h"
 #include "../include/data/array_data.h"

@@ -1,8 +1,8 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/particle/particle.h"
-#include "../../include/particle/disk.h"
-#include "../../include/kernels/kernels.cuh"
+#include "../../include/particles/base/particle.h"
+#include "../../include/particles/disk/disk.h"
+#include "../../include/particles/disk/kernels.cuh"
 #include <iostream>
 #include <string>
 #include <vector>

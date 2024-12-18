@@ -99,7 +99,7 @@ void decompress_adam(Particle& particle, Adam& adam, IOManager& io_manager, long
     long compression_step = 0;
     double avg_pe = 0.0;
     double dof = static_cast<double>(particle.n_dof);
-    while (compression_step < num_compression_steps && avg_pe > min_pe_target) {
+    while (compression_step < num_compression_steps) {
         long adam_step = 0;
         double last_avg_pe = 0.0;
         double avg_pe_diff = 0.0;
@@ -115,6 +115,41 @@ void decompress_adam(Particle& particle, Adam& adam, IOManager& io_manager, long
         }
         io_manager.log(compression_step);
         particle.scaleToPackingFraction(packing_fraction - packing_fraction_increment);
+        packing_fraction = particle.getPackingFraction();
+        compression_step++;
+        if (avg_pe < min_pe_target) {
+            break;
+        }
+    }
+    io_manager.log(compression_step, true);  // force the save at the last step
+}
+
+void compress_to_phi_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_compression_steps, long num_adam_steps, double avg_pe_target, double avg_pe_diff_target, double delta_phi_target) {
+    particle.initAdamVariables();
+    particle.calculateParticleArea();
+    double packing_fraction = particle.getPackingFraction();
+    double phi_target = packing_fraction + delta_phi_target;
+    double packing_fraction_increment = delta_phi_target / (static_cast<double>(num_compression_steps) / 2.0);
+
+    long compression_step = 0;
+    double avg_pe = 0.0;
+    double dof = static_cast<double>(particle.n_dof);
+    while (compression_step < num_compression_steps && std::abs(packing_fraction - phi_target) > packing_fraction_increment) {
+        long adam_step = 0;
+        double last_avg_pe = 0.0;
+        double avg_pe_diff = 0.0;
+        while (adam_step < num_adam_steps) {
+            adam.minimize(adam_step);
+            avg_pe = particle.totalPotentialEnergy() / dof / particle.e_c;
+            avg_pe_diff = std::abs(avg_pe - last_avg_pe);
+            last_avg_pe = avg_pe;
+            if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target) {
+                break;
+            }
+            adam_step++;
+        }
+        io_manager.log(compression_step);
+        particle.scaleToPackingFraction(packing_fraction + packing_fraction_increment);
         packing_fraction = particle.getPackingFraction();
         compression_step++;
     }

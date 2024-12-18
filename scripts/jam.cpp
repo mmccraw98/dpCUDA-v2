@@ -35,61 +35,62 @@
 #include <nlohmann/json.hpp>
 
 int main() {
+    for (int i = 0; i < 10; i++) {
+        double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
+        double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
+        double num_particles_per_cell = 8.0;  // the desired number of particles per cell
+        double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
+        BidisperseDiskConfig config(-1, 256, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+        auto particle = create_particle(config);
+        
+        // make the integrator
+        particle->initAdamVariables();
 
-    double neighbor_cutoff_multiplier = 1.5;  // particles within this multiple of the maximum particle diameter will be considered neighbors
-    double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
-    double num_particles_per_cell = 8.0;  // the desired number of particles per cell
-    double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 256, 1.0, 1.0, 2.0, 0.6, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
-    auto particle = create_particle(config);
-    
-    // make the integrator
-    particle->initAdamVariables();
+        double packing_fraction_increment = 1e-4;
+        double packing_fraction_target = 0.85;
+        double packing_fraction = particle->getPackingFraction();
+        double decompression_amount = 1e-6;  // once jamming is reached, decompress by this amount
+        double dynamics_temperature = 1e-6;
+        double dt_dimless = 1e-2;  // 1e-3 might be the best option
+        long num_dynamics_steps = 3e6;
 
-    double packing_fraction_increment = 1e-4;
-    double packing_fraction_target = 0.85;
-    double packing_fraction = particle->getPackingFraction();
-    double decompression_amount = 1e-6;  // once jamming is reached, decompress by this amount
-    double dynamics_temperature = 1e-6;
-    double dt_dimless = 1e-2;  // 1e-3 might be the best option
-    long num_dynamics_steps = 3e6;
+        double alpha = 1e-4;
+        double beta1 = 0.9;
+        double beta2 = 0.999;
+        double epsilon = 1e-8;
 
-    double alpha = 1e-4;
-    double beta1 = 0.9;
-    double beta2 = 0.999;
-    double epsilon = 1e-8;
+        double avg_pe_target = 1e-16;
+        double avg_pe_diff_target = 1e-16;
 
-    double avg_pe_target = 1e-16;
-    double avg_pe_diff_target = 1e-16;
+        AdamConfig adam_config(alpha, beta1, beta2, epsilon);
+        Adam adam(*particle, adam_config);
 
-    AdamConfig adam_config(alpha, beta1, beta2, epsilon);
-    Adam adam(*particle, adam_config);
+        long num_adam_steps = 1e5;
+        long num_compression_steps = 3e6;
+        long num_energy_saves = 1e2;
+        long num_state_saves = 1e3;
+        long min_state_save_decade = 1e1;
 
-    long num_adam_steps = 1e5;
-    long num_compression_steps = 3e6;
-    long num_energy_saves = 1e2;
-    long num_state_saves = 1e3;
-    long min_state_save_decade = 1e1;
+        std::string root_path = "/home/mmccraw/dev/data/24-11-08/compressions-new/" + std::to_string(i) + "/";
+        std::string jamming_path = root_path + "/jamming";
+        std::string dynamics_path = root_path + "/dynamics";
 
-    std::string root_path = "/home/mmccraw/dev/data/24-11-08/jamming/44";
-    std::string jamming_path = root_path + "/jamming";
-    std::string dynamics_path = root_path + "/dynamics";
+        // Make the io manager
+        long save_every_N_steps = 1e3;
+        std::vector<LogGroupConfig> log_group_configs = {
+            config_from_names_lin_everyN({"step", "PE/N", "phi"}, save_every_N_steps, "console"),  // logs to the console
+            config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+            config_from_names_lin_everyN({"step", "PE", "phi"}, save_every_N_steps, "energy"),  // saves the energy data to the energy file
+            config_from_names_lin_everyN({"positions", "forces", "box_size", "cell_index", "cell_start"}, save_every_N_steps, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        };
 
-    // Make the io manager
-    long save_every_N_steps = 1e3;
-    std::vector<LogGroupConfig> log_group_configs = {
-        config_from_names_lin_everyN({"step", "PE/N", "phi"}, save_every_N_steps, "console"),  // logs to the console
-        config_from_names({"radii", "masses", "positions", "velocities", "forces", "box_size"}, "init"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin_everyN({"step", "PE", "phi"}, save_every_N_steps, "energy"),  // saves the energy data to the energy file
-        config_from_names_lin_everyN({"positions", "forces", "box_size", "cell_index", "cell_start"}, save_every_N_steps, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-    };
+        IOManager jamming_io_manager(log_group_configs, *particle, &adam, jamming_path, 1, true);
+        jamming_io_manager.write_params();  // TODO: move this into the io manager constructor
 
-    IOManager jamming_io_manager(log_group_configs, *particle, &adam, jamming_path, 1, true);
-    jamming_io_manager.write_params();  // TODO: move this into the io manager constructor
+        // compress to slightly above jamming using the adam routine
+        jam_adam(*particle, adam, jamming_io_manager, num_compression_steps, num_adam_steps, avg_pe_target, avg_pe_diff_target, packing_fraction_increment, packing_fraction_increment * 1e-2, 1.0001);
 
-    // compress to slightly above jamming using the adam routine
-    jam_adam(*particle, adam, jamming_io_manager, num_compression_steps, num_adam_steps, avg_pe_target, avg_pe_diff_target, packing_fraction_increment, packing_fraction_increment * 1e-2, 1.0001);
-
+    }
     // // compress to slightly above jamming
     // long compression_step = 0;
     // double avg_pe_past_jamming = 1e-9;  // marks being above jamming (might be too high)

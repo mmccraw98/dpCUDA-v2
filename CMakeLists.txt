@@ -115,3 +115,4 @@ target_link_libraries(rb_damped_jam PRIVATE common_sources)
 # Test Load executable
 add_executable(test_load scripts/test_load.cpp)
 target_link_libraries(test_load PRIVATE common_sources)
+

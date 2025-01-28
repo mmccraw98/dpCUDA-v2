@@ -1,7 +1,7 @@
 #pragma once
 
 #include "base_log_groups.h"
-#include "utils.h"
+#include "io_utils.h"
 #include "../include/constants.h"
 #include "../include/data/array_data.h"
 #include <iostream>
@@ -14,7 +14,7 @@
 class StateLog : public BaseLogGroup {
 private:
     long precision = DECIMAL_PRECISION;  // the precision to use when logging
-    std::string root_path;  // the root path to log to
+    std::string root;  // the root path to log to
     std::string indexed_file_prefix;  // the indexed file prefix to use when logging
     std::string extension;  // the extension to use when logging
     std::unordered_map<std::string, ArrayData> gathered_data;
@@ -22,7 +22,7 @@ private:
 
 
 public:
-    StateLog(LogGroupConfig config, Orchestrator& orchestrator, const std::string& root_path, const std::string& indexed_file_prefix, const std::string& extension);
+    StateLog(LogGroupConfigDict config, Orchestrator& orchestrator, const std::string& root, const std::string& indexed_file_prefix, const std::string& extension);
     ~StateLog();
 
     // TODO: add sorting by particle index
@@ -36,11 +36,11 @@ public:
     void write_header();
 
     /**
-     * @brief Write the all the vectors to their files in the root_path.
+     * @brief Write the all the vectors to their files in the root.
      * 
-     * @param root_path The root path to write to.
+     * @param root The root path to write to.
      */
-    void write_values(const std::filesystem::path& root_path);
+    void write_values(const std::filesystem::path& root);
 
     /**
      * @brief Log the current state of the system by writing all the vectors to their files in a subdirectory prefixed with the step.

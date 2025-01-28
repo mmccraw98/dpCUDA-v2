@@ -1,6 +1,6 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/io/utils.h"
+#include "../../include/io/io_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -69,6 +69,14 @@ void make_dir(const std::string& dir_name, bool overwrite) {
     }
 }
 
+std::filesystem::path get_path(std::filesystem::path root_path, std::string name) {
+    std::filesystem::path path = root_path / name;
+    if (!std::filesystem::exists(path)) {
+        std::cerr << "ERROR: get_path: path does not exist: " << path << std::endl;
+        exit(1);
+    }
+    return path;
+}
 
 bool contains_substrings(const std::string& string, const std::vector<std::string>& substrings) {
     for (const auto& substring : substrings) {
@@ -95,6 +103,49 @@ long get_largest_file_index(std::string dir_name, std::string file_prefix) {
         exit(1);
     }
     return largest_index;
+}
+
+std::tuple<std::filesystem::path, long> get_trajectory_frame_path(std::filesystem::path trajectory_root, std::string file_prefix, long file_index) {
+    std::filesystem::path best_path;
+    long best_frame = -1;
+
+    // Single pass through the directory:
+    // • If file_index == -1, track the largest frame encountered
+    // • Otherwise, break early if we find an exact matching frame index.
+    for (const auto& entry : std::filesystem::directory_iterator(trajectory_root)) {
+        const auto filename = entry.path().filename().string();
+
+        // Ensure the file actually starts with the prefix
+        if (filename.rfind(file_prefix, 0) == 0) {
+            // Extract the numeric part after the prefix
+            const long frame_val = std::stol(filename.substr(file_prefix.size()));
+
+            // If file_index == -1, we want the largest frame
+            if (file_index == -1) {
+                if (frame_val > best_frame) {
+                    best_frame = frame_val;
+                    best_path = entry.path();
+                }
+            }
+            // Otherwise, if we find an exact match, return immediately
+            else {
+                if (frame_val == file_index) {
+                    return std::make_tuple(entry.path(), frame_val);
+                }
+            }
+        }
+    }
+
+    // If we wanted the largest frame (file_index == -1), return what we found
+    if (file_index == -1 && !best_path.empty()) {
+        return std::make_tuple(best_path, best_frame);
+    }
+
+    // Otherwise, we did not find a matching path
+    std::cerr << "ERROR: get_trajectory_frame_path: no matching frame path for prefix '"
+              << file_prefix << "' and index " << file_index
+              << " in " << trajectory_root << std::endl;
+    exit(1);
 }
 
 void write_json_to_file(const std::string& file_name, const nlohmann::json& data) {

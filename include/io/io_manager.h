@@ -4,7 +4,7 @@
 #include "../integrator/integrator.h"
 #include "../../include/utils/thread_pool.h"
 
-#include "utils.h"
+#include "io_utils.h"
 #include "orchestrator.h"
 #include "base_log_groups.h"
 #include "energy_log.h"
@@ -23,10 +23,10 @@ public:
      * @param log_configs The configuration for each log group
      * @param particle The particle object
      * @param integrator The integrator object
-     * @param root_path The root path for all output files
+     * @param root The root path for all output files
      * @param overwrite Whether to overwrite existing files
      */
-    IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root_path = "", long num_threads = 1, bool overwrite = true);
+    IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root = "", long num_threads = 1, bool overwrite = false);
     ~IOManager();
 
     /**
@@ -72,14 +72,14 @@ private:
     Integrator* integrator;  // integrator object
     Orchestrator orchestrator;  // orchestrator object
     std::vector<BaseLogGroup*> log_groups;  // log groups
-    std::vector<LogGroupConfig> log_configs;  // log configurations
+    std::vector<LogGroupConfigDict> log_configs;  // log configurations
     StateLog* state_log = nullptr;  // state log object
 
     bool overwrite;  // whether to overwrite existing files
     bool use_parallel;  // whether to use parallel IO
     long num_threads;  // number of threads to use for parallel IO
 
-    std::string root_path;  // root path for all output files
+    std::string root;  // root path for all output files
     
     std::string energy_file_extension = ".csv";//".csv";  // file extension for energy files
     std::string state_file_extension = ".dat";//".txt";  // file extension for state files
@@ -90,6 +90,7 @@ private:
     std::string restart_dir_name = "restart";  // saves what is needed to restart, continuously overwrite with any updates
     std::string init_dir_name = "init";  // saves the initial configuration
     
+    std::filesystem::path root_path;  // path to root directory
     std::filesystem::path energy_file_path;  // path to energy file
     std::filesystem::path system_dir_path;  // path to system directory
     std::filesystem::path trajectory_dir_path;  // path to trajectory directory

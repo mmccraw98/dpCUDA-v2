@@ -3,7 +3,7 @@
 #include <thrust/transform.h>
 #include <thrust/device_vector.h>
 
-DampedNVE::DampedNVE(Particle& particle, const DampedNVEConfig& config) : Integrator(particle, config), dt(config.dt), damping_coefficient(config.damping_coefficient) {
+DampedNVE::DampedNVE(Particle& particle, const DampedNVEConfigDict& config) : Integrator(particle, config), dt(config["dt"]), damping_coefficient(config["damping_coefficient"]) {
 }
 
 DampedNVE::~DampedNVE() {

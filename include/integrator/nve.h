@@ -8,37 +8,11 @@
  * 
  * This class extends the IntegratorConfig class and adds a dt member variable.
  */
-class NVEConfig : public IntegratorConfig {
+class NVEConfigDict : public IntegratorConfigDict {
 public:
-    double dt;  // time step
-
-    /**
-     * @brief Constructor for NVEConfig class.
-     * 
-     * @param dt Time step.
-     */
-    NVEConfig(double dt) : dt(dt) {
-        integrator_type = "NVE";
-    }
-
-    /**
-     * @brief Method to parse the NVEConfig object from a JSON object.
-     * 
-     * @param j JSON object to parse.
-     */
-    void from_json(const nlohmann::json& j) override {
-        dt = j["dt"];
-    }
-
-    /**
-     * @brief Method to convert the NVEConfig object to a JSON object.
-     * 
-     * @return JSON object.
-     */
-    nlohmann::json to_json() const override {
-        nlohmann::json j = IntegratorConfig::to_json();
-        j["dt"] = dt;
-        return j;
+    NVEConfigDict() {
+        insert("integrator_type", "NVE");
+        insert("dt", 0.0);
     }
 };
 
@@ -56,7 +30,7 @@ public:
      * @param particle Reference to Particle object.
      * @param config Reference to NVEConfig object.
      */
-    NVE(Particle& particle, const NVEConfig& config);
+    NVE(Particle& particle, const NVEConfigDict& config);
     ~NVE();
 
     double dt;  // time step

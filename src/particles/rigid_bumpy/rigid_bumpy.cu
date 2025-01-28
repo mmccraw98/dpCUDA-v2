@@ -34,37 +34,31 @@ RigidBumpy::~RigidBumpy() {
 // --------------------- Overridden Methods -----------------------------
 // ----------------------------------------------------------------------
 
-void RigidBumpy::initializeFromConfig(BidisperseRigidBumpyConfig& config) {
-    BidisperseDiskConfig disk_config(config.seed, config.n_particles, config.mass, config.e_c, config.n_c, config.packing_fraction, config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier, config.num_particles_per_cell, config.cell_displacement_multiplier, config.neighbor_list_update_method, config.particle_dim_block, config.size_ratio, config.count_ratio);
-    auto [positions, radii, box_size] = get_minimal_overlap_positions_and_radii(disk_config);
+void RigidBumpy::initializeFromConfig(ConfigDict& config) {
+    auto [positions, radii, box_size] = get_minimal_overlap_disk_positions_and_radii(config);
     thrust::host_vector<double> h_radii = radii.getData();
-    // is this block necessary?
-    // --------- //
-    double disk_area = 0.0;
-    for (double radius : h_radii) {
-        disk_area += PI * radius * radius;
-    }
-    // ---------- //
-    rotation = config.rotation;
-    segment_length_per_vertex_diameter = config.segment_length_per_vertex_diameter;
-    initializeVerticesFromDiskPacking(positions, radii, config.n_vertex_per_small_particle, config.particle_dim_block, config.vertex_dim_block);
+
+    rotation = config["rotation"];
+    segment_length_per_vertex_diameter = config["segment_length_per_vertex_diameter"];
+    initializeVerticesFromDiskPacking(positions, radii, config["n_vertex_per_small_particle"], config["particle_dim_block"], config["vertex_dim_block"]);
     define_unique_dependencies();
-    setSeed(config.seed);
-    angles.fillRandomUniform(0, 2 * M_PI, 0, config.seed);
+    setSeed(config["seed"]);
+    angles.fillRandomUniform(0, 2 * M_PI, 0, config["seed"]);
     setBoxSize(box_size.getData());
     // TODO: these have a bug
     // rb.calculateParticleArea();
     // rb.initializeBox(config.packing_fraction);
-    config.vertex_radius = getVertexRadius();
+    config["vertex_radius"] = getVertexRadius();
     double geom_scale = getGeometryScale();
-    config.e_c *= (geom_scale * geom_scale);
-    setEnergyScale(config.e_c, "c");
-    setExponent(config.n_c, "c");
-    setMass(config.mass);
-    this->config = std::make_unique<BidisperseRigidBumpyConfig>(config);
-    setNeighborMethod(config.neighbor_list_update_method);
-    setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
-    setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
+    double e_c = config["e_c"];
+    config["e_c"] = e_c * (geom_scale * geom_scale);
+    setEnergyScale(config["e_c"], "c");
+    setExponent(config["n_c"], "c");
+    setMass(config["mass"]);
+
+    setNeighborMethod(config["neighbor_list_config"]["neighbor_list_update_method"]);
+    setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
+    setCellSize(config["neighbor_list_config"]["num_particles_per_cell"], config["neighbor_list_config"]["cell_displacement_multiplier"]);
     max_vertex_neighbors_allocated = 8;
     syncVertexNeighborList();
     initNeighborList();
@@ -279,6 +273,9 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     syncVertexIndices();
 }
 
+void RigidBumpy::loadData(const std::string& root) {
+    // TODO: implement this
+}
 
 ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
     try {

@@ -1,6 +1,7 @@
 #include "../../include/constants.h"
 #include "../../include/functors.h"
 #include "../../include/particles/base/particle.h"
+#include "../../include/io/io_utils.h"
 #include "../../include/particles/disk/disk.h"
 #include "../../include/particles/disk/kernels.cuh"
 #include <iostream>
@@ -97,4 +98,20 @@ void Disk::calculateForceDistancePairs() {
 
 void Disk::calculateWallForces() {
     kernelCalcDiskWallForces<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
+}
+
+void Disk::loadData(const std::string& root) {
+    // unify all particle configs
+    // add load functionality to configs
+
+
+    // load config
+
+    // set config
+
+    // load data
+
+    
+    // SwapData2D<double> positions = read_2d_swap_data_from_file<double>(last_step_dir + "/positions.dat", particle_config.n_particles, 2);
+    // Data1D<double> radii = read_1d_data_from_file<double>(source_path + "system/init/radii.dat", particle_config.n_particles);
 }

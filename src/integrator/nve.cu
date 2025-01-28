@@ -3,7 +3,7 @@
 #include <thrust/transform.h>
 #include <thrust/device_vector.h>
 
-NVE::NVE(Particle& particle, const NVEConfig& config) : Integrator(particle, config), dt(config.dt) {
+NVE::NVE(Particle& particle, const NVEConfigDict& config) : Integrator(particle, config), dt(config["dt"]) {
 }
 
 NVE::~NVE() {

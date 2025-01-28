@@ -2,7 +2,7 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/particles/config.h"
+#include "../../include/particles/base/config.h"
 
 #include "../../include/data/data_1d.h"
 #include "../../include/data/data_2d.h"
@@ -20,26 +20,7 @@
 #include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/counting_iterator.h>
 
-struct KernelConfig {
-    long dim_grid;
-    long dim_block;
-};
-
-#include <typeinfo>
-template <typename T>
-void printType(const T& obj) {
-    std::cout << "Type: " << typeid(obj).name() << std::endl;
-}
-
-#define CUDA_CHECK(call)                                                    \
-    {                                                                       \
-        cudaError_t err = call;                                             \
-        if (err != cudaSuccess) {                                           \
-            std::cerr << "CUDA error in " << __FILE__ << " at line "        \
-                      << __LINE__ << ": " << cudaGetErrorString(err) << "\n"; \
-            std::exit(EXIT_FAILURE);                                        \
-        }                                                                   \
-    }
+#include "../../include/utils/general.h"
 
 /**
  * @brief Base class for all particle types.
@@ -49,14 +30,17 @@ public:
     Particle();
     virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
 
-    virtual void initializeFromConfig(const BaseParticleConfig& config);
+    virtual void initializeFromConfig(ConfigDict& config);
 
-    std::unique_ptr<BaseParticleConfig> config;
+    // std::unique_ptr<BaseParticleConfig> config;
+    ConfigDict config;
 
     // Function pointer for the neighbor list update method
     void (Particle::*initNeighborListPtr)();
     void (Particle::*updateNeighborListPtr)();
     void (Particle::*checkForNeighborUpdatePtr)();
+
+    void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension);
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
@@ -155,8 +139,9 @@ public:
     // -------------------- Universally Defined Methods ---------------------
     // ----------------------------------------------------------------------
 
+    virtual void loadData(const std::string& root) = 0;
 
-    void setupNeighbors(const BaseParticleConfig& config);
+    void setupNeighbors(ConfigDict& neighbor_config);
 
     /**
      * @brief Set the neighbor list update method for the particles.

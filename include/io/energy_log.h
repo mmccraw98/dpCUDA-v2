@@ -1,7 +1,7 @@
 #pragma once
 
 #include "base_log_groups.h"
-#include "utils.h"
+#include "io_utils.h"
 #include "../include/constants.h"
 #include <fstream>
 #include <iostream>
@@ -30,7 +30,7 @@ public:
      * @param file_name The name of the file to write to
      * @param overwrite Whether to overwrite the file if it exists
      */
-    EnergyLog(LogGroupConfig log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite);
+    EnergyLog(LogGroupConfigDict log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite);
     ~EnergyLog();
 
     bool has_header = false;  // checks whether the file has a header in its first row

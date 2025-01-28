@@ -37,6 +37,8 @@ std::ofstream open_output_file(std::string file_name, bool overwrite = false);
  */
 void make_dir(const std::string& dir_name, bool overwrite = false);
 
+std::filesystem::path get_path(std::filesystem::path root_path, std::string name);
+
 /**
  * @brief Checks if a string contains any of the substrings
  * @param string The string to check
@@ -52,6 +54,8 @@ bool contains_substrings(const std::string& string, const std::vector<std::strin
  * @return The largest file index
  */
 long get_largest_file_index(std::string dir_name, std::string file_prefix = "");
+
+std::tuple<std::filesystem::path, long> get_trajectory_frame_path(std::filesystem::path trajectory_root, std::string file_prefix, long file_index);
 
 /**
  * @brief Writes a JSON object to a file

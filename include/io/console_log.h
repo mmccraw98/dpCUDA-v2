@@ -22,7 +22,7 @@ public:
      * @param config The configuration for the log group
      * @param orchestrator The orchestrator that handles the pre-requisite calculations
      */
-    ConsoleLog(LogGroupConfig config, Orchestrator& orchestrator);
+    ConsoleLog(LogGroupConfigDict config, Orchestrator& orchestrator);
     ~ConsoleLog();
 
     /**

@@ -3,26 +3,12 @@
 #include "integrator.h"
 #include "../particles/base/particle.h"
 
-
-class DampedNVEConfig : public IntegratorConfig {
+struct DampedNVEConfigDict : public IntegratorConfigDict {
 public:
-    double dt;  // time step
-    double damping_coefficient;
-
-    DampedNVEConfig(double dt, double damping_coefficient) : dt(dt), damping_coefficient(damping_coefficient) {
-        integrator_type = "DampedNVE";
-    }
-
-    void from_json(const nlohmann::json& j) override {
-        dt = j["dt"];
-        damping_coefficient = j["damping_coefficient"];
-    }
-
-    nlohmann::json to_json() const override {
-        nlohmann::json j = IntegratorConfig::to_json();
-        j["dt"] = dt;
-        j["damping_coefficient"] = damping_coefficient;
-        return j;
+    DampedNVEConfigDict() {
+        insert("integrator_type", "DampedNVE");
+        insert("dt", 0.0);
+        insert("damping_coefficient", 0.0);
     }
 };
 
@@ -30,7 +16,7 @@ public:
 class DampedNVE : public Integrator {
 public:
 
-    DampedNVE(Particle& particle, const DampedNVEConfig& config);
+    DampedNVE(Particle& particle, const DampedNVEConfigDict& config);
     ~DampedNVE();
 
     double dt;  // time step

@@ -7,6 +7,8 @@
 #include <random>
 #include "../particles/base/particle.h"
 
+#include "../include/utils/config_dict.h"
+
 #include <nlohmann/json.hpp>
 
 
@@ -15,28 +17,12 @@
  * 
  * This class is used to store the configuration for the integrator object.
  */
-struct IntegratorConfig {
-    std::string integrator_type;  // the type of integrator to use
-
-    virtual ~IntegratorConfig() = default;
-
-    /**
-     * @brief Parse the integrator configuration from a JSON object.
-     * 
-     * @param j The JSON object to parse.
-     */
-    virtual void from_json(const nlohmann::json& j) = 0;
-
-    /**
-     * @brief Convert the integrator configuration to a JSON object.
-     * 
-     * @return The JSON object.
-     */
-    virtual nlohmann::json to_json() const {
-        return {{"integrator_type", integrator_type}};
-    };
+struct IntegratorConfigDict : public ConfigDict {
+public:
+    IntegratorConfigDict() : ConfigDict() {
+        insert("integrator_type", "none");
+    }
 };
-
 
 /**
  * @brief Integrator class.
@@ -49,7 +35,7 @@ protected:
     Particle& particle;  // Reference to Particle object
 
 public:
-    const IntegratorConfig& config;  // Reference to IntegratorConfig object
+    const IntegratorConfigDict& config;  // Reference to IntegratorConfig object
 
     /**
      * @brief Constructor for Integrator class.
@@ -57,7 +43,7 @@ public:
      * @param particle Reference to Particle object.
      * @param config Reference to IntegratorConfig object.
      */
-    Integrator(Particle& particle, const IntegratorConfig& config);
+    Integrator(Particle& particle, const IntegratorConfigDict& config);
 
     // Virtual destructor to ensure proper cleanup in derived classes
     virtual ~Integrator();

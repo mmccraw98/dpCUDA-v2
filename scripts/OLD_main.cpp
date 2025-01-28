@@ -2,12 +2,14 @@
 #include "../include/particles/base/particle.h"
 #include "../include/particles/disk/disk.h"
 #include "../include/integrator/nve.h"
+#include "../include/integrator/adam.h"
 #include "../include/io/orchestrator.h"
 #include "../include/particles/particle_factory.h"
 #include "../include/io/utils.h"
 #include "../include/io/console_log.h"
 #include "../include/io/energy_log.h"
 #include "../include/io/io_manager.h"
+#include "../include/routines/compression.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -93,7 +95,7 @@ int main() {
     double neighbor_displacement_multiplier = 0.2;  // if the maximum displacement of a particle exceeds this multiple of the neighbor cutoff, the neighbor list will be updated
     double num_particles_per_cell = 8.0;  // the desired number of particles per cell
     double cell_displacement_multiplier = 0.5;  // if the maximum displacement of a particle exceeds this multiple of the cell size, the cell list will be updated
-    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.8, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
+    BidisperseDiskConfig config(0, 1024, 1.0, 1.0, 2.0, 0.83, neighbor_cutoff_multiplier, neighbor_displacement_multiplier, num_particles_per_cell, cell_displacement_multiplier, "cell", 256, 1.4, 0.5);
     auto particle = create_particle(config);
     
     // TODO: all-to-all neighbor list does not conserve energy in nve - may need explicit all-to-all neighbor list definition as some may be left out for some reason
@@ -167,8 +169,27 @@ int main() {
 
     // TODO: implement a buffer for the io so its not writing every step
 
+    double packing_fraction_increment = 1e-8;
+    double alpha = 1e-4;
+    double beta1 = 0.9;
+    double beta2 = 0.999;
+    double epsilon = 1e-8;
+    double avg_pe_target = 1e-16;
+    double avg_pe_diff_target = 1e-16;
+
+    AdamConfig adam_config(alpha, beta1, beta2, epsilon);
+    Adam adam(*particle, adam_config);
+
+    long save_every_N_steps = 1e3;
+    std::vector<LogGroupConfig> jamming_log_group_configs = {
+        config_from_names_lin_everyN({"step", "PE/N", "phi"}, save_every_N_steps, "console"),  // logs to the console
+    };
+    IOManager jamming_io_manager(jamming_log_group_configs, *particle, &adam, "", 1, true);
+    double min_pe_target = 1e-16;  // decompress until pe is below here
+    decompress_adam(*particle, adam, jamming_io_manager, 1e5, 1e5, avg_pe_target, avg_pe_diff_target, packing_fraction_increment, min_pe_target);
+
     
-    particle->setRandomVelocities(1e-4);
+    particle->setRandomVelocities(1e-2);
 
     // make the integrator
     double dt_dimless = 1e-2;  // 1e-3 might be the best option
@@ -176,9 +197,9 @@ int main() {
     std::cout << "dt: " << nve_config.dt << std::endl;
     NVE nve(*particle, nve_config);
 
-    long num_steps = 1e5;
+    long num_steps = 1e7;
     long num_energy_saves = 1e2;
-    long num_state_saves = 1e2;
+    long num_state_saves = 1e1;
     long min_state_save_decade = 1e1;
 
     // Make the io manager
@@ -188,21 +209,21 @@ int main() {
         // config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions", "velocities", "forces"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         config_from_names_lin({"step", "KE", "PE", "TE", "T"}, num_steps, num_energy_saves, "energy"),  // saves the energy data to the energy file
-        
-        
         // config_from_names_lin_everyN({"step", "KE/N", "PE/N", "TE/N", "T"}, 1, "console"),  // logs to the console
         // config_from_names_lin_everyN({"step", "KE", "PE", "TE", "T"}, 1, "energy"),  // saves the energy data to the energy file
         // config_from_names_lin_everyN({"step", }, 1e4, "console"),  // logs to the console
         // config_from_names_lin({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
-        config_from_names_lin_everyN({"positions", "velocities", "forces", "cell_index", "particle_index", "static_particle_index", "cell_start", "num_neighbors", "neighbor_list", "kinetic_energy", "potential_energy", "particlePos", "boxSize"}, 100, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
         // config_from_names_lin({"positions_x", "positions_y", "velocities_x", "velocities_y", "forces_x", "forces_y", "potential_energy", "kinetic_energy", "particle_index", "num_neighbors", "neighbor_list", "cell_index", "cell_start", "radii", "static_particle_index"}, num_steps, num_state_saves, "state"),  // TODO: connect this to the derivable (and underivable) quantities in the particle
+        
+        // config_from_names_lin_everyN({"positions", "velocities"}, 1e3, "state"),
+        config_from_names_log({"positions", "velocities"}, num_steps, num_state_saves, min_state_save_decade, "state"),
     };
 
     // TODO: do something if there is data in the folder already
 
     // TODO: make an io manager config?
 
-    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-11-08/jamming/1-run", 16, true);
+    IOManager io_manager(log_group_configs, *particle, &nve, "/home/mmccraw/dev/data/24-11-08/testing-saving-method-2/log/", 1, true);
     io_manager.write_params();  // TODO: move this into the io manager constructor
 
     // add a start time and an end time to the io manager, should be added to the config file - the end time will be used to determine if the program finished (if empty,it didnt finish)
@@ -220,18 +241,8 @@ int main() {
 
     long step = 0;
 
-    while (step < 1e4) {
-        nve.step();
-        if (step % 1000 == 0) {
-            particle->scaleVelocitiesToTemperature(1e-4);
-        }
-        step++;
-    }
-
     // start the timer
     auto start = std::chrono::high_resolution_clock::now();
-
-    step = 0;
     while (step < num_steps) {
         nve.step();
         io_manager.log(step);

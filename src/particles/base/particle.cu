@@ -2,7 +2,8 @@
 #include "../../include/functors.h"
 #include "../../include/particles/base/particle.h"
 #include "../../include/particles/base/kernels.cuh"
-#include "../../include/particles/config.h"
+#include "../../include/utils/config_dict.h"
+#include "../../include/io/io_utils.h"
 #include <iostream>
 #include <string>
 #include <vector>
@@ -33,58 +34,53 @@ Particle::~Particle() {
     clearNeighborVariables();
 }
 
-void Particle::initializeFromConfig(const BaseParticleConfig& config) {
-    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
-        this->config = std::make_unique<BidisperseParticleConfig>(*bidisperse_config);
-    } else {
-        throw std::runtime_error("ERROR: Particle::initializeFromConfig: Invalid configuration type.");
-    }
-
+void Particle::initializeFromConfig(ConfigDict& config) {
     this->define_unique_dependencies();
 
-    this->setSeed(config.seed);
-    this->setParticleCounts(config.n_particles, 0);
-    this->setKernelDimensions(config.particle_dim_block);
+    this->setSeed(config["seed"]);
+    this->setParticleCounts(config["n_particles"], 0);
+    this->setKernelDimensions(config["particle_dim_block"]);
 
     // Dynamic cast to check if config is BidisperseParticleConfig
-    if (const auto* bidisperse_config = dynamic_cast<const BidisperseParticleConfig*>(&config)) {
-        // Handle bidisperse-specific fields
-        this->setBiDispersity(bidisperse_config->size_ratio, bidisperse_config->count_ratio);
+    if (config["dispersity_config"]["type_name"] == "Bidisperse") {
+        this->setBiDispersity(config["dispersity_config"]["size_ratio"], config["dispersity_config"]["count_ratio"]);
     } else {
-        throw std::runtime_error("ERROR: Disk::initializeFromConfig: Invalid configuration type.");
+        throw std::runtime_error("ERROR: Particle::initializeFromConfig: Invalid dispersity configuration type.");
     }
-    this->initializeBox(config.packing_fraction);
+    this->initializeBox(config["packing_fraction"]);
 
     // TODO: make this a config - position initialization config: zero, random, etc.
     this->setRandomPositions();
 
-    this->setEnergyScale(config.e_c, "c");
-    this->setExponent(config.n_c, "c");
-    this->setMass(config.mass);
+    this->setEnergyScale(config["e_c"], "c");
+    this->setExponent(config["n_c"], "c");
+    this->setMass(config["mass"]);
 
     this->setupNeighbors(config);
+
+    this->config = config;
 }
 
-void Particle::setupNeighbors(const BaseParticleConfig& config) {
-    this->setNeighborMethod(config.neighbor_list_update_method);
-    this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+void Particle::setupNeighbors(ConfigDict& config) {
+    this->setNeighborMethod(config["neighbor_list_config"]["neighbor_list_update_method"]);
+    this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
 
     if (this->neighbor_list_update_method == "cell") {
-        bool could_set_cell_size = this->setCellSize(config.num_particles_per_cell, config.cell_displacement_multiplier);
+        bool could_set_cell_size = this->setCellSize(config["neighbor_list_config"]["num_particles_per_cell"], config["neighbor_list_config"]["cell_displacement_multiplier"]);
         if (!could_set_cell_size) {
-            std::cout << "WARNING: Disk::initializeFromConfig: Could not set cell size.  Attempting to use verlet list instead." << std::endl;
+            std::cout << "WARNING: Particle::setupNeighbors: Could not set cell size.  Attempting to use verlet list instead." << std::endl;
             this->setNeighborMethod("verlet");
         }
-        bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+        bool could_set_neighbor_size = this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
         if (!could_set_neighbor_size) {
-            std::cerr << "ERROR: Disk::initializeFromConfig: Could not set neighbor size for cell list - neighbor cutoff exceeds box size.  Attempting to use all-to-all instead." << std::endl;
+            std::cerr << "ERROR: Particle::setupNeighbors: Could not set neighbor size for cell list - neighbor cutoff exceeds box size.  Attempting to use all-to-all instead." << std::endl;
             this->setNeighborMethod("all");
         }
     }
     if (this->neighbor_list_update_method == "verlet") {
-        bool could_set_neighbor_size = this->setNeighborSize(config.neighbor_cutoff_multiplier, config.neighbor_displacement_multiplier);
+        bool could_set_neighbor_size = this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
         if (!could_set_neighbor_size) {
-            std::cout << "WARNING: Disk::initializeFromConfig: Could not set neighbor size.  Attempting to use all-to-all instead." << std::endl;
+            std::cout << "WARNING: Particle::setupNeighbors: Could not set neighbor size.  Attempting to use all-to-all instead." << std::endl;
             this->setNeighborMethod("all");
         }
     }
@@ -92,7 +88,43 @@ void Particle::setupNeighbors(const BaseParticleConfig& config) {
     this->calculateForces();  // make sure forces are calculated before the integration starts
     double force_balance = this->getForceBalance();
     if (force_balance / this->n_particles / this->e_c > 1e-14) {
-        std::cout << "WARNING: Particle::initializeFromConfig: Force balance is " << force_balance << ", there will be an error!" << std::endl;
+        std::cout << "WARNING: Particle::setupNeighbors: Force balance is " << force_balance << ", there will be an error!" << std::endl;
+    }
+}
+
+void Particle::loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension) {
+    std::cout << "Particle::loadDataFromPath: Loading data from " << root_path << " with extension " << data_file_extension << std::endl;
+    for (const auto& entry : std::filesystem::directory_iterator(root_path)) {
+        std::string filename = entry.path().filename().string();
+        if (std::filesystem::is_directory(entry.path())) {
+            continue;
+        }
+        filename = filename.substr(0, filename.find(data_file_extension));
+        std::cout << "Loading: " << filename << std::endl;
+        if (filename == "positions") {
+            SwapData2D<double> positions = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            positions.setData(positions.getDataX(), positions.getDataY());
+        }
+        else if (filename == "velocities") {
+            SwapData2D<double> velocities = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            velocities.setData(velocities.getDataX(), velocities.getDataY());
+        }
+        else if (filename == "forces") {
+            SwapData2D<double> forces = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            forces.setData(forces.getDataX(), forces.getDataY());
+        }
+        else if (filename == "radii") {
+            Data1D<double> radii = read_1d_data_from_file<double>(entry.path().string(), n_particles);
+            radii.setData(radii.getData());
+        }
+        else if (filename == "masses") {
+            Data1D<double> masses = read_1d_data_from_file<double>(entry.path().string(), n_particles);
+            masses.setData(masses.getData());
+        }
+        else if (filename == "box_size") {
+            Data1D<double> box_size = read_1d_data_from_file<double>(entry.path().string(), 2);
+            setBoxSize(box_size.getData());
+        }
     }
 }
 
@@ -322,6 +354,18 @@ void Particle::handle_calculation_for_single_dependency(std::string dependency_c
         throw std::invalid_argument("Particle::handle_calculation_for_single_dependency: dependency_calculation_name not found: " + dependency_calculation_name);
     }
 }
+
+// void Particle::loadData(const std::string& root) {
+//     // load config
+
+//     // set config
+
+//     // load data
+
+
+//     // SwapData2D<double> positions = read_2d_swap_data_from_file<double>(last_step_dir + "/positions.dat", particle_config.n_particles, 2);
+//     // Data1D<double> radii = read_1d_data_from_file<double>(source_path + "system/init/radii.dat", particle_config.n_particles);
+// }
 
 ArrayData Particle::getArrayData(const std::string& array_name) {
     ArrayData result;

@@ -1,6 +1,6 @@
 #include "../../include/integrator/grad_desc.h"
 
-GradDesc::GradDesc(Particle& particle, const GradDescConfig& config) : Integrator(particle, config), alpha(config.alpha) {
+GradDesc::GradDesc(Particle& particle, const GradDescConfigDict& config) : Integrator(particle, config), alpha(config["alpha"]) {
 
 }
 

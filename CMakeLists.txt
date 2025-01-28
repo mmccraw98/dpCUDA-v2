@@ -46,10 +46,8 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 add_library(common_sources STATIC
     src/data/data_1d.cu
     src/data/data_2d.cu
-    src/particles/config.cu
     src/particles/base/particle.cu
     src/particles/base/kernels.cu
-    src/particles/particle_factory.cu
     src/io/orchestrator.cu
     src/io/io_manager.cu
     src/io/base_log_groups.cu
@@ -67,7 +65,7 @@ add_library(common_sources STATIC
     src/integrator/adam.cu
     src/routines/initialization.cu
     src/routines/compression.cu
-    src/io/utils.cu
+    src/io/io_utils.cu
     src/utils/thread_pool.cpp
 )
 
@@ -80,39 +78,7 @@ set_target_properties(common_sources PROPERTIES
     CUDA_STANDARD 17
 )
 
-# Main executable
-add_executable(main_exec scripts/main.cpp)
-target_link_libraries(main_exec PRIVATE common_sources)
-
-# Test executable
-add_executable(test_exec scripts/test.cpp)
-target_link_libraries(test_exec PRIVATE common_sources)
-
-# Fast Jam executable
-add_executable(fast_jam scripts/fast_jam.cpp)
-target_link_libraries(fast_jam PRIVATE common_sources)
-
-# Jam executable
-add_executable(jam scripts/jam.cpp)
-target_link_libraries(jam PRIVATE common_sources)
-
-# Rigid Bumpy Jam executable
-add_executable(rb_jam scripts/rb_jam.cpp)
-target_link_libraries(rb_jam PRIVATE common_sources)
-
-# Disk Pool executable
-add_executable(disk_pool scripts/disk_pool.cpp)
-target_link_libraries(disk_pool PRIVATE common_sources)
-
-# Rigid Bumpy Pool executable
-add_executable(rb_pool scripts/rb_pool.cpp)
-target_link_libraries(rb_pool PRIVATE common_sources)
-
-# Rigid Bumpy Damped Jam executable
-add_executable(rb_damped_jam scripts/rb_damped_jam.cpp)
-target_link_libraries(rb_damped_jam PRIVATE common_sources)
-
-# Test Load executable
-add_executable(test_load scripts/test_load.cpp)
-target_link_libraries(test_load PRIVATE common_sources)
+# Test Load 2 executable
+add_executable(test_load_2 scripts/test_load_2.cpp)
+target_link_libraries(test_load_2 PRIVATE common_sources)
 

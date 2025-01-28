@@ -4,13 +4,23 @@
 #include <thread>
 #include <vector>
 
-IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle, Integrator* integrator, std::string root_path, long num_threads, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root_path(root_path), num_threads(num_threads), overwrite(overwrite), log_configs(log_configs), thread_pool(num_threads) {
-    // probably validate root_path if it is not empty
+IOManager::IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& particle, Integrator* integrator, std::string root, long num_threads, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root(root), num_threads(num_threads), overwrite(overwrite), log_configs(log_configs), thread_pool(num_threads) {
+    root_path = std::filesystem::path(root);
+    if (!root_path.empty()) {
+        if (overwrite) {
+            std::filesystem::remove_all(root_path);
+            std::filesystem::create_directories(root_path);
+        } else {
+            std::cerr << "ERROR: IOManager::IOManager: root path " << root_path << " already exists and overwriting is disabled!" << std::endl;
+            return;
+        }
+    }
+    
     use_parallel = num_threads > 1;
 
     for (auto& config : log_configs) {
 
-        if (config.group_name == "energy") {
+        if (config["group_name"] == "energy") {
             if (system_dir_path.empty()) {
                 init_path(system_dir_path, system_dir_name);
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
@@ -18,17 +28,17 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
             std::filesystem::path energy_file_path = system_dir_path / (energy_file_name + energy_file_extension);
             log_groups.push_back(new EnergyLog(config, orchestrator, energy_file_path, overwrite));
 
-        } else if (config.group_name == "console") {
+        } else if (config["group_name"] == "console") {
             log_groups.push_back(new ConsoleLog(config, orchestrator));
 
-        } else if (config.group_name == "state") {
+        } else if (config["group_name"] == "state") {
             if (trajectory_dir_path.empty()) {
                 init_path(trajectory_dir_path, trajectory_dir_name);
                 make_dir(trajectory_dir_path, overwrite);  // may need to change function signature
             }
             log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path, indexed_file_prefix, state_file_extension));
         
-        } else if (config.group_name == "init") {
+        } else if (config["group_name"] == "init") {
             if (system_dir_path.empty()) {
                 init_path(system_dir_path, system_dir_name);
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
@@ -36,7 +46,7 @@ IOManager::IOManager(std::vector<LogGroupConfig> log_configs, Particle& particle
             state_log = new StateLog(config, orchestrator, system_dir_path, "", state_file_extension);
 
         } else {
-            std::cerr << "ERROR: IOManager::IOManager:" << config.group_name << " is not a valid log group name" << std::endl;
+            std::cerr << "ERROR: IOManager::IOManager:" << config["group_name"] << " is not a valid log group name" << std::endl;
         }
     }
 
@@ -74,11 +84,11 @@ void IOManager::write_restart_file(long step) {
 }
 
 void IOManager::init_path(std::filesystem::path& path, const std::string& path_name) {
-    if (root_path.empty()) {
-        std::cerr << "ERROR: IOManager::init_path:" << path_name << " root_path is empty" << std::endl;
+    if (root.empty()) {
+        std::cerr << "ERROR: IOManager::init_path:" << path_name << " root is empty" << std::endl;
         return;
     }
-    path = static_cast<std::filesystem::path>(root_path) / static_cast<std::filesystem::path>(path_name);
+    path = static_cast<std::filesystem::path>(root) / static_cast<std::filesystem::path>(path_name);
 }
 
 void IOManager::log(long step, bool force) {
@@ -133,19 +143,18 @@ void IOManager::log(long step, bool force) {
 }
 
 void IOManager::write_log_configs(std::filesystem::path path) {
-    nlohmann::json all_configs_json;
     for (auto& config : log_configs) {
-        all_configs_json[config.group_name] = config.to_json();
+        std::string group_name = config["group_name"].get<std::string>();
+        config.to_json(path / (group_name + "_log_config.json"));
     }
-    write_json_to_file(path / "log_configs.json", all_configs_json);
 }
 
 void IOManager::write_particle_config(std::filesystem::path path) {
-    write_json_to_file(path / "particle_config.json", particle.config->to_json());
+    particle.config.to_json(path / "particle_config.json");
 }
 
 void IOManager::write_integrator_config(std::filesystem::path path) {
-    write_json_to_file(path / "integrator_config.json", integrator->config.to_json());
+    integrator->config.to_json(path / "integrator_config.json");
 }
 
 void IOManager::write_params() {

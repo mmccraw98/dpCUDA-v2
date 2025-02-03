@@ -424,6 +424,7 @@ void RigidBumpy::loadData(const std::string& root) {
     // TODO: implement this
 }
 
+
 ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
     try {
         return Particle::getArrayData(array_name);

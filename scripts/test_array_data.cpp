@@ -85,6 +85,18 @@ int main() {
         std::cout << reordered_x[i] << " " << reordered_y[i] << std::endl;
     }
 
+    // Scale the data
+    loaded_2d_object.scale(0.5);
+
+    // Get the data
+    auto [half_scaled_x, half_scaled_y] = loaded_2d_object.getData();
+
+    // Print the data
+    std::cout << "Halved data:" << std::endl;
+    for (int i = 0; i < half_scaled_x.size(); i++) {
+        std::cout << half_scaled_x[i] << " " << half_scaled_y[i] << std::endl;
+    }
+
     // Create a swappable data object
     SwappableData1D<double, ExecutionSpace::Device> device_swappable_object;
     device_swappable_object.resize(3);
@@ -183,5 +195,17 @@ int main() {
     std::cout << "Swapped data:" << std::endl;
     for (int i = 0; i < new_swapped_x.size(); i++) {
         std::cout << new_swapped_x[i] << " " << new_swapped_y[i] << std::endl;
+    }
+
+    // Scale the data
+    host_swappable_2d_object.scale(2.0, 3.0);
+
+    // Get the data
+    auto [scaled_x, scaled_y] = host_swappable_2d_object.getData();
+
+    // Print the data
+    std::cout << "Scaled data:" << std::endl;
+    for (int i = 0; i < scaled_x.size(); i++) {
+        std::cout << scaled_x[i] << " " << scaled_y[i] << std::endl;
     }
 }

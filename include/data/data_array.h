@@ -202,6 +202,18 @@ public:
         // 4) Swap old and new
         vector.swap(new_data);
     }
+
+    // Scale the data by a given factor.
+    void scale(T scale_factor)
+    {
+        thrust::transform(
+            vector.begin(),
+            vector.end(),
+            thrust::make_constant_iterator(scale_factor),
+            vector.begin(),
+            thrust::multiplies<T>()
+        );
+    }
 };
 
 //------------------------------------------------------------
@@ -419,6 +431,44 @@ public:
         x.swap(new_x);
         y.swap(new_y);
     }
+
+    // Scale the data by a given factor.
+    void scale(T factor)
+    {
+        thrust::transform(
+            x.begin(), x.end(),
+            thrust::make_constant_iterator(factor),
+            x.begin(),
+            thrust::multiplies<T>()
+        );
+
+        thrust::transform(
+            y.begin(), y.end(),
+            thrust::make_constant_iterator(factor),
+            y.begin(),
+            thrust::multiplies<T>()
+        );
+    }
+
+    // Overload for scaling both x and y by different factors.
+    void scale(T factor_x, T factor_y)
+    {
+        // Scale x
+        thrust::transform(
+            x.begin(), x.end(),
+            thrust::make_constant_iterator(factor_x),
+            x.begin(),
+            thrust::multiplies<T>()
+        );
+
+        // Scale y
+        thrust::transform(
+            y.begin(), y.end(),
+            thrust::make_constant_iterator(factor_y),
+            y.begin(),
+            thrust::multiplies<T>()
+        );
+    }
 };
 
 //------------------------------------------------------------
@@ -460,6 +510,16 @@ public:
     {
         Base::load(filename);              // loads into Base::vector
         temp_vector.resize(Base::vector.size()); // ensure temp_vector matches
+    }
+
+    // Pointer to the temp vector data
+    T* temp_vector_pointer()
+    {
+        if constexpr (ES == ExecutionSpace::Host) {
+            return temp_vector.data();  
+        } else {
+            return thrust::raw_pointer_cast(temp_vector.data());
+        }
     }
 };
 
@@ -507,5 +567,25 @@ public:
         Base::load(filename);  // loads x,y from file
         temp_x.resize(Base::x.size());
         temp_y.resize(Base::y.size());
+    }
+
+    // Pointer to temp_x
+    T* temp_x_pointer()
+    {
+        if constexpr (ES == ExecutionSpace::Host) {
+            return temp_x.data();
+        } else {
+            return thrust::raw_pointer_cast(temp_x.data());
+        }
+    }
+
+    // Pointer to temp_y
+    T* temp_y_pointer()
+    {
+        if constexpr (ES == ExecutionSpace::Host) {
+            return temp_y.data();
+        } else {
+            return thrust::raw_pointer_cast(temp_y.data());
+        }
     }
 };

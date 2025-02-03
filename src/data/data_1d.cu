@@ -64,6 +64,13 @@ void BaseData1D<T>::copyFrom(const BaseData1D<T>& other) {
     thrust::copy(other.d_vec.begin(), other.d_vec.end(), d_vec.begin());
 }
 
+// Save
+template <typename T>
+void BaseData1D<T>::save(const std::string& filename) {
+    thrust::host_vector<T> host_data = getData();
+    
+}
+
 // Specializations
 
 // template instantiation

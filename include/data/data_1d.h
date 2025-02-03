@@ -8,14 +8,17 @@
 #include <thrust/host_vector.h>
 #include <type_traits>
 
+// NEED TO TRANSFER THE OBJECT TO THE HOST 
 
 // base
 
 template <typename T>
 class BaseData1D {
-public:
-    // Members
+private:
     std::array<long, 2> size = {0, 1};
+    std::string name = "";
+
+public:
     thrust::device_vector<T> d_vec;
     T* d_ptr = nullptr;
 
@@ -31,6 +34,14 @@ public:
     void setData(const thrust::host_vector<T>& host_data);
     thrust::host_vector<T> getData() const;
     void copyFrom(const BaseData1D<T>& other);
+
+    std::array<long, 2> getSize() const;
+    std::string getName() const;
+
+    void save(const std::string& filename);
+    void load(const std::string& filename);
+    template <typename VectorType>
+    void reorder(const VectorType& order_indices);
 };
 
 // derived for types

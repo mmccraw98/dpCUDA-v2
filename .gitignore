@@ -5,6 +5,9 @@ bin/*
 # Ignore executables in the executables folder
 bin/executables/*
 
+# Ignore everything in the test_data directory
+scripts/tests/test_data/*
+
 # CUDA files
 *.cubin
 *.ptx

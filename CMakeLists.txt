@@ -44,29 +44,30 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
 # Define a STATIC library for shared sources to ensure proper CUDA linkage
 add_library(common_sources STATIC
-    src/data/data_1d.cu
-    src/data/data_2d.cu
-    src/particles/base/particle.cu
-    src/particles/base/kernels.cu
-    src/io/orchestrator.cu
-    src/io/io_manager.cu
-    src/io/base_log_groups.cu
-    src/io/console_log.cu
-    src/io/energy_log.cu
-    src/io/state_log.cu
-    src/integrator/integrator.cu
-    src/integrator/nve.cu
-    src/integrator/damped_nve.cu
-    src/integrator/grad_desc.cu
-    src/particles/disk/disk.cu
-    src/particles/disk/kernels.cu
-    src/particles/rigid_bumpy/rigid_bumpy.cu
-    src/particles/rigid_bumpy/kernels.cu
-    src/integrator/adam.cu
-    src/routines/initialization.cu
-    src/routines/compression.cu
-    src/io/io_utils.cu
+    # src/data/data_1d.cu
+    # src/data/data_2d.cu
+    # src/particles/base/particle.cu
+    # src/particles/base/kernels.cu
+    # src/io/orchestrator.cu
+    # src/io/io_manager.cu
+    # src/io/base_log_groups.cu
+    # src/io/console_log.cu
+    # src/io/energy_log.cu
+    # src/io/state_log.cu
+    # src/integrator/integrator.cu
+    # src/integrator/nve.cu
+    # src/integrator/damped_nve.cu
+    # src/integrator/grad_desc.cu
+    # src/particles/disk/disk.cu
+    # src/particles/disk/kernels.cu
+    # src/particles/rigid_bumpy/rigid_bumpy.cu
+    # src/particles/rigid_bumpy/kernels.cu
+    # src/integrator/adam.cu
+    # src/routines/initialization.cu
+    # src/routines/compression.cu
+    # src/io/io_utils.cu
     src/utils/thread_pool.cpp
+    src/data/data_array.cu
 )
 
 # Link nlohmann_json to the common_sources library
@@ -78,18 +79,25 @@ set_target_properties(common_sources PROPERTIES
     CUDA_STANDARD 17
 )
 
-# Test Load 2 executable
-add_executable(test_load_2 scripts/test_load_2.cpp)
-target_link_libraries(test_load_2 PRIVATE common_sources)
+# Compile these with CUDA
+set_source_files_properties(scripts/test_array_data.cpp PROPERTIES LANGUAGE CUDA)
 
-# Jam executable
-add_executable(jam scripts/jam.cpp)
-target_link_libraries(jam PRIVATE common_sources)
+# # Test Load 2 executable
+# add_executable(test_load_2 scripts/test_load_2.cpp)
+# target_link_libraries(test_load_2 PRIVATE common_sources)
 
-# Run NVE executable
-add_executable(run_nve scripts/run_nve.cpp)
-target_link_libraries(run_nve PRIVATE common_sources)
+# # Jam executable
+# add_executable(jam scripts/jam.cpp)
+# target_link_libraries(jam PRIVATE common_sources)
 
-# Test executable
-add_executable(test scripts/test.cpp)
-target_link_libraries(test PRIVATE common_sources)
+# # Run NVE executable
+# add_executable(run_nve scripts/run_nve.cpp)
+# target_link_libraries(run_nve PRIVATE common_sources)
+
+# # Test executable
+# add_executable(test scripts/test.cpp)
+# target_link_libraries(test PRIVATE common_sources)
+
+# Test Array Data executable
+add_executable(test_array_data scripts/test_array_data.cpp)
+target_link_libraries(test_array_data PRIVATE common_sources)

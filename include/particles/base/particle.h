@@ -30,17 +30,24 @@ public:
     Particle();
     virtual ~Particle();  // Ensure virtual destructor for proper cleanup in derived classes
 
-    virtual void initializeFromConfig(ConfigDict& config);
 
     // std::unique_ptr<BaseParticleConfig> config;
     ConfigDict config;
+
+    void setConfig(ConfigDict& config);
+
+    ConfigDict getConfig();
+
+    virtual void initializeFromConfig(ConfigDict& config);
 
     // Function pointer for the neighbor list update method
     void (Particle::*initNeighborListPtr)();
     void (Particle::*updateNeighborListPtr)();
     void (Particle::*checkForNeighborUpdatePtr)();
 
-    void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension);
+    void updateNeighborList();
+
+    virtual void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension);
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
     std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
@@ -62,7 +69,7 @@ public:
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
-    std::vector<std::string> reorder_arrays = {"static_particle_index"};  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
+    virtual std::vector<std::string> get_reorder_arrays() { return {"static_particle_index"}; }  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
     std::set<std::string> unique_dependents;
     std::set<std::string> unique_dependencies;
     std::map<std::string, bool> dependency_status;
@@ -97,9 +104,14 @@ public:
     Data1D<long> static_particle_index;
     Data1D<long> cell_start;
     Data2D<double> force_pairs;
+    Data1D<double> overlap_pairs;
+    Data1D<double> radsum_pairs;
     Data2D<double> distance_pairs;
     Data2D<long> pair_ids;
 
+    Data2D<double> pos_pairs_i;
+    Data2D<double> pos_pairs_j;
+    
     // adam minimizer variables
     SwapData2D<double> first_moment;
     SwapData2D<double> second_moment;
@@ -142,6 +154,9 @@ public:
     virtual void loadData(const std::string& root) = 0;
 
     void setupNeighbors(ConfigDict& neighbor_config);
+
+    // put whatever in here that is needed to be called after the data is loaded
+    virtual void finalizeLoading() {};
 
     /**
      * @brief Set the neighbor list update method for the particles.
@@ -228,6 +243,8 @@ public:
      * @param box_size The box size vector.
      */
     void setBoxSize(const thrust::host_vector<double>& host_box_size);
+
+    thrust::host_vector<double> getBoxSize();
 
     /**
      * @brief Synchronize the neighbor list on the device.

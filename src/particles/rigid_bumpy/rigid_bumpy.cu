@@ -35,19 +35,34 @@ RigidBumpy::~RigidBumpy() {
 // ----------------------------------------------------------------------
 
 void RigidBumpy::initializeFromConfig(ConfigDict& config) {
-    auto [positions, radii, box_size] = get_minimal_overlap_disk_positions_and_radii(config);
-    thrust::host_vector<double> h_radii = radii.getData();
+    auto [_positions, _radii, _box_size] = get_minimal_overlap_disk_positions_and_radii(config, 0.0);
+    thrust::host_vector<double> h_radii = _radii.getData();
+
+    // thrust::host_vector<long> vertex_particle_index_h;
+    // vertex_particle_index_h = vertex_particle_index.getData();
+    // std::cout << "0 1 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
 
     rotation = config["rotation"];
     segment_length_per_vertex_diameter = config["segment_length_per_vertex_diameter"];
-    initializeVerticesFromDiskPacking(positions, radii, config["n_vertex_per_small_particle"], config["particle_dim_block"], config["vertex_dim_block"]);
+    long n_vertices_per_small_particle = config["n_vertices_per_small_particle"];
+    long particle_dim_block = config["particle_dim_block"];
+    long vertex_dim_block = config["vertex_dim_block"];
+    initializeVerticesFromDiskPacking(_positions, _radii, n_vertices_per_small_particle, particle_dim_block, vertex_dim_block);
+
+    // vertex_particle_index_h = vertex_particle_index.getData();
+    // std::cout << "0 2 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+
     define_unique_dependencies();
     setSeed(config["seed"]);
-    angles.fillRandomUniform(0, 2 * M_PI, 0, config["seed"]);
-    setBoxSize(box_size.getData());
+
+    setRandomAngles();
+    
+    setBoxSize(_box_size.getData());
+
     // TODO: these have a bug
     // rb.calculateParticleArea();
     // rb.initializeBox(config.packing_fraction);
+
     config["vertex_radius"] = getVertexRadius();
     double geom_scale = getGeometryScale();
     double e_c = config["e_c"];
@@ -56,13 +71,88 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config) {
     setExponent(config["n_c"], "c");
     setMass(config["mass"]);
 
-    setNeighborMethod(config["neighbor_list_config"]["neighbor_list_update_method"]);
-    setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
-    setCellSize(config["neighbor_list_config"]["num_particles_per_cell"], config["neighbor_list_config"]["cell_displacement_multiplier"]);
-    max_vertex_neighbors_allocated = 8;
-    syncVertexNeighborList();
-    initNeighborList();
-    syncVertexNeighborList();
+    // setNeighborMethod(config["neighbor_list_config"]["neighbor_list_update_method"]);
+    // setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
+    // setCellSize(config["neighbor_list_config"]["num_particles_per_cell"], config["neighbor_list_config"]["cell_displacement_multiplier"]);
+    // max_vertex_neighbors_allocated = 8;
+    // syncVertexNeighborList();
+    // initNeighborList();
+    // syncVertexNeighborList();
+    setupNeighbors(config);
+
+
+    config["n_vertices"] = n_vertices;
+    setConfig(config);
+
+    // vertex_particle_index_h = vertex_particle_index.getData();
+    // std::cout << "0 3 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+}
+
+void RigidBumpy::finalizeLoading() {
+    setParticleStartIndex();
+    syncVertexIndices();
+}
+
+void RigidBumpy::loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension) {
+    Particle::loadDataFromPath(root_path, data_file_extension);
+    std::cout << "RigidBumpy::loadDataFromPath: Loading data from " << root_path << " with extension " << data_file_extension << std::endl;
+    for (const auto& entry : std::filesystem::directory_iterator(root_path)) {
+        std::string filename = entry.path().filename().string();
+        if (std::filesystem::is_directory(entry.path())) {
+            continue;
+        }
+        filename = filename.substr(0, filename.find(data_file_extension));
+        if (filename == "torques") {
+            std::cout << "Loading torques" << std::endl;
+            SwapData1D<double> loaded_torques = read_1d_swap_data_from_file<double>(entry.path().string(), n_particles);
+            this->torques.setData(loaded_torques.getData());
+        }
+        else if (filename == "angles") {
+            std::cout << "Loading angles" << std::endl;
+            SwapData1D<double> loaded_angles = read_1d_swap_data_from_file<double>(entry.path().string(), n_particles);
+            this->angles.setData(loaded_angles.getData());
+        }
+        else if (filename == "angular_velocities") {
+            std::cout << "Loading angular_velocities" << std::endl;
+            SwapData1D<double> loaded_angular_velocities = read_1d_swap_data_from_file<double>(entry.path().string(), n_particles);
+            this->angular_velocities.setData(loaded_angular_velocities.getData());
+        }
+        else if (filename == "vertex_positions") {
+            std::cout << "Loading vertex_positions" << std::endl;
+            SwapData2D<double> loaded_vertex_positions = read_2d_swap_data_from_file<double>(entry.path().string(), n_vertices, 2);
+            this->vertex_positions.setData(loaded_vertex_positions.getDataX(), loaded_vertex_positions.getDataY());
+        }
+        else if (filename == "vertex_velocities") {
+            std::cout << "Loading vertex_velocities" << std::endl;
+            SwapData2D<double> loaded_vertex_velocities = read_2d_swap_data_from_file<double>(entry.path().string(), n_vertices, 2);
+            this->vertex_velocities.setData(loaded_vertex_velocities.getDataX(), loaded_vertex_velocities.getDataY());
+        }
+        else if (filename == "vertex_forces") {
+            std::cout << "Loading vertex_forces" << std::endl;
+            SwapData2D<double> loaded_vertex_forces = read_2d_swap_data_from_file<double>(entry.path().string(), n_vertices, 2);
+            this->vertex_forces.setData(loaded_vertex_forces.getDataX(), loaded_vertex_forces.getDataY());
+        }
+        else if (filename == "static_vertex_index") {
+            std::cout << "Loading static_vertex_index" << std::endl;
+            Data1D<long> loaded_static_vertex_index = read_1d_data_from_file<long>(entry.path().string(), n_vertices);
+            this->static_vertex_index.setData(loaded_static_vertex_index.getData());
+        }
+        else if (filename == "particle_start_index") {
+            std::cout << "Loading particle_start_index" << std::endl;
+            Data1D<long> loaded_particle_start_index = read_1d_data_from_file<long>(entry.path().string(), n_particles);
+            this->particle_start_index.setData(loaded_particle_start_index.getData());
+        }
+        else if (filename == "vertex_particle_index") {
+            std::cout << "Loading vertex_particle_index" << std::endl;
+            Data1D<long> loaded_vertex_particle_index = read_1d_data_from_file<long>(entry.path().string(), n_vertices);
+            this->vertex_particle_index.setData(loaded_vertex_particle_index.getData());
+        }
+        else if (filename == "num_vertices_in_particle") {
+            std::cout << "Loading num_vertices_in_particle" << std::endl;
+            Data1D<long> loaded_num_vertices_in_particle = read_1d_data_from_file<long>(entry.path().string(), n_particles);
+            this->num_vertices_in_particle.setData(loaded_num_vertices_in_particle.getData());
+        }
+    }
 }
 
 
@@ -222,6 +312,10 @@ void RigidBumpy::scaleVelocitiesToTemperature(double temperature) {
     angular_velocities.scale(scale_factor);
 }
 
+void RigidBumpy::setRandomAngles() {
+    angles.fillRandomUniform(0.0, 2 * M_PI, 0.0, seed);
+}
+
 
 void RigidBumpy::setRandomVelocities(double temperature) {
     velocities.fillRandomNormal(0.0, std::sqrt(temperature), 0.0, std::sqrt(temperature), 1, seed);
@@ -231,10 +325,22 @@ void RigidBumpy::setRandomVelocities(double temperature) {
 }
 
 void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_positions, SwapData1D<double>& disk_radii, long num_vertices_in_small_particle, long particle_dim_block, long vertex_dim_block) {
+    
+    
+    thrust::host_vector<long> num_vertices_in_particle_h;
+    thrust::host_vector<long> vertex_particle_index_h;
+    thrust::host_vector<long> static_vertex_index_h;
+    
+    
     // set the number of particles from the disk data
     setNumParticles(disk_positions.size[0]);
     initDynamicVariables();
     initGeometricVariables();
+
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "1 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    // vertex_particle_index_h = vertex_particle_index.getData();
+    // std::cout << "1 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
 
     // set the particle positions and radii from the disk packing
     positions.copyFrom(disk_positions);
@@ -244,6 +350,11 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // define the number of vertices using the bidispersity
     long num_vertices_in_large_particle = setVertexBiDispersity(num_vertices_in_small_particle);
 
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "2 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    // vertex_particle_index_h = vertex_particle_index.getData();
+    // std::cout << "2 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+
     setDegreesOfFreedom();
 
     // set the kernel dimensions
@@ -252,15 +363,37 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // initialize the vertex variables
     initVertexVariables();
 
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "3 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    vertex_particle_index_h = vertex_particle_index.getData();
+    std::cout << "3 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+    // static_vertex_index_h = static_vertex_index.getData();
+    // std::cout << "3 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
+
     double min_particle_diam = getDiameter("min");
     double max_particle_diam = getDiameter("max");
+
 
     // set the number of vertices in each particle
     kernelGetNumVerticesInParticles<<<particle_dim_grid, particle_dim_block>>>(
         radii.d_ptr, min_particle_diam, num_vertices_in_small_particle, max_particle_diam, num_vertices_in_large_particle, num_vertices_in_particle.d_ptr);
 
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "4 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    vertex_particle_index_h = vertex_particle_index.getData();
+    std::cout << "4 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+    // static_vertex_index_h = static_vertex_index.getData();
+    // std::cout << "4 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
+
     // set the particle start index
     setParticleStartIndex();
+
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "5 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    vertex_particle_index_h = vertex_particle_index.getData();
+    std::cout << "5 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+    // static_vertex_index_h = static_vertex_index.getData();
+    // std::cout << "5 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
 
     // set random angles
     angles.fillRandomUniform(0.0, 2 * M_PI, 0.0, seed);
@@ -268,9 +401,23 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // initialize the vertices on the particles
     kernelInitializeVerticesOnParticles<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, angles.d_ptr, vertex_particle_index.d_ptr, particle_start_index.d_ptr, num_vertices_in_particle.d_ptr, vertex_masses.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr);
-    
+
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "6 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    vertex_particle_index_h = vertex_particle_index.getData();
+    std::cout << "6 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+    // static_vertex_index_h = static_vertex_index.getData();
+    // std::cout << "6 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
+
     // sync the vertex indices
     syncVertexIndices();
+
+    num_vertices_in_particle_h = num_vertices_in_particle.getData();
+    std::cout << "7 num_vertices_in_particle_h[0]: " << num_vertices_in_particle_h[0] << std::endl;
+    vertex_particle_index_h = vertex_particle_index.getData();
+    std::cout << "7 vertex_particle_index_h[0]: " << vertex_particle_index_h[0] << std::endl;
+    // static_vertex_index_h = static_vertex_index.getData();
+    // std::cout << "7 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
 }
 
 void RigidBumpy::loadData(const std::string& root) {
@@ -333,7 +480,7 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.type = DataType::Long;
             result.size = particle_start_index.size;
             result.data = particle_start_index.getData();
-            result.index_array_name = "static_particle_index";
+            result.index_array_name = "";
         } else if (array_name == "num_vertices_in_particle") {
             result.type = DataType::Long;
             result.size = num_vertices_in_particle.size;
@@ -358,7 +505,7 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.type = DataType::Long;
             result.size = static_vertex_index.size;
             result.data = static_vertex_index.getData();
-            result.index_array_name = "";
+            result.index_array_name = "static_vertex_index";
         } else if (array_name == "moments_of_inertia") {
             result.type = DataType::Double;
             result.size = moments_of_inertia.size;
@@ -657,8 +804,21 @@ void RigidBumpy::zeroForceAndPotentialEnergy() {
 }
 
 void RigidBumpy::calculateForceDistancePairs() {
-    std::cout << "FIXME: Implement calculateForceDistancePairs" << std::endl;
-    exit(EXIT_FAILURE);
+    force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
+    distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
+    pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
+    overlap_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
+    radsum_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
+
+    pos_pairs_i.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
+    pos_pairs_j.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
+
+    kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pos_pairs_i.x.d_ptr, pos_pairs_i.y.d_ptr, pos_pairs_j.x.d_ptr, pos_pairs_j.y.d_ptr); 
+
+
+// __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pos_pairs_i_x, double* pos_pairs_i_y, double* pos_pairs_j_x, double* pos_pairs_j_y) {
+
 }
 
 void RigidBumpy::initAdamVariables() {

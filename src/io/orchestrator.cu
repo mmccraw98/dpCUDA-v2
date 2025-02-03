@@ -69,7 +69,7 @@ double Orchestrator::apply_modifier(std::string& modifier, double value) {
 
 std::unordered_map<std::string, ArrayData> Orchestrator::get_reorder_index_data() {
     std::unordered_map<std::string, ArrayData> reorder_index_data;
-    for (const std::string& index_name : particle.reorder_arrays) {
+    for (const std::string& index_name : particle.get_reorder_arrays()) {
         reorder_index_data[index_name] = particle.getArrayData(index_name);
     }
     return reorder_index_data;

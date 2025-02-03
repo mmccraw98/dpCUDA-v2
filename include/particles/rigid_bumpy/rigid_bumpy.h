@@ -21,6 +21,10 @@ public:
     RigidBumpy();
     virtual ~RigidBumpy();
 
+    void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension) override;
+
+    std::vector<std::string> get_reorder_arrays() override { return {"static_particle_index", "static_vertex_index"}; }  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
+
     SwapData2D<double> vertex_positions;
     SwapData2D<double> vertex_velocities;
     SwapData2D<double> vertex_forces;
@@ -66,7 +70,11 @@ public:
 
     ArrayData getArrayData(const std::string& array_name) override;
 
-    void calculateParticleArea();
+    void calculateParticleArea() override;
+
+    void setRandomAngles();
+
+    void finalizeLoading() override;
 
     double getParticleArea() const override;
 

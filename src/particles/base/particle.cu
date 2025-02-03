@@ -34,6 +34,14 @@ Particle::~Particle() {
     clearNeighborVariables();
 }
 
+void Particle::setConfig(ConfigDict& config) {
+    this->config = config;
+}
+
+ConfigDict Particle::getConfig() {
+    return this->config;
+}
+
 void Particle::initializeFromConfig(ConfigDict& config) {
     this->define_unique_dependencies();
 
@@ -41,7 +49,6 @@ void Particle::initializeFromConfig(ConfigDict& config) {
     this->setParticleCounts(config["n_particles"], 0);
     this->setKernelDimensions(config["particle_dim_block"]);
 
-    // Dynamic cast to check if config is BidisperseParticleConfig
     if (config["dispersity_config"]["type_name"] == "Bidisperse") {
         this->setBiDispersity(config["dispersity_config"]["size_ratio"], config["dispersity_config"]["count_ratio"]);
     } else {
@@ -58,7 +65,7 @@ void Particle::initializeFromConfig(ConfigDict& config) {
 
     this->setupNeighbors(config);
 
-    this->config = config;
+    this->setConfig(config);
 }
 
 void Particle::setupNeighbors(ConfigDict& config) {
@@ -100,30 +107,45 @@ void Particle::loadDataFromPath(std::filesystem::path root_path, std::string dat
             continue;
         }
         filename = filename.substr(0, filename.find(data_file_extension));
-        std::cout << "Loading: " << filename << std::endl;
         if (filename == "positions") {
-            SwapData2D<double> positions = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
-            positions.setData(positions.getDataX(), positions.getDataY());
+            std::cout << "Loading positions" << std::endl;
+            SwapData2D<double> loaded_positions = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            this->positions.setData(loaded_positions.getDataX(), loaded_positions.getDataY());
         }
         else if (filename == "velocities") {
-            SwapData2D<double> velocities = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
-            velocities.setData(velocities.getDataX(), velocities.getDataY());
+            std::cout << "Loading velocities" << std::endl;
+            SwapData2D<double> loaded_velocities = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            this->velocities.setData(loaded_velocities.getDataX(), loaded_velocities.getDataY());
         }
         else if (filename == "forces") {
-            SwapData2D<double> forces = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
-            forces.setData(forces.getDataX(), forces.getDataY());
+            std::cout << "Loading forces" << std::endl;
+            SwapData2D<double> loaded_forces = read_2d_swap_data_from_file<double>(entry.path().string(), n_particles, 2);
+            this->forces.setData(loaded_forces.getDataX(), loaded_forces.getDataY());
         }
         else if (filename == "radii") {
-            Data1D<double> radii = read_1d_data_from_file<double>(entry.path().string(), n_particles);
-            radii.setData(radii.getData());
+            std::cout << "Loading radii" << std::endl;
+            Data1D<double> loaded_radii = read_1d_data_from_file<double>(entry.path().string(), n_particles);
+            this->radii.setData(loaded_radii.getData());
         }
         else if (filename == "masses") {
-            Data1D<double> masses = read_1d_data_from_file<double>(entry.path().string(), n_particles);
-            masses.setData(masses.getData());
+            std::cout << "Loading masses" << std::endl;
+            Data1D<double> loaded_masses = read_1d_data_from_file<double>(entry.path().string(), n_particles);
+            this->masses.setData(loaded_masses.getData());
         }
         else if (filename == "box_size") {
-            Data1D<double> box_size = read_1d_data_from_file<double>(entry.path().string(), 2);
-            setBoxSize(box_size.getData());
+            std::cout << "Loading box_size" << std::endl;
+            Data1D<double> loaded_box_size = read_1d_data_from_file<double>(entry.path().string(), 2);
+            this->setBoxSize(loaded_box_size.getData());
+        }
+        else if (filename == "particle_index") {
+            std::cout << "Loading particle_index" << std::endl;
+            Data1D<long> loaded_particle_index = read_1d_data_from_file<long>(entry.path().string(), n_particles);
+            this->particle_index.setData(loaded_particle_index.getData());
+        }
+        else if (filename == "static_particle_index") {
+            std::cout << "Loading static_particle_index" << std::endl;
+            Data1D<long> loaded_static_particle_index = read_1d_data_from_file<long>(entry.path().string(), n_particles);
+            this->static_particle_index.setData(loaded_static_particle_index.getData());
         }
     }
 }
@@ -434,7 +456,7 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Long;
         result.size = static_particle_index.size;
         result.data = static_particle_index.getData();
-        result.index_array_name = "";
+        result.index_array_name = "static_particle_index";
     } else if (array_name == "cell_start") {
         result.type = DataType::Long;
         result.size = cell_start.size;
@@ -455,7 +477,26 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.size = pair_ids.size;
         result.data = std::make_pair(pair_ids.getDataX(), pair_ids.getDataY());
         result.index_array_name = "";
-
+    } else if (array_name == "overlap_pairs") {
+        result.type = DataType::Double;
+        result.size = overlap_pairs.size;
+        result.data = overlap_pairs.getData();
+        result.index_array_name = "";
+    } else if (array_name == "radsum_pairs") {
+        result.type = DataType::Double;
+        result.size = radsum_pairs.size;
+        result.data = radsum_pairs.getData();
+        result.index_array_name = "";
+    } else if (array_name == "pos_pairs_i") {
+        result.type = DataType::Double;
+        result.size = pos_pairs_i.size;
+        result.data = std::make_pair(pos_pairs_i.getDataX(), pos_pairs_i.getDataY());
+        result.index_array_name = "";
+    } else if (array_name == "pos_pairs_j") {
+        result.type = DataType::Double;
+        result.size = pos_pairs_j.size;
+        result.data = std::make_pair(pos_pairs_j.getDataX(), pos_pairs_j.getDataY());
+        result.index_array_name = "";
     } else {
         throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
     }
@@ -473,6 +514,10 @@ void Particle::setBoxSize(const thrust::host_vector<double>& host_box_size) {  /
         std::cerr << "Particle::setBoxSize: Error copying box size to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
     }
+}
+
+thrust::host_vector<double> Particle::getBoxSize() {
+    return box_size.getData();
 }
 
 void Particle::syncNeighborList() {
@@ -784,6 +829,10 @@ void Particle::checkForCellListUpdate() {
 
 void Particle::initNeighborList() {
     (this->*initNeighborListPtr)();
+}
+
+void Particle::updateNeighborList() {
+    (this->*updateNeighborListPtr)();
 }
 
 void Particle::initVerletListVariables() {

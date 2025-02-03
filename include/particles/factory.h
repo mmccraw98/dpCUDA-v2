@@ -45,8 +45,10 @@ loadParticleFromRoot(const std::string& root, long trajectory_frame)
     // 5) Convert it to a shared_ptr<Particle> for our return type
     std::shared_ptr<Particle> particle(std::move(particle_unique));
 
+    particle->initNeighborList();
+
     // 6) Open "init" and load everything in it, overwriting whatever is in the particle
-    particle->loadDataFromPath(system_path, ".dat");
+    particle->loadDataFromPath(system_path / "init", ".dat");
     
     // 7) Open a given trajectory frame, load everything in it, overwrite whatever is in the particle
     auto frame_path_and_frame = get_trajectory_frame_path(trajectory_path, "t", trajectory_frame);
@@ -54,17 +56,21 @@ loadParticleFromRoot(const std::string& root, long trajectory_frame)
     long frame = std::get<1>(frame_path_and_frame);
     particle->loadDataFromPath(frame_path, ".dat");
 
-    // 8) Set up neighbors again and calculate forces
-    particle->initNeighborList();
-    particle->calculateForces();  // make sure forces are calculated before the integration
+    // 8) Call finalizeLoading for the particle
+    particle->finalizeLoading();
 
+    // 9) Set up neighbors again and calculate forces
+    particle->updateNeighborList();
+    particle->calculateForces();  // make sure forces are calculated before the integration
     double force_balance = particle->getForceBalance();
     if (force_balance / particle->n_particles / particle->e_c > 1e-14) {
         std::cout << "WARNING: Particle::setupNeighbors: Force balance is "
                   << force_balance << ", there will be an error!\n";
     }
 
-    std::cout << "frame: " << frame << std::endl;
+    // TODO: SET THE PACKING FRACTION IN THE CONFIG TO BE THE NEW VALUE
+    particle->calculateParticleArea();
+    particle->config["packing_fraction"] = particle->getPackingFraction();
 
     // Finally, return the tuple:
     // (particle shared_ptr, frame number, system path, trajectory path)

@@ -1,11 +1,12 @@
 #include "../../include/routines/compression.h"
 
-void jam_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_compression_steps, long num_adam_steps, double avg_pe_target, double avg_pe_diff_target, double packing_fraction_increment, double min_packing_fraction_increment, double mult) {
+void jam_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_compression_steps, long num_adam_steps, double avg_pe_target, double avg_pe_diff_target, double packing_fraction_increment, double min_packing_fraction_increment, double mult, long start_step) {
     particle.initAdamVariables();
     particle.calculateParticleArea();
     double packing_fraction = particle.getPackingFraction();
 
-    long compression_step = 0;
+    long compression_step = start_step;
+    num_compression_steps += start_step;
     double avg_pe_past_jamming = 1e-9;  // marks being above jamming (might be too high)
     double avg_pe = 0.0;
     double dof = static_cast<double>(particle.n_dof);
@@ -124,14 +125,15 @@ void decompress_adam(Particle& particle, Adam& adam, IOManager& io_manager, long
     io_manager.log(compression_step, true);  // force the save at the last step
 }
 
-void compress_to_phi_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_compression_steps, long num_adam_steps, double avg_pe_target, double avg_pe_diff_target, double delta_phi_target) {
+void compress_to_phi_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_compression_steps, long num_adam_steps, double avg_pe_target, double avg_pe_diff_target, double delta_phi_target, long start_step) {
     particle.initAdamVariables();
     particle.calculateParticleArea();
     double packing_fraction = particle.getPackingFraction();
     double phi_target = packing_fraction + delta_phi_target;
     double packing_fraction_increment = delta_phi_target / (static_cast<double>(num_compression_steps) / 2.0);
 
-    long compression_step = 0;
+    long compression_step = start_step;
+    num_compression_steps += start_step;
     double avg_pe = 0.0;
     double dof = static_cast<double>(particle.n_dof);
     while (compression_step < num_compression_steps && std::abs(packing_fraction - phi_target) > packing_fraction_increment) {

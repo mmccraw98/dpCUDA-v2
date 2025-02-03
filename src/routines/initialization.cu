@@ -1,21 +1,13 @@
 #include "../../include/routines/initialization.h"
+#include "../../include/io/io_utils.h"
 
 std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minimal_overlap_disk_positions_and_radii(ConfigDict& config, double overcompression_factor) {
     std::cout << "Running Routine: get_minimal_overlap_disk_positions_and_radii" << std::endl;
-    config["packing_fraction"] += overcompression_factor;
-
-    DiskParticleConfigDict disk_config;
-    disk_config["seed"] = config["seed"];
-    disk_config["n_particles"] = config["n_particles"];
-    disk_config["mass"] = config["mass"];
-    disk_config["e_c"] = config["e_c"];
-    disk_config["n_c"] = config["n_c"];
-    disk_config["packing_fraction"] = config["packing_fraction"];
-    disk_config["neighbor_list_config"] = config["neighbor_list_config"];
+    double packing_fraction = config["packing_fraction"];
+    config["packing_fraction"] = packing_fraction + overcompression_factor;
 
     Disk disk;
-    disk.initializeFromConfig(disk_config);
-
+    disk.initializeFromConfig(config);
     disk.initAdamVariables();
 
     double alpha = 1e-4;
@@ -56,7 +48,7 @@ std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minim
     }
 
     // scale the disk positions and radii back down to the target packing fraction
-    double packing_fraction = config["packing_fraction"];
+    packing_fraction = config["packing_fraction"];
     disk.scaleToPackingFraction(packing_fraction - overcompression_factor);
 
     // copy the disk positions and radii and then use that to determine the rigid particle positions
@@ -67,6 +59,26 @@ std::tuple<SwapData2D<double>, SwapData1D<double>, SwapData1D<double>> get_minim
     SwapData1D<double> box_size;
     box_size.copyFrom(disk.box_size);
     std::cout << "Finished Routine: get_minimal_overlap_disk_positions_and_radii" << std::endl;
+
+    // if the disk was using cell list, reorder the positions and radii by the static_particle_index
+    if (disk.using_cell_list) {
+        // reorder_array(positions, disk.static_particle_index);
+        // reorder_array(radii, disk.static_particle_index);
+        ArrayData _static_particle_index = disk.getArrayData("static_particle_index");
+        ArrayData _positions = disk.getArrayData("positions");
+        ArrayData _radii = disk.getArrayData("radii");
+        reorder_array(_positions, _static_particle_index);
+        reorder_array(_radii, _static_particle_index);
+        // get the data from the reordered arrays
+        auto& _positions_data = get_2d_data<double>(_positions);
+        auto& _radii_data = get_1d_data<double>(_radii);
+        // copy the data back to the original arrays
+        const thrust::host_vector<double>& positions_data_x = _positions_data.first;
+        const thrust::host_vector<double>& positions_data_y = _positions_data.second;
+        const thrust::host_vector<double>& radii_data = _radii_data;
+        positions.setData(positions_data_x, positions_data_y);
+        radii.setData(radii_data);
+    }
 
     return std::make_tuple(positions, radii, box_size);
 }

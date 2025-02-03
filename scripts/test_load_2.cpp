@@ -85,8 +85,7 @@ int main() {
 
 
 
-    std::string root = "/home/mmccraw/dev/data/24-11-08/test-data";
-    std::string output_path = "/home/mmccraw/dev/data/24-11-08/test-data-2";
+    std::string root = "/home/mmccraw/dev/data/25-02-01/effective-potential/rb/0/jamming/";
 
     long trajectory_frame = -1;
 
@@ -106,8 +105,6 @@ int main() {
     std::filesystem::path integrator_config_path = get_path(sysPath, "integrator_config.json");
     ConfigDict integrator_config;
     integrator_config.from_json(integrator_config_path);
-
-    
 
     // IF RESUMING, DELETE THE ROWS IN THE ENERGY FILE THAT EXCEED THE CURRENT FRAME
 

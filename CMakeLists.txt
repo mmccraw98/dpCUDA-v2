@@ -82,3 +82,14 @@ set_target_properties(common_sources PROPERTIES
 add_executable(test_load_2 scripts/test_load_2.cpp)
 target_link_libraries(test_load_2 PRIVATE common_sources)
 
+# Jam executable
+add_executable(jam scripts/jam.cpp)
+target_link_libraries(jam PRIVATE common_sources)
+
+# Run NVE executable
+add_executable(run_nve scripts/run_nve.cpp)
+target_link_libraries(run_nve PRIVATE common_sources)
+
+# Test executable
+add_executable(test scripts/test.cpp)
+target_link_libraries(test PRIVATE common_sources)

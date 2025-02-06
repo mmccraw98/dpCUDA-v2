@@ -570,15 +570,10 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.size = radsum_pairs.size;
         result.data = radsum_pairs.getData();
         result.index_array_name = "";
-    } else if (array_name == "pos_pairs_i") {
+    } else if (array_name == "pair_separation_angle") {
         result.type = DataType::Double;
-        result.size = pos_pairs_i.size;
-        result.data = std::make_pair(pos_pairs_i.getDataX(), pos_pairs_i.getDataY());
-        result.index_array_name = "";
-    } else if (array_name == "pos_pairs_j") {
-        result.type = DataType::Double;
-        result.size = pos_pairs_j.size;
-        result.data = std::make_pair(pos_pairs_j.getDataX(), pos_pairs_j.getDataY());
+        result.size = pair_separation_angle.size;
+        result.data = pair_separation_angle.getData();
         result.index_array_name = "";
     } else {
         throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");

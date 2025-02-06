@@ -69,7 +69,27 @@ public:
     SwapData1D<long> vertex_index;  // TODO: probably remove this
     SwapData1D<long> static_vertex_index;
 
+    // "angle_pairs_i", "angle_pairs_j", "pair_separation_angle", "pair_contact_vertex_count"
+    Data1D<double> angle_pairs_i;
+    Data1D<double> angle_pairs_j;
+    Data1D<long> this_vertex_contact_counts;
     bool rotation = true;
+
+    std::unordered_map<std::string, std::vector<std::string>> calculation_dependencies = {  // replicate this for each derived class
+        {"TE", {"calculate_kinetic_energy"}},
+        {"T", {"calculate_kinetic_energy"}},
+        {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
+        {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
+        {"force_pairs", {"calculate_force_distance_pairs"}},
+        {"distance_pairs", {"calculate_force_distance_pairs"}},
+        {"pair_ids", {"calculate_force_distance_pairs"}},
+        {"pair_separation_angle", {"calculate_force_distance_pairs"}},
+        {"angle_pairs_i", {"calculate_force_distance_pairs"}},
+        {"angle_pairs_j", {"calculate_force_distance_pairs"}},
+        {"this_vertex_contact_counts", {"calculate_force_distance_pairs"}},
+        {"vertex_contact_counts_j", {"calculate_force_distance_pairs"}},
+        // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
+    };
 
     double vertex_neighbor_cutoff;  // vertices within this distance of each other are neighbors
     double vertex_particle_neighbor_cutoff;  // particles within this distance of a vertex will be checked for vertex neighbors

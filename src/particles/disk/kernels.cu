@@ -70,7 +70,7 @@ __global__ void kernelCalcDiskWallForces(const double* positions_x, const double
     potential_energy[particle_id] += interaction_energy;
 }
 
-__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pos_pairs_i_x, double* pos_pairs_i_y, double* pos_pairs_j_x, double* pos_pairs_j_y) {
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     long static_particle_id = static_particle_index[particle_id];
     if (particle_id >= d_n_particles) return;
@@ -107,19 +107,16 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
         distance_pairs_x[pair_id] = x_dist;
         distance_pairs_y[pair_id] = y_dist;
         
-        // this_pair_id[pair_id] = static_particle_id;
-        // other_pair_id[pair_id] = static_particle_index[other_id];
+        this_pair_id[pair_id] = static_particle_id;
+        other_pair_id[pair_id] = static_particle_index[other_id];
         
-        this_pair_id[pair_id] = particle_id;
-        other_pair_id[pair_id] = other_id;
+        // this_pair_id[pair_id] = particle_id;
+        // other_pair_id[pair_id] = other_id;
 
         
         double dist = sqrt(x_dist * x_dist + y_dist * y_dist);
         overlap_pairs[pair_id] = dist - (rad + other_rad);
         radsum_pairs[pair_id] = rad + other_rad;
-        pos_pairs_i_x[pair_id] = pos_x;
-        pos_pairs_i_y[pair_id] = pos_y;
-        pos_pairs_j_x[pair_id] = other_x;
-        pos_pairs_j_y[pair_id] = other_y;
+        pair_separation_angle[pair_id] = atan2(y_dist, x_dist);
     }
 }

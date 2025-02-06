@@ -23,10 +23,10 @@ int main() {
     RigidBumpy rigid_bumpy;
     rigid_bumpy.initializeFromConfig(config, minimize);
 
-    long num_steps = 1e5;
+    long num_steps = 1e6;
     long save_every_N_steps = 1e3;
     double dt_dimless = 1e-2;
-    double temperature = 1e-4;
+    double temperature = 1e-3;
     bool overwrite = true;
     std::string output_path = "/home/mmccraw/dev/data/25-02-01/loading-debugging/rb/test";
     
@@ -38,7 +38,7 @@ int main() {
     NVE nve(rigid_bumpy, nve_config_dict);
 
     std::vector<std::string> init_names = rigid_bumpy.getFundamentalValues();
-    std::vector<std::string> state_names = {"vertex_forces", "vertex_positions", "positions", "velocities", "box_size", "forces", "static_particle_index", "particle_index", "force_pairs", "distance_pairs", "pair_ids", "overlap_pairs", "radsum_pairs", "pos_pairs_i", "pos_pairs_j", "cell_index", "cell_start"};
+    std::vector<std::string> state_names = {"vertex_forces", "vertex_positions", "positions", "velocities", "box_size", "forces", "static_particle_index", "particle_index", "force_pairs", "distance_pairs", "pair_ids", "overlap_pairs", "radsum_pairs", "pos_pairs_i", "pos_pairs_j", "cell_index", "cell_start", "angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_separation_angle"};
     std::vector<ConfigDict> log_group_configs = {
         config_from_names_lin_everyN({"step", "PE/N", "KE/N", "TE/N", "T", "phi"}, 1e3, "console"),
         config_from_names_lin_everyN({"step", "PE", "KE", "TE", "T", "phi"}, save_every_N_steps, "energy"),

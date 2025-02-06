@@ -6,7 +6,7 @@
 
 inline ConfigDict get_standard_disk_config(long n_particles, double packing_fraction) {
     ConfigDict config;
-    config["particle_type"] = "disk";
+    config["particle_type"] = "Disk";
     config["n_particles"] = n_particles;
     config["packing_fraction"] = packing_fraction;
     config["particle_dim_block"] = 256;
@@ -38,7 +38,7 @@ inline ConfigDict get_standard_rigid_bumpy_config(long n_particles, double packi
     long n_large_particles = n_particles - n_small_particles;
     long n_vertices = n_small_particles * n_vertices_per_small_particle + n_large_particles * n_vertices_per_large_particle;
     ConfigDict config;
-    config["particle_type"] = "rigid";
+    config["particle_type"] = "RigidBumpy";
     config["n_particles"] = n_particles;
     config["n_vertices"] = n_vertices;
     config["packing_fraction"] = packing_fraction;

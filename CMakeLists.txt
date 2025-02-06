@@ -110,3 +110,7 @@ target_link_libraries(test_create_disk PRIVATE common_sources)
 # Test load disk executable
 add_executable(test_load_disk scripts/test_load_disk.cpp)
 target_link_libraries(test_load_disk PRIVATE common_sources)
+
+# Run nve executable
+add_executable(runNVE scripts/runNVE.cpp)
+target_link_libraries(runNVE PRIVATE common_sources)

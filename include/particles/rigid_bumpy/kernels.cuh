@@ -62,7 +62,27 @@ __global__ void kernelCalcRigidBumpyParticleForces1(const double* vertex_forces_
 // particle level
 __global__ void kernelCalcRigidBumpyForces2(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* particle_forces_x, double* particle_forces_y, double* particle_torques, double* particle_potential_energy);
 
-__global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pos_pairs_i_x, double* pos_pairs_i_y, double* pos_pairs_j_x, double* pos_pairs_j_y);
+__global__ void kernelCalcRigidBumpyForceDistancePairs(
+    const double* positions_x,
+    const double* positions_y,
+    const double* vertex_positions_x,
+    const double* vertex_positions_y,
+    double* force_pairs_x,
+    double* force_pairs_y,
+    double* distance_pairs_x,
+    double* distance_pairs_y,
+    long* this_pair_id,
+    long* other_pair_id,
+    double* overlap_pairs,
+    double* radsum_pairs,
+    const double* radii,
+    const long* static_particle_index,
+    double* pair_separation_angle, 
+    double* angle_pairs_i,
+    double* angle_pairs_j,
+    long* this_vertex_contact_count,
+    const double* angles
+);
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------

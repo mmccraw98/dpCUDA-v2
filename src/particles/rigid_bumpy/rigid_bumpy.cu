@@ -840,6 +840,21 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.size = vertex_torques.size;
             result.data = vertex_torques.getData();
             result.index_array_name = "static_vertex_index";
+        } else if (array_name == "angle_pairs_i") {
+            result.type = DataType::Double;
+            result.size = angle_pairs_i.size;
+            result.data = angle_pairs_i.getData();
+            result.index_array_name = "";
+        } else if (array_name == "angle_pairs_j") {
+            result.type = DataType::Double;
+            result.size = angle_pairs_j.size;
+            result.data = angle_pairs_j.getData();
+            result.index_array_name = "";
+        } else if (array_name == "this_vertex_contact_counts") {
+            result.type = DataType::Long;
+            result.size = this_vertex_contact_counts.size;
+            result.data = this_vertex_contact_counts.getData();
+            result.index_array_name = "";
 
         } else {
             throw std::invalid_argument("RigidBumpy::getArrayData: array_name " + array_name + " not found");
@@ -1136,20 +1151,41 @@ void RigidBumpy::zeroForceAndPotentialEnergy() {
 }
 
 void RigidBumpy::calculateForceDistancePairs() {
+    // "angle_pairs_i", "angle_pairs_j", "pair_separation_angle", "pair_contact_vertex_count"
+
     force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
     distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
     pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
     overlap_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     radsum_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
 
-    pos_pairs_i.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
-    pos_pairs_j.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
+    pair_separation_angle.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
+    angle_pairs_i.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
+    angle_pairs_j.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
+    this_vertex_contact_counts.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
 
     kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
-        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pos_pairs_i.x.d_ptr, pos_pairs_i.y.d_ptr, pos_pairs_j.x.d_ptr, pos_pairs_j.y.d_ptr); 
+        positions.x.d_ptr,
+        positions.y.d_ptr,
+        vertex_positions.x.d_ptr,
+        vertex_positions.y.d_ptr,
+        force_pairs.x.d_ptr,
+        force_pairs.y.d_ptr,
+        distance_pairs.x.d_ptr,
+        distance_pairs.y.d_ptr,
+        pair_ids.x.d_ptr,
+        pair_ids.y.d_ptr,
+        overlap_pairs.d_ptr,
+        radsum_pairs.d_ptr,
+        radii.d_ptr,
+        static_particle_index.d_ptr,
+        pair_separation_angle.d_ptr,
+        angle_pairs_i.d_ptr,
+        angle_pairs_j.d_ptr,
+        this_vertex_contact_counts.d_ptr,
+        angles.d_ptr
+    ); 
 
-
-// __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pos_pairs_i_x, double* pos_pairs_i_y, double* pos_pairs_j_x, double* pos_pairs_j_y) {
 
 }
 

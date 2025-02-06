@@ -328,9 +328,30 @@ __global__ void kernelCalcRigidBumpyForces2(const double* __restrict__ positions
 }
 
 
-__global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x, const double* positions_y, const double* vertex_positions_x, const double* vertex_positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pos_pairs_i_x, double* pos_pairs_i_y, double* pos_pairs_j_x, double* pos_pairs_j_y) {
+__global__ void kernelCalcRigidBumpyForceDistancePairs(
+    const double* positions_x,
+    const double* positions_y,
+    const double* vertex_positions_x,
+    const double* vertex_positions_y,
+    double* force_pairs_x,
+    double* force_pairs_y,
+    double* distance_pairs_x,
+    double* distance_pairs_y,
+    long* this_pair_id,
+    long* other_pair_id,
+    double* overlap_pairs,
+    double* radsum_pairs,
+    const double* radii,
+    const long* static_particle_index,
+    double* pair_separation_angle,
+    double* angle_pairs_i,
+    double* angle_pairs_j,
+    long* this_vertex_contact_count,
+    const double* angles
+) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
+    long static_particle_id = static_particle_index[particle_id];
 
     long num_neighbors = d_num_neighbors_ptr[particle_id];
     if (num_neighbors == 0) return;
@@ -343,12 +364,15 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x
     for (long n = 0; n < num_neighbors; n++) {
         long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
         if (other_id == -1 || other_id == particle_id) continue;
+        long other_static_id = static_particle_index[other_id];
 
         double other_pos_x = positions_x[other_id];
         double other_pos_y = positions_y[other_id];
         double other_rad = radii[other_id];
         
         double force_x = 0.0, force_y = 0.0;
+        long vertex_count_i = 0;
+        long vertex_count_j = 0;
 
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
@@ -356,6 +380,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x
             double vertex_pos_x = vertex_positions_x[vertex_id];
             double vertex_pos_y = vertex_positions_y[vertex_id];
 
+            bool is_contact = false;
 
             // loop over the neighbors of the vertex
             for (long n_v = 0; n_v < d_num_vertex_neighbors_ptr[vertex_id]; n_v++) {
@@ -371,6 +396,13 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x
                 double interaction_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
                 force_x += temp_force_x;
                 force_y += temp_force_y;
+                if (interaction_energy > 0.0) {
+                    is_contact = true;
+                }
+            }
+
+            if (is_contact) {
+                vertex_count_i++;  // this is correct
             }
         }
 
@@ -381,15 +413,20 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(const double* positions_x
         double y_dist = pbcDistance(pos_y, other_pos_y, 1);
         distance_pairs_x[pair_id] = x_dist;
         distance_pairs_y[pair_id] = y_dist;
-        this_pair_id[pair_id] = particle_id;
-        other_pair_id[pair_id] = other_id;
+        
+        this_pair_id[pair_id] = static_particle_id;
+        other_pair_id[pair_id] = other_static_id;
+        
+        // this_pair_id[pair_id] = particle_id;
+        // other_pair_id[pair_id] = other_id;
+        
         double dist = sqrt(x_dist * x_dist + y_dist * y_dist);
         overlap_pairs[pair_id] = dist - (rad + other_rad);
         radsum_pairs[pair_id] = rad + other_rad;
-        pos_pairs_i_x[pair_id] = pos_x;
-        pos_pairs_i_y[pair_id] = pos_y;
-        pos_pairs_j_x[pair_id] = other_pos_x;
-        pos_pairs_j_y[pair_id] = other_pos_y;
+        pair_separation_angle[pair_id] = atan2(y_dist, x_dist);
+        angle_pairs_i[pair_id] = angles[particle_id];
+        angle_pairs_j[pair_id] = angles[other_id];
+        this_vertex_contact_count[pair_id] = vertex_count_i;
     }
 }
 

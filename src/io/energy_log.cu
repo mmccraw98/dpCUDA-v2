@@ -44,4 +44,17 @@ void EnergyLog::log(long step) {  // TODO: operate on gathered data
     }
     log_file << "\n";
     log_file.flush();
+    gathered_data.clear();
+}
+
+std::unique_ptr<BaseLogGroup> EnergyLog::snapshot() const {
+    // Create a new EnergyLog instance using a custom constructor;
+    // set "overwrite" to false so that the file is opened in append mode.
+    auto snap = std::unique_ptr<EnergyLog>(
+        new EnergyLog(this->config, this->orchestrator, this->file_name, false)
+    );
+    // Copy the gathered data and any other safe-to-copy members.
+    snap->gathered_data = this->gathered_data;
+    snap->has_header = this->has_header;
+    return snap;
 }

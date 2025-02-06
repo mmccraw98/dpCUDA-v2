@@ -53,4 +53,10 @@ public:
      * @brief Write the state of the system.  Used for saving initial conditions.
      */
     void write_state_to_path(const std::filesystem::path& path);
+
+    /**
+     * @brief Create a snapshot of this StateLog.
+     * @return A unique_ptr containing a copy of this StateLog.
+     */
+    virtual std::unique_ptr<BaseLogGroup> snapshot() const override;
 };

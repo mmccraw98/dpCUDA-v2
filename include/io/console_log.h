@@ -37,4 +37,10 @@ public:
      * @param step The current step
      */
     void log(long step) final;
+
+    /**
+     * @brief Create a snapshot of this ConsoleLog.
+     * @return A unique_ptr containing a copy of this ConsoleLog.
+     */
+    virtual std::unique_ptr<BaseLogGroup> snapshot() const override;
 };

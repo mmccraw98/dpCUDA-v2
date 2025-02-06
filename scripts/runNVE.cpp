@@ -22,7 +22,7 @@ int main() {
     std::unique_ptr<Particle> particle = createParticle(1024 * 10, 0.2, "Disk", true);
 
     long num_steps = 1e5;
-    long save_every_N_steps = 1e1;
+    long save_every_N_steps = 1e2;
     double dt_dimless = 1e-2;
     double temperature = 1e-4;
     bool overwrite = true;
@@ -36,8 +36,7 @@ int main() {
     NVE nve(*particle, nve_config_dict);
 
     std::vector<std::string> init_names = particle->getFundamentalValues();
-    std::vector<std::string> state_names = {"positions"};
-    // std::vector<std::string> state_names = {"positions", "velocities", "force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids"};
+    std::vector<std::string> state_names = {"positions", "velocities", "force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids"};
     if (particle->config.at("particle_type").get<std::string>() == "RigidBumpy") {
         state_names.push_back("angle_pairs_i");
         state_names.push_back("angle_pairs_j");
@@ -51,8 +50,11 @@ int main() {
         config_from_names_lin_everyN(init_names, save_every_N_steps, "restart")
     };
 
-    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_path, 4, overwrite);
+    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_path, 20, overwrite);
     dynamics_io_manager.write_params();
+
+    // start the timer
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     long step = 0;
     while (step < num_steps) {
@@ -60,5 +62,10 @@ int main() {
         dynamics_io_manager.log(step);
         step++;
     }
+
+    auto end_time = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
+
     return 0;
 }

@@ -36,5 +36,11 @@ public:
     bool has_header = false;  // checks whether the file has a header in its first row
     void write_header();  // writes the header to the file
     void log(long step) final;  // logs the values to the file
+
+    /**
+     * @brief Create a snapshot of this EnergyLog.
+     * @return A unique_ptr containing a copy of this EnergyLog.
+     */
+    virtual std::unique_ptr<BaseLogGroup> snapshot() const override;
 };
 

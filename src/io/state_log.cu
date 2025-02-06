@@ -50,8 +50,15 @@ void StateLog::log(long step) {
         make_dir(timestep_root_path.string(), true);
     }
     write_values(timestep_root_path, step);
+    gathered_data.clear();
+    reorder_index_data.clear();
 }
 
 void StateLog::write_state_to_path(const std::filesystem::path& path) {
     write_values(path, 0);
+}
+
+std::unique_ptr<BaseLogGroup> StateLog::snapshot() const {
+    // The default copy constructor will copy the internal state (gathered_data, etc.)
+    return std::make_unique<StateLog>(*this);
 }

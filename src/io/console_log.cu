@@ -35,6 +35,11 @@ void ConsoleLog::log(long step) {  // TODO: operate on gathered data
         }
     }
     std::cout << out.str() << std::endl;
+    gathered_data.clear();
+}
+
+std::unique_ptr<BaseLogGroup> ConsoleLog::snapshot() const {
+    return std::make_unique<ConsoleLog>(*this);
 }
 
 // Mason rooms: 313, 227, B5

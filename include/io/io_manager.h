@@ -24,9 +24,19 @@ public:
      * @param particle The particle object
      * @param integrator The integrator object
      * @param root The root path for all output files
+     * @param num_threads Number of threads for parallel IO
      * @param overwrite Whether to overwrite existing files
      */
-    IOManager(std::vector<ConfigDict> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root = "", long num_threads = 1, bool overwrite = false);
+    IOManager(std::vector<ConfigDict> log_configs,
+              Particle& particle,
+              Integrator* integrator = nullptr,
+              std::string root = "",
+              long num_threads = 1,
+              bool overwrite = false);
+
+    /**
+     * @brief Destructor. Ensures thread pool is shut down before cleaning up logs.
+     */
     ~IOManager();
 
     /**
@@ -59,48 +69,54 @@ public:
      */
     void write_integrator_config(std::filesystem::path path);
 
+    /**
+     * @brief Writes a restart file containing current state and step
+     * @param step The current simulation step
+     */
     void write_restart_file(long step);
 
-    // /**
-    //  * @brief Writes the current state of the system to a file
-    //  */
-    // void write_state_to_path();
-
 private:
-    ThreadPool thread_pool;  // thread pool for parallel IO - declared first to ensure destruction order
-    Particle& particle;  // particle object
-    Integrator* integrator;  // integrator object
-    Orchestrator orchestrator;  // orchestrator object
-    std::vector<BaseLogGroup*> log_groups;  // log groups
-    std::vector<ConfigDict> log_configs;  // log configurations
-    StateLog* state_log = nullptr;  // state log object
+    // --- Main references and orchestrator
+    Particle& particle;
+    Integrator* integrator;
+    Orchestrator orchestrator;
 
-    bool overwrite;  // whether to overwrite existing files
-    bool use_parallel;  // whether to use parallel IO
-    long num_threads;  // number of threads to use for parallel IO
+    // --- Logging groups and config
+    std::vector<BaseLogGroup*> log_groups;
+    std::vector<ConfigDict> log_configs;
+    StateLog* state_log = nullptr;
 
-    std::string root;  // root path for all output files
-    
-    std::string energy_file_extension = ".csv";//".csv";  // file extension for energy files
-    std::string state_file_extension = ".dat";//".txt";  // file extension for state files
-    std::string indexed_file_prefix = "t";  // indexed file prefix - trajectory/t{step}/state
-    std::string energy_file_name = "energy";  // file name for energy files
-    std::string system_dir_name = "system";  // directory name for system files
-    std::string trajectory_dir_name = "trajectories";  // directory name for trajectory files
-    std::string restart_dir_name = "restart";  // saves what is needed to restart, continuously overwrite with any updates
-    std::string init_dir_name = "init";  // saves the initial configuration
-    
-    std::filesystem::path root_path;  // path to root directory
-    std::filesystem::path energy_file_path;  // path to energy file
-    std::filesystem::path system_dir_path;  // path to system directory
-    std::filesystem::path trajectory_dir_path;  // path to trajectory directory
-    std::filesystem::path restart_dir_path;  // path to restart directory
-    std::filesystem::path init_dir_path;  // path to init directory
+    // --- Settings
+    bool overwrite;
+    bool use_parallel;
+    long num_threads;
+    std::string root;
+
+    // --- File naming
+    std::string energy_file_extension = ".csv";
+    std::string state_file_extension  = ".dat";
+    std::string indexed_file_prefix   = "t";
+    std::string energy_file_name      = "energy";
+    std::string system_dir_name       = "system";
+    std::string trajectory_dir_name   = "trajectories";
+    std::string restart_dir_name      = "restart";
+    std::string init_dir_name         = "init";
+
+    // --- Paths
+    std::filesystem::path root_path;
+    std::filesystem::path energy_file_path;
+    std::filesystem::path system_dir_path;
+    std::filesystem::path trajectory_dir_path;
+    std::filesystem::path restart_dir_path;
+    std::filesystem::path init_dir_path;
+
+    // --- Thread pool for parallel logging tasks
+    ThreadPool thread_pool; 
 
     /**
-     * @brief Initializes the path for a directory
-     * @param path The path to initialize
-     * @param path_name The name of the path
+     * @brief Helper to set up a path under the root directory
+     * @param path Reference to a `std::filesystem::path` to fill
+     * @param path_name Sub-directory name
      */
     void init_path(std::filesystem::path& path, const std::string& path_name);
 };

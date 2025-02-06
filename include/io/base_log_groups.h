@@ -5,6 +5,8 @@
 #include "orchestrator.h"
 #include <set>
 
+#include <memory>
+
 #include <nlohmann/json.hpp>
 
 #include "../utils/config_dict.h"
@@ -127,6 +129,17 @@ public:
      * @param step The current step.
      */
     virtual void log(long step) = 0;
+
+    /**
+     * @brief Create a snapshot (deep copy) of the logging data.
+     * 
+     * This method should return a unique_ptr to a copy of the log group containing
+     * the data to be logged so that asynchronous tasks do not operate on data that
+     * may later be overwritten.
+     *
+     * @return A unique_ptr to the snapshot.
+     */
+    virtual std::unique_ptr<BaseLogGroup> snapshot() const = 0;
 };
 
 

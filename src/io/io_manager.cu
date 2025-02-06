@@ -4,7 +4,7 @@
 #include <thread>
 #include <vector>
 
-IOManager::IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& particle, Integrator* integrator, std::string root, long num_threads, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root(root), num_threads(num_threads), overwrite(overwrite), log_configs(log_configs), thread_pool(num_threads) {
+IOManager::IOManager(std::vector<ConfigDict> log_configs, Particle& particle, Integrator* integrator, std::string root, long num_threads, bool overwrite) : particle(particle), integrator(integrator), orchestrator(particle, integrator), root(root), num_threads(num_threads), overwrite(overwrite), log_configs(log_configs), thread_pool(num_threads) {
     root_path = std::filesystem::path(root);
     if (!root_path.empty()) {
         if (overwrite) {
@@ -20,7 +20,7 @@ IOManager::IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& part
 
     for (auto& config : log_configs) {
 
-        if (config["group_name"] == "energy") {
+        if (config.at("group_name").get<std::string>() == "energy") {
             if (system_dir_path.empty()) {
                 init_path(system_dir_path, system_dir_name);
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
@@ -28,25 +28,26 @@ IOManager::IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& part
             std::filesystem::path energy_file_path = system_dir_path / (energy_file_name + energy_file_extension);
             log_groups.push_back(new EnergyLog(config, orchestrator, energy_file_path, overwrite));
 
-        } else if (config["group_name"] == "console") {
+        } else if (config.at("group_name").get<std::string>() == "console") {
             log_groups.push_back(new ConsoleLog(config, orchestrator));
 
-        } else if (config["group_name"] == "state") {
+        } else if (config.at("group_name").get<std::string>() == "state") {
             if (trajectory_dir_path.empty()) {
                 init_path(trajectory_dir_path, trajectory_dir_name);
                 make_dir(trajectory_dir_path, overwrite);  // may need to change function signature
             }
             log_groups.push_back(new StateLog(config, orchestrator, trajectory_dir_path, indexed_file_prefix, state_file_extension));
         
-        } else if (config["group_name"] == "init") {
+        } else if (config.at("group_name").get<std::string>() == "restart") {
             if (system_dir_path.empty()) {
                 init_path(system_dir_path, system_dir_name);
                 make_dir(system_dir_path, overwrite);  // may need to change function signature
             }
-            state_log = new StateLog(config, orchestrator, system_dir_path, "", state_file_extension);
+            state_log = new StateLog(config, orchestrator, system_dir_path, "", state_file_extension, true);
+            log_groups.push_back(state_log);
 
         } else {
-            std::cerr << "ERROR: IOManager::IOManager:" << config["group_name"] << " is not a valid log group name" << std::endl;
+            std::cerr << "ERROR: IOManager::IOManager:" << config.at("group_name").get<std::string>() << " is not a valid log group name" << std::endl;
         }
     }
 
@@ -144,17 +145,17 @@ void IOManager::log(long step, bool force) {
 
 void IOManager::write_log_configs(std::filesystem::path path) {
     for (auto& config : log_configs) {
-        std::string group_name = config["group_name"].get<std::string>();
-        config.to_json(path / (group_name + "_log_config.json"));
+        std::string group_name = config.at("group_name").get<std::string>();
+        config.save(path / (group_name + "_log_config.json"));
     }
 }
 
 void IOManager::write_particle_config(std::filesystem::path path) {
-    particle.config.to_json(path / "particle_config.json");
+    particle.config.save(path / "particle_config.json");
 }
 
 void IOManager::write_integrator_config(std::filesystem::path path) {
-    integrator->config.to_json(path / "integrator_config.json");
+    integrator->config.save(path / "integrator_config.json");
 }
 
 void IOManager::write_params() {

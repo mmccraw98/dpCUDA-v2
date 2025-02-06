@@ -11,9 +11,7 @@
 #include <thrust/host_vector.h>
 #include <nlohmann/json.hpp>
 
-#include "../../include/particles/disk/config.h"
-
-
+#include "../../include/routines/minimization.h"
 /**
  * @brief Soft repulsive disk particle class.
  */
@@ -27,12 +25,16 @@ public:
     // --------------------- Overridden Methods -----------------------------
     // ----------------------------------------------------------------------
 
+    long load(std::filesystem::path root_path, std::string source, long frame = -2) override;
+
     /**
      * @brief Set the dimensions for the CUDA kernels.
      * 
      * @param particle_dim_block The number of threads in the block (default is 256).
      */
     void setKernelDimensions(long particle_dim_block = 256) override;
+
+    void initializeFromConfig(ConfigDict& config, bool minimize = false) override;
 
     // ----------------------------------------------------------------------
     // ------------- Implementation of Pure Virtual Methods -----------------

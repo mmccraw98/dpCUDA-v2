@@ -3,21 +3,20 @@
 #include "../particles/base/particle.h"
 #include "integrator.h"
 
-struct AdamConfigDict : public IntegratorConfigDict {
-public:
-    AdamConfigDict() {
-        insert("integrator_type", "Adam");
-        insert("alpha", 0.0);
-        insert("beta1", 0.0);
-        insert("beta2", 0.0);
-        insert("epsilon", 0.0);
-    }
-};
 
+inline ConfigDict get_adam_config_dict(double alpha, double beta1, double beta2, double epsilon) {
+    ConfigDict config;
+    config["integrator_type"] = "Adam";
+    config["alpha"] = alpha;
+    config["beta1"] = beta1;
+    config["beta2"] = beta2;
+    config["epsilon"] = epsilon;
+    return config;
+}
 
 class Adam : public Integrator {
     public:
-        Adam(Particle& particle, const AdamConfigDict& config);
+        Adam(Particle& particle, ConfigDict& config);
         ~Adam();
 
         double alpha;

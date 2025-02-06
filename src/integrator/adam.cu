@@ -1,6 +1,6 @@
 #include "../../include/integrator/adam.h"
 
-Adam::Adam(Particle& particle, const AdamConfigDict& config) : Integrator(particle, config), alpha(config["alpha"]), beta1(config["beta1"]), beta2(config["beta2"]), epsilon(config["epsilon"]) {
+Adam::Adam(Particle& particle, ConfigDict& config) : Integrator(particle, config), alpha(config.at("alpha").get<double>()), beta1(config.at("beta1").get<double>()), beta2(config.at("beta2").get<double>()), epsilon(config.at("epsilon").get<double>()) {
 
 }
 

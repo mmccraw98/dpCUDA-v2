@@ -13,7 +13,7 @@
 #include <thrust/host_vector.h>
 #include <nlohmann/json.hpp>
 
-#include "../../include/particles/rigid_bumpy/config.h"
+#include "../../include/routines/minimization.h"
 
 // vertex sizes are uniform - bidispersity arises from different numbers of vertices per particle
 class RigidBumpy : public Particle {
@@ -21,9 +21,19 @@ public:
     RigidBumpy();
     virtual ~RigidBumpy();
 
+    void initializeFromConfig(ConfigDict& config, bool minimize = false) override;
+
+    long load(std::filesystem::path root_path, std::string source, long frame = -2) override;
+
     void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension) override;
 
     std::vector<std::string> get_reorder_arrays() override { return {"static_particle_index", "static_vertex_index"}; }  // possibly need to replicate for each derived class - tracks the arrays used to index particle level data
+
+    std::vector<std::string> getFundamentalValues() override { return {"radii", "positions", "angles", "velocities", "angular_velocities", "num_vertices_in_particle", "vertex_positions", "masses", "moments_of_inertia", "box_size", "vertex_masses"}; }
+
+    void calculateDiskArea();
+
+    bool tryLoadArrayData(std::filesystem::path path) override;
 
     SwapData2D<double> vertex_positions;
     SwapData2D<double> vertex_velocities;
@@ -72,7 +82,21 @@ public:
 
     void calculateParticleArea() override;
 
+    void calculateNumVerticesInParticles(long num_vertices_in_small_particle, long num_vertices_in_large_particle);
+
     void setRandomAngles();
+
+    void setVertexParticleIndex();
+
+    void setVertexPositions();
+
+    double calculateVertexRadius(long num_vertices_in_small_particle);
+
+    long calculateNumVertices(long num_vertices_in_small_particle, long num_vertices_in_large_particle);
+
+    void setSegmentLengthPerVertexDiameter(double segment_length_per_vertex_diameter);
+
+    double getSegmentLengthPerVertexDiameter();
 
     void finalizeLoading() override;
 
@@ -146,8 +170,6 @@ public:
     void updateCellNeighborList() override;
 
     void zeroForceAndPotentialEnergy() override;
-
-    void initializeFromConfig(ConfigDict& config);
 
     void initCellList() override;
 

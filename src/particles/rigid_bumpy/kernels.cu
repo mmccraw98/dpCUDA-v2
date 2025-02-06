@@ -617,6 +617,22 @@ __global__ void kernelRigidBumpyAdamStep(
 // ------------------------ Vertex Utilities ----------------------------
 // ----------------------------------------------------------------------
 
+__global__ void kernelSetVertexParticleIndex(
+    const long* __restrict__ num_vertices_in_particle,
+    const long* __restrict__ particle_start_index,
+    long* __restrict__ vertex_particle_index
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long first_vertex_index = particle_start_index[particle_id];
+    long num_vertices = num_vertices_in_particle[particle_id];
+
+    for (long i = 0; i < num_vertices; i++) {
+        vertex_particle_index[first_vertex_index + i] = particle_id;
+    }
+}
+
 __global__ void kernelGetNumVerticesInParticles(
     const double* __restrict__ radii,
     const double min_particle_diam,
@@ -642,10 +658,8 @@ __global__ void kernelGetNumVerticesInParticles(
 __global__ void kernelInitializeVerticesOnParticles(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double* __restrict__ radii, const double* __restrict__ angles,
-    long* __restrict__ vertex_particle_index,
     const long* __restrict__ particle_start_index,
     const long* __restrict__ num_vertices_in_particle,
-    double* __restrict__ vertex_masses,
     double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y) {
     
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
@@ -665,8 +679,6 @@ __global__ void kernelInitializeVerticesOnParticles(
         double vertex_y = positions_y[particle_id] + inner_radius * sin(vertex_angle);
         vertex_positions_x[vertex_start_index + i] = vertex_x;
         vertex_positions_y[vertex_start_index + i] = vertex_y;
-        vertex_particle_index[vertex_start_index + i] = particle_id;
-        vertex_masses[vertex_start_index + i] = 1 / static_cast<double>(num_vertices);
     }
 }
 
@@ -754,8 +766,6 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
     double prev_pos_x = vertex_positions_x[first_vertex_index + num_vertices - 1];
     double prev_pos_y = vertex_positions_y[first_vertex_index + num_vertices - 1];
 
-
-
     // Loop over vertices to compute the area
     for (long i = 0; i < num_vertices; i++) {
         temp_exposed_vertex_area = 0.0;
@@ -776,20 +786,12 @@ __global__ void kernelCalculateBumpyParticleAreaFull(
         double dy = next_pos_y - pos_y;
         double r_ij = sqrt(dx * dx + dy * dy);
 
-        if (r_ij < 2 * d_vertex_radius - 1e-10) {  // have to give some offset to prevent numerical errors - not good!
+        if (r_ij < (2 * d_vertex_radius - 1e-10)) {  // have to give some offset to prevent numerical errors - not good!
+            // remove the exposed half of the overlap area from both vertices
             temp_exposed_vertex_area -= calcOverlapLenseArea(r_ij, d_vertex_radius, d_vertex_radius) / 2.0;
         }
 
-        // calculate previous vertex overlap area
-        double prev_dx = prev_pos_x - pos_x;
-        double prev_dy = prev_pos_y - pos_y;
-        double prev_r_ij = sqrt(prev_dx * prev_dx + prev_dy * prev_dy);
-
-        if (prev_r_ij < 2 * d_vertex_radius - 1e-10) {  // have to give some offset to prevent numerical errors - not good!
-            temp_exposed_vertex_area -= calcOverlapLenseArea(prev_r_ij, d_vertex_radius, d_vertex_radius) / 2.0;
-        }
-
-        exposed_vertex_area += (vertex_area - temp_exposed_vertex_area) * (M_PI - angle) / (2.0 * M_PI);
+        exposed_vertex_area += vertex_area * (M_PI - angle) / (2.0 * M_PI) - temp_exposed_vertex_area;
 
         // Update positions for next iteration
         prev_pos_x = pos_x;

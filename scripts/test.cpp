@@ -100,7 +100,7 @@ int main() {
     NVE nve(*particle, nve_config_dict);
 
     std::vector<std::string> init_names = {"radii", "masses", "positions", "velocities", "forces", "box_size"};
-    std::vector<std::string> state_names = {"positions", "velocities", "box_size", "forces", "static_particle_index", "particle_index", "force_pairs", "distance_pairs", "pair_ids", "overlap_pairs", "radsum_pairs", "pos_pairs_i", "pos_pairs_j"};
+    std::vector<std::string> state_names = {"positions", "velocities", "box_size", "forces", "static_particle_index", "particle_index", "force_pairs", "distance_pairs", "pair_ids", "overlap_pairs", "radsum_pairs", "pos_pairs_i", "pos_pairs_j", "cell_index", "cell_start"};
     particle_type = particle->getConfig()["type_name"];
     if (particle_type == "RigidBumpy") {
         std::vector<std::string> additional_log_names = {"angles", "vertex_positions", "angular_velocities", "torques", "vertex_forces", "static_vertex_index", "vertex_index", "particle_start_index", "vertex_particle_index", "num_vertices_in_particle"};

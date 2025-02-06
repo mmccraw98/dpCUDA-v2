@@ -30,7 +30,7 @@ public:
      * @param file_name The name of the file to write to
      * @param overwrite Whether to overwrite the file if it exists
      */
-    EnergyLog(LogGroupConfigDict log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite);
+    EnergyLog(ConfigDict log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite);
     ~EnergyLog();
 
     bool has_header = false;  // checks whether the file has a header in its first row

@@ -42,50 +42,50 @@ ConfigDict Particle::getConfig() {
     return this->config;
 }
 
-void Particle::initializeFromConfig(ConfigDict& config) {
-    this->define_unique_dependencies();
-
-    this->setSeed(config["seed"]);
-    this->setParticleCounts(config["n_particles"], 0);
-    this->setKernelDimensions(config["particle_dim_block"]);
-
-    if (config["dispersity_config"]["type_name"] == "Bidisperse") {
-        this->setBiDispersity(config["dispersity_config"]["size_ratio"], config["dispersity_config"]["count_ratio"]);
-    } else {
-        throw std::runtime_error("ERROR: Particle::initializeFromConfig: Invalid dispersity configuration type.");
+std::tuple<std::filesystem::path, std::filesystem::path, std::filesystem::path, long> Particle::getPaths(std::filesystem::path root_path, std::string source, long frame) {
+    std::filesystem::path system_path = root_path / "system";
+    std::filesystem::path trajectory_path = root_path / "trajectories";
+    std::filesystem::path init_path = system_path / "init";
+    std::filesystem::path restart_path = system_path / "restart";
+    std::filesystem::path frame_path;
+    
+    long frame_number;
+    if (source == "init") {
+        frame_number = 0;
     }
-    this->initializeBox(config["packing_fraction"]);
-
-    // TODO: make this a config - position initialization config: zero, random, etc.
-    this->setRandomPositions();
-
-    this->setEnergyScale(config["e_c"], "c");
-    this->setExponent(config["n_c"], "c");
-    this->setMass(config["mass"]);
-
-    this->setupNeighbors(config);
-
-    this->setConfig(config);
+    else if (source == "restart") {
+        std::filesystem::path step_path = restart_path / "step.dat";
+        std::ifstream step_file(step_path);
+        step_file >> frame_number;
+    }
+    else if (source == "frame") {
+        if (frame == -2) {
+            std::cerr << "Frame number is undefined" << std::endl;
+            exit(EXIT_FAILURE);
+        }
+        auto [frame_path, frame_number] = get_trajectory_frame_path(trajectory_path, "t", frame);
+    }
+    return std::make_tuple(frame_path, restart_path, init_path, frame_number);
 }
 
 void Particle::setupNeighbors(ConfigDict& config) {
-    this->setNeighborMethod(config["neighbor_list_config"]["neighbor_list_update_method"]);
-    this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
-
+    nlohmann::json neighbor_list_config = config.at("neighbor_list_config").get<nlohmann::json>();
+    this->setNeighborMethod(neighbor_list_config.at("neighbor_list_update_method").get<std::string>());
+    this->setNeighborSize(neighbor_list_config.at("neighbor_cutoff_multiplier").get<double>(), neighbor_list_config.at("neighbor_displacement_multiplier").get<double>());
     if (this->neighbor_list_update_method == "cell") {
-        bool could_set_cell_size = this->setCellSize(config["neighbor_list_config"]["num_particles_per_cell"], config["neighbor_list_config"]["cell_displacement_multiplier"]);
+        bool could_set_cell_size = this->setCellSize(neighbor_list_config.at("num_particles_per_cell").get<double>(), neighbor_list_config.at("cell_displacement_multiplier").get<double>());
         if (!could_set_cell_size) {
             std::cout << "WARNING: Particle::setupNeighbors: Could not set cell size.  Attempting to use verlet list instead." << std::endl;
             this->setNeighborMethod("verlet");
         }
-        bool could_set_neighbor_size = this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
+        bool could_set_neighbor_size = this->setNeighborSize(neighbor_list_config.at("neighbor_cutoff_multiplier").get<double>(), neighbor_list_config.at("neighbor_displacement_multiplier").get<double>());
         if (!could_set_neighbor_size) {
             std::cerr << "ERROR: Particle::setupNeighbors: Could not set neighbor size for cell list - neighbor cutoff exceeds box size.  Attempting to use all-to-all instead." << std::endl;
             this->setNeighborMethod("all");
         }
     }
     if (this->neighbor_list_update_method == "verlet") {
-        bool could_set_neighbor_size = this->setNeighborSize(config["neighbor_list_config"]["neighbor_cutoff_multiplier"], config["neighbor_list_config"]["neighbor_displacement_multiplier"]);
+        bool could_set_neighbor_size = this->setNeighborSize(neighbor_list_config.at("neighbor_cutoff_multiplier").get<double>(), neighbor_list_config.at("neighbor_displacement_multiplier").get<double>());
         if (!could_set_neighbor_size) {
             std::cout << "WARNING: Particle::setupNeighbors: Could not set neighbor size.  Attempting to use all-to-all instead." << std::endl;
             this->setNeighborMethod("all");
@@ -96,6 +96,79 @@ void Particle::setupNeighbors(ConfigDict& config) {
     double force_balance = this->getForceBalance();
     if (force_balance / this->n_particles / this->e_c > 1e-14) {
         std::cout << "WARNING: Particle::setupNeighbors: Force balance is " << force_balance << ", there will be an error!" << std::endl;
+    }
+}
+
+bool Particle::tryLoadArrayData(std::filesystem::path path) {
+    bool could_load = false;
+    // check if the file exists
+    if (!std::filesystem::exists(path)) {
+        std::cout << "Particle::tryLoadArrayData: File " << path << " does not exist" << std::endl;
+        return false;
+    }
+    try {
+        std::cout << "Particle::tryLoadArrayData: Loading data from " << path << std::endl;
+        std::string file_name = path.filename().string();
+        std::string file_name_without_extension = file_name.substr(0, file_name.find("."));
+        if (file_name_without_extension == "positions") {
+            std::cout << "Loading positions" << std::endl;
+            SwapData2D<double> loaded_positions = read_2d_swap_data_from_file<double>(path.string(), n_particles, 2);
+            this->positions.setData(loaded_positions.getDataX(), loaded_positions.getDataY());
+        }
+        else if (file_name_without_extension == "velocities") {
+            std::cout << "Loading velocities" << std::endl;
+            SwapData2D<double> loaded_velocities = read_2d_swap_data_from_file<double>(path.string(), n_particles, 2);
+            this->velocities.setData(loaded_velocities.getDataX(), loaded_velocities.getDataY());
+        }
+        else if (file_name_without_extension == "forces") {
+            std::cout << "Loading forces" << std::endl;
+            SwapData2D<double> loaded_forces = read_2d_swap_data_from_file<double>(path.string(), n_particles, 2);
+            this->forces.setData(loaded_forces.getDataX(), loaded_forces.getDataY());
+        }
+        else if (file_name_without_extension == "radii") {
+            std::cout << "Loading radii" << std::endl;
+            Data1D<double> loaded_radii = read_1d_data_from_file<double>(path.string(), n_particles);
+            this->radii.setData(loaded_radii.getData());
+        }
+        else if (file_name_without_extension == "masses") {
+            std::cout << "Loading masses" << std::endl;
+            Data1D<double> loaded_masses = read_1d_data_from_file<double>(path.string(), n_particles);
+            this->masses.setData(loaded_masses.getData());
+        }
+        else if (file_name_without_extension == "box_size") {
+            std::cout << "Loading box_size" << std::endl;
+            Data1D<double> loaded_box_size = read_1d_data_from_file<double>(path.string(), 2);
+            this->setBoxSize(loaded_box_size.getData());
+        }
+        return true;
+    }
+    catch (std::exception& e) {
+        std::cout << "Particle::tryLoadArrayData: Error loading data from " << path << ": " << e.what() << std::endl;
+        return false;
+    }
+}
+
+void Particle::tryLoadData(std::filesystem::path frame_path, std::filesystem::path restart_path, std::filesystem::path init_path, std::string source, std::string file_name_without_extension) {
+    std::filesystem::path source_path;
+    if (source == "frame") {
+        source_path = frame_path;
+    }
+    else if (source == "restart") {
+        source_path = restart_path;
+    }
+    else if (source == "init") {
+        source_path = init_path;
+    }
+    bool could_load = tryLoadArrayData(source_path / (file_name_without_extension + ".dat"));
+    if (!could_load && source == "frame") {
+        // try to load from the restart path
+        could_load = tryLoadArrayData(restart_path / (file_name_without_extension + ".dat"));
+        if (!could_load) {
+            std::cerr << "Particle::tryLoadData: Error loading data from " << source_path << " or " << restart_path << std::endl;
+        }
+    }
+    else if (!could_load && (source == "init" || source == "restart")) {
+        std::cerr << "Particle::tryLoadData: Error loading data from " << source_path << " or " << init_path << std::endl;
     }
 }
 
@@ -190,11 +263,21 @@ void Particle::updatePositionsGradDesc(double alpha) {
 }
 
 void Particle::setSeed(long seed) {
+    bool created_new_seed = false;
     if (seed == -1) {
         seed = time(0);
+        created_new_seed = true;
     }
     this->seed = seed;
     srand(seed);
+    // check if created a new seed and that the config object is not nullptr
+    if (created_new_seed && this->config != nullptr) {
+        this->config["seed"] = seed;
+    }
+}
+
+long Particle::getSeed() {
+    return this->seed;
 }
 
 void Particle::setNumParticles(long n_particles) {
@@ -509,7 +592,7 @@ void Particle::setBoxSize(const thrust::host_vector<double>& host_box_size) {  /
     }
     box_size.resize(N_DIM);
     box_size.setData(host_box_size);
-    cudaError_t cuda_err = cudaMemcpyToSymbol(d_box_size, box_size.getData().data(), sizeof(double) * N_DIM);
+    cudaError_t cuda_err = cudaMemcpyToSymbol(d_box_size, box_size.d_ptr, sizeof(double) * N_DIM);
     if (cuda_err != cudaSuccess) {
         std::cerr << "Particle::setBoxSize: Error copying box size to device: " << cudaGetErrorString(cuda_err) << std::endl;
         exit(EXIT_FAILURE);  // TODO: make this a function and put it in a cuda module
@@ -654,7 +737,9 @@ void Particle::initializeBox(double packing_fraction) {
     // set the box size to an arbitrary initial value
     double side_length = 1.0;
     thrust::host_vector<double> host_box_size(N_DIM, side_length);
+    std::cout << "getBoxArea: " << getBoxArea() << std::endl;
     setBoxSize(host_box_size);
+    std::cout << "getBoxArea: " << getBoxArea() << std::endl;
     // then rescale the box size to the desired packing fraction
     scaleToPackingFraction(packing_fraction);
 }
@@ -739,6 +824,22 @@ double Particle::getPackingFraction() {
 
 double Particle::getDensity() {
     return getPackingFraction() - getOverlapFraction();
+}
+
+std::pair<long, long> Particle::getBiDisperseParticleCounts() {
+    double max_particle_diam = getDiameter("max");
+    double min_particle_diam = getDiameter("min");
+
+    auto num_small_particles = thrust::count_if(
+        radii.d_vec.begin(), 
+        radii.d_vec.end(), 
+        [=] __device__ (double rad) {
+            return rad == min_particle_diam / 2.0;
+        }
+    );
+
+    auto num_large_particles = n_particles - num_small_particles;
+    return std::make_pair(num_small_particles, num_large_particles);
 }
 
 void Particle::scaleToPackingFraction(double packing_fraction) {

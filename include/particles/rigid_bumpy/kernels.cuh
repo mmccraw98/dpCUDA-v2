@@ -140,6 +140,12 @@ __global__ void kernelRigidBumpyGradDescStep(
 // ------------------------ Vertex Utilities ----------------------------
 // ----------------------------------------------------------------------
 
+__global__ void kernelSetVertexParticleIndex(
+    const long* __restrict__ num_vertices_in_particle,
+    const long* __restrict__ particle_start_index,
+    long* __restrict__ vertex_particle_index
+);
+
 __global__ void kernelGetNumVerticesInParticles(
     const double* __restrict__ radii,
     const double min_particle_diam,
@@ -151,10 +157,8 @@ __global__ void kernelGetNumVerticesInParticles(
 __global__ void kernelInitializeVerticesOnParticles(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double* __restrict__ radii, const double* __restrict__ angles,
-    long* __restrict__ vertex_particle_index,
     const long* __restrict__ particle_start_index,
     const long* __restrict__ num_vertices_in_particle,
-    double* __restrict__ vertex_masses,
     double* __restrict__ vertex_positions_x, double* __restrict__ vertex_positions_y);
 
 __global__ void kernelGetVertexMasses(const double* __restrict__ radii, double* __restrict__ vertex_masses, const double* __restrict__ particle_masses);

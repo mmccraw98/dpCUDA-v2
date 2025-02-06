@@ -26,7 +26,7 @@ public:
      * @param root The root path for all output files
      * @param overwrite Whether to overwrite existing files
      */
-    IOManager(std::vector<LogGroupConfigDict> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root = "", long num_threads = 1, bool overwrite = false);
+    IOManager(std::vector<ConfigDict> log_configs, Particle& particle, Integrator* integrator = nullptr, std::string root = "", long num_threads = 1, bool overwrite = false);
     ~IOManager();
 
     /**
@@ -72,7 +72,7 @@ private:
     Integrator* integrator;  // integrator object
     Orchestrator orchestrator;  // orchestrator object
     std::vector<BaseLogGroup*> log_groups;  // log groups
-    std::vector<LogGroupConfigDict> log_configs;  // log configurations
+    std::vector<ConfigDict> log_configs;  // log configurations
     StateLog* state_log = nullptr;  // state log object
 
     bool overwrite;  // whether to overwrite existing files

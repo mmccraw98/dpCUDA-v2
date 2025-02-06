@@ -9,26 +9,18 @@
 
 #include "../utils/config_dict.h"
 
-/**
- * @brief The configuration for a log group.
- * 
- * This struct contains all the configuration options for a log group.
- * Determines when a log group should be logged, what it should log, and how it should log it.
- */
-struct LogGroupConfigDict : ConfigDict {
-public:
-    LogGroupConfigDict() {
-        insert("log_names", std::vector<std::string>());
-        insert("save_style", "lin");
-        insert("save_freq", 1);
-        insert("reset_save_decade", 10);
-        insert("min_save_decade", 10);
-        insert("multiple", 0);
-        insert("group_name", "none");
-        insert("decade", 10);
-    }
-};
-
+inline ConfigDict get_log_group_config_dict(){
+    ConfigDict config;
+    config["log_names"] = std::vector<std::string>();
+    config["save_style"] = "lin";
+    config["save_freq"] = 1;
+    config["reset_save_decade"] = 10;
+    config["min_save_decade"] = 10;
+    config["multiple"] = 0;
+    config["group_name"] = "none";
+    config["decade"] = 10;
+    return config;
+}
 
 /**
  * @brief Create a LogGroupConfig for linear saving.
@@ -41,7 +33,7 @@ public:
  * @param group_name The name of the log group.
  * @return The LogGroupConfigDict for linear saving.
  */
-LogGroupConfigDict config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves, std::string group_name);
+ConfigDict config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves, std::string group_name);
 
 /**
  * @brief Create a LogGroupConfigDict for logarithmic saving.
@@ -55,7 +47,7 @@ LogGroupConfigDict config_from_names_lin(std::vector<std::string> log_names, lon
  * @param group_name The name of the log group.
  * @return The LogGroupConfigDict for logarithmic saving.
  */
-LogGroupConfigDict config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name);
+ConfigDict config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name);
 
 /**
  * @brief Create a LogGroupConfigDict for linear saving every N steps.
@@ -67,7 +59,7 @@ LogGroupConfigDict config_from_names_log(std::vector<std::string> log_names, lon
  * @param group_name The name of the log group.
  * @return The LogGroupConfigDict for linear saving every N steps.
  */
-LogGroupConfigDict config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name);
+ConfigDict config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name);
 
 
 /**
@@ -77,7 +69,7 @@ LogGroupConfigDict config_from_names_lin_everyN(std::vector<std::string> log_nam
  * @param group_name The name of the log group.
  * @return The LogGroupConfigDict for logging the particle state.
  */
-LogGroupConfigDict config_from_names(std::vector<std::string> log_names, std::string group_name);
+ConfigDict config_from_names(std::vector<std::string> log_names, std::string group_name);
 
 /**
  * @brief Base class for all log groups.
@@ -92,10 +84,10 @@ protected:
     std::set<std::string> dependencies;
 
 public:
-    BaseLogGroup(LogGroupConfigDict config, Orchestrator& orchestrator);
+    BaseLogGroup(ConfigDict config, Orchestrator& orchestrator);
     virtual ~BaseLogGroup();
 
-    LogGroupConfigDict config;  // the configuration for the log group
+    ConfigDict config;  // the configuration for the log group
 
     std::vector<std::string> log_names;
     std::string save_style;
@@ -154,7 +146,7 @@ protected:
     long width;  // the width to use when logging
 
 public:
-    ScalarLog(LogGroupConfigDict config, Orchestrator& orchestrator);
+    ScalarLog(ConfigDict config, Orchestrator& orchestrator);
     virtual ~ScalarLog();
 
     bool is_modified(std::string log_name);  // check if the log name is modified (contains a modifier)

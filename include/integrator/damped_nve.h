@@ -3,20 +3,18 @@
 #include "integrator.h"
 #include "../particles/base/particle.h"
 
-struct DampedNVEConfigDict : public IntegratorConfigDict {
-public:
-    DampedNVEConfigDict() {
-        insert("integrator_type", "DampedNVE");
-        insert("dt", 0.0);
-        insert("damping_coefficient", 0.0);
-    }
-};
-
+inline ConfigDict get_damped_nve_config_dict(double dt, double damping_coefficient) {
+    ConfigDict config;
+    config["integrator_type"] = "DampedNVE";
+    config["dt"] = dt;
+    config["damping_coefficient"] = damping_coefficient;
+    return config;
+}
 
 class DampedNVE : public Integrator {
 public:
 
-    DampedNVE(Particle& particle, const DampedNVEConfigDict& config);
+    DampedNVE(Particle& particle, ConfigDict& config);
     ~DampedNVE();
 
     double dt;  // time step

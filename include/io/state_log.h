@@ -19,10 +19,10 @@ private:
     std::string extension;  // the extension to use when logging
     std::unordered_map<std::string, ArrayData> gathered_data;
     std::unordered_map<std::string, ArrayData> reorder_index_data;  // key: index name, value: index arraydata
-
+    bool is_restart;
 
 public:
-    StateLog(LogGroupConfigDict config, Orchestrator& orchestrator, const std::string& root, const std::string& indexed_file_prefix, const std::string& extension);
+    StateLog(ConfigDict config, Orchestrator& orchestrator, const std::string& root, const std::string& indexed_file_prefix, const std::string& extension, bool is_restart = false);
     ~StateLog();
 
     // TODO: add sorting by particle index
@@ -40,7 +40,7 @@ public:
      * 
      * @param root The root path to write to.
      */
-    void write_values(const std::filesystem::path& root);
+    void write_values(const std::filesystem::path& root, long step);
 
     /**
      * @brief Log the current state of the system by writing all the vectors to their files in a subdirectory prefixed with the step.

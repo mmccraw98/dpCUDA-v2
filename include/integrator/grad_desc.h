@@ -3,18 +3,16 @@
 #include "../particles/base/particle.h"
 #include "integrator.h"
 
-struct GradDescConfigDict : public IntegratorConfigDict {
-public:
-    GradDescConfigDict() {
-        insert("integrator_type", "GradDesc");
-        insert("alpha", 0.0);
-    }
-};
-
+inline ConfigDict get_grad_desc_config_dict(double alpha) {
+    ConfigDict config;
+    config["integrator_type"] = "GradDesc";
+    config["alpha"] = alpha;
+    return config;
+}
 
 class GradDesc : public Integrator {
     public:
-        GradDesc(Particle& particle, const GradDescConfigDict& config);
+        GradDesc(Particle& particle, ConfigDict& config);
         ~GradDesc();
 
         double alpha;

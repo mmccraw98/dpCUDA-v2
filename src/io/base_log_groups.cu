@@ -4,24 +4,24 @@
 #include <iostream>
 
 
-LogGroupConfigDict config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves, std::string group_name) {
-    LogGroupConfigDict config;
+ConfigDict config_from_names_lin(std::vector<std::string> log_names, long num_steps, long num_saves, std::string group_name) {
+    ConfigDict config = get_log_group_config_dict();
     config["log_names"] = log_names;
     config["save_style"] = "lin";
     config["save_freq"] = static_cast<long>(num_steps / num_saves);
-    if (config["save_freq"] == 0) {
+    if (config.at("save_freq").get<long>() == 0) {
         config["save_freq"] = 1;
     }
     config["group_name"] = group_name;
     return config;
 }
 
-LogGroupConfigDict config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name) {
-    LogGroupConfigDict config;
+ConfigDict config_from_names_log(std::vector<std::string> log_names, long num_steps, long num_saves, long min_save_decade, std::string group_name) {
+    ConfigDict config = get_log_group_config_dict();
     config["log_names"] = log_names;
     config["save_style"] = "log";
     config["reset_save_decade"] = static_cast<long>(num_steps / num_saves);
-    if (config["reset_save_decade"] == 0) {
+    if (config.at("reset_save_decade").get<long>() == 0) {
         config["reset_save_decade"] = 1;
     }
     config["min_save_decade"] = min_save_decade;
@@ -29,8 +29,8 @@ LogGroupConfigDict config_from_names_log(std::vector<std::string> log_names, lon
     return config;
 }
 
-LogGroupConfigDict config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name) {
-    LogGroupConfigDict config;
+ConfigDict config_from_names_lin_everyN(std::vector<std::string> log_names, long save_freq, std::string group_name) {
+    ConfigDict config = get_log_group_config_dict();
     config["log_names"] = log_names;
     config["save_style"] = "lin";
     config["save_freq"] = save_freq;
@@ -38,29 +38,29 @@ LogGroupConfigDict config_from_names_lin_everyN(std::vector<std::string> log_nam
     return config;
 }
 
-LogGroupConfigDict config_from_names(std::vector<std::string> log_names, std::string group_name) {
-    LogGroupConfigDict config;
+ConfigDict config_from_names(std::vector<std::string> log_names, std::string group_name) {
+    ConfigDict config = get_log_group_config_dict();
     config["log_names"] = log_names;
     config["group_name"] = group_name;
     return config;
 }
 
-BaseLogGroup::BaseLogGroup(LogGroupConfigDict config, Orchestrator& orchestrator) : config(config), orchestrator(orchestrator) {
-    log_names = config.get<std::vector<std::string>>("log_names");
-    save_style = config.get<std::string>("save_style");
-    save_freq = config.get<long>("save_freq");
-    reset_save_decade = config.get<long>("reset_save_decade");
-    min_save_decade = config.get<long>("min_save_decade");
-    multiple = config.get<long>("multiple");
-    decade = config.get<long>("decade");
-    group_name = config.get<std::string>("group_name");
+BaseLogGroup::BaseLogGroup(ConfigDict config, Orchestrator& orchestrator) : config(config), orchestrator(orchestrator) {
+    log_names = config.at("log_names").get<std::vector<std::string>>();
+    save_style = config.at("save_style").get<std::string>();
+    save_freq = config.at("save_freq").get<long>();
+    reset_save_decade = config.at("reset_save_decade").get<long>();
+    min_save_decade = config.at("min_save_decade").get<long>();
+    multiple = config.at("multiple").get<long>();
+    decade = config.at("decade").get<long>();
+    group_name = config.at("group_name").get<std::string>();
 }
 
 BaseLogGroup::~BaseLogGroup() {
 }
 
 void BaseLogGroup::define_dependencies() {
-    for (const std::string& log_name : config["log_names"]) {
+    for (const std::string& log_name : config.at("log_names").get<std::vector<std::string>>()) {
         if (orchestrator.is_dependent(log_name)) {
             dependencies.insert(log_name);
             has_dependencies = true;
@@ -91,12 +91,12 @@ void BaseLogGroup::update_log_status(long step) {
             should_log = false;
         }
     } else {
-        std::cout << "ERROR: LogManager::update_log_status: Invalid save style: " << config["save_style"] << std::endl;
+        std::cout << "ERROR: LogManager::update_log_status: Invalid save style: " << config.at("save_style").get<std::string>() << std::endl;
         exit(1);
     }
 }
 
-ScalarLog::ScalarLog(LogGroupConfigDict config, Orchestrator& orchestrator) : BaseLogGroup(config, orchestrator) {
+ScalarLog::ScalarLog(ConfigDict config, Orchestrator& orchestrator) : BaseLogGroup(config, orchestrator) {
     unmodified_log_names = get_unmodified_log_names();
 }
 

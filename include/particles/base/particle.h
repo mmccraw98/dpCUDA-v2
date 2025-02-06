@@ -2,7 +2,7 @@
 
 #include "../../include/constants.h"
 #include "../../include/functors.h"
-#include "../../include/particles/base/config.h"
+#include "../../include/utils/config_dict.h"
 
 #include "../../include/data/data_1d.h"
 #include "../../include/data/data_2d.h"
@@ -38,21 +38,29 @@ public:
 
     ConfigDict getConfig();
 
-    virtual void initializeFromConfig(ConfigDict& config);
+    virtual void initializeFromConfig(ConfigDict& config, bool minimize = false) = 0;
 
     // Function pointer for the neighbor list update method
     void (Particle::*initNeighborListPtr)();
     void (Particle::*updateNeighborListPtr)();
     void (Particle::*checkForNeighborUpdatePtr)();
 
+    std::tuple<std::filesystem::path, std::filesystem::path, std::filesystem::path, long> getPaths(std::filesystem::path root_path, std::string source, long frame);
+
     void updateNeighborList();
+
+    virtual long load(std::filesystem::path root_path, std::string source, long frame = -2) = 0;
 
     virtual void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension);
 
     // These arrays (and the parameters) have to be saved to be able to restart from a configuration - all other values can be derived if not defined
-    std::vector<std::string> fundamental_values = {"d_positions", "d_velocities"};
+    virtual std::vector<std::string> getFundamentalValues() { return {"positions", "velocities", "box_size", "radii", "masses"}; }
     // These are the values that need to be calculated before the log value is calculated
     std::vector<std::string> pre_req_calculations = {"KE", "T", "kinetic_energy"};
+
+    virtual void tryLoadData(std::filesystem::path frame_path, std::filesystem::path restart_path, std::filesystem::path init_path, std::string source, std::string file_name_without_extension);
+
+    virtual bool tryLoadArrayData(std::filesystem::path path);
 
     // this is going to be done separately for each derived class
     // the key is the name of the log variable and the value is the function that needs to be called to calculate the log variable
@@ -142,6 +150,8 @@ public:
 
     virtual ArrayData getArrayData(const std::string& array_name);
 
+    std::pair<long, long> getBiDisperseParticleCounts();
+
     virtual void initAdamVariables();
     virtual void clearAdamVariables();
     virtual void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon);
@@ -171,6 +181,8 @@ public:
      * @param seed The seed for the random number generator.
      */
     void setSeed(long seed);
+
+    long getSeed();
 
     /**
      * @brief Set the dimensions for the CUDA kernels and synchronize to the device constant memory.

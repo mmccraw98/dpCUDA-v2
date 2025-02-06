@@ -65,6 +65,7 @@ add_library(common_sources STATIC
     src/integrator/adam.cu
     src/routines/initialization.cu
     src/routines/compression.cu
+    src/routines/minimization.cu
     src/io/io_utils.cu
     src/utils/thread_pool.cpp
 )
@@ -78,18 +79,34 @@ set_target_properties(common_sources PROPERTIES
     CUDA_STANDARD 17
 )
 
-# Test Load 2 executable
-add_executable(test_load_2 scripts/test_load_2.cpp)
-target_link_libraries(test_load_2 PRIVATE common_sources)
+# # Test Load 2 executable
+# add_executable(test_load_2 scripts/test_load_2.cpp)
+# target_link_libraries(test_load_2 PRIVATE common_sources)
 
-# Jam executable
-add_executable(jam scripts/jam.cpp)
-target_link_libraries(jam PRIVATE common_sources)
+# # Jam executable
+# add_executable(jam scripts/jam.cpp)
+# target_link_libraries(jam PRIVATE common_sources)
 
-# Run NVE executable
-add_executable(run_nve scripts/run_nve.cpp)
-target_link_libraries(run_nve PRIVATE common_sources)
+# # Run NVE executable
+# add_executable(run_nve scripts/run_nve.cpp)
+# target_link_libraries(run_nve PRIVATE common_sources)
 
-# Test executable
-add_executable(test scripts/test.cpp)
-target_link_libraries(test PRIVATE common_sources)
+# # Test executable
+# add_executable(test scripts/test.cpp)
+# target_link_libraries(test PRIVATE common_sources)
+
+# Test create rigid bumpy executable
+add_executable(test_create_rigid_bumpy scripts/test_create_rigid_bumpy.cpp)
+target_link_libraries(test_create_rigid_bumpy PRIVATE common_sources)
+
+# Test load rigid bumpy executable
+add_executable(test_load_rigid_bumpy scripts/test_load_rigid_bumpy.cpp)
+target_link_libraries(test_load_rigid_bumpy PRIVATE common_sources)
+
+# Test create disk executable
+add_executable(test_create_disk scripts/test_create_disk.cpp)
+target_link_libraries(test_create_disk PRIVATE common_sources)
+
+# Test load disk executable
+add_executable(test_load_disk scripts/test_load_disk.cpp)
+target_link_libraries(test_load_disk PRIVATE common_sources)

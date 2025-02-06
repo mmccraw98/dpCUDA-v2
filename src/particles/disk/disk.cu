@@ -32,6 +32,143 @@ Disk::~Disk() {
 // --------------------- Overridden Methods -----------------------------
 // ----------------------------------------------------------------------
 
+long Disk::load(std::filesystem::path root_path, std::string source, long frame) {
+
+    auto [frame_path, restart_path, init_path, frame_number] = this->getPaths(root_path, source, frame);
+
+    ConfigDict config;
+    config.load(root_path / "system" / "particle_config.json");
+
+    long n_particles = config.at("n_particles").get<long>();
+    long particle_dim_block = config.at("particle_dim_block").get<long>();
+    double size_ratio = config.at("size_ratio").get<double>();
+    double count_ratio = config.at("count_ratio").get<double>();
+    double e_c = config.at("e_c").get<double>();
+    double n_c = config.at("n_c").get<double>();
+    double mass = config.at("mass").get<double>();
+    double packing_fraction = config.at("packing_fraction").get<double>();
+    long seed = config.at("seed").get<long>();
+
+    // set the config
+    this->setConfig(config);
+
+    // set the seed
+    this->setSeed(seed);
+
+    // set the number of particles
+    this->setNumParticles(n_particles);
+    this->initDynamicVariables();
+    // end
+
+    // load the particle radii
+    this->tryLoadData(frame_path, restart_path, init_path, source, "radii");
+    // end
+
+    this->setKernelDimensions(particle_dim_block);
+    this->setDegreesOfFreedom();
+    this->initGeometricVariables();
+
+    // load/set the masses
+    this->tryLoadData(frame_path, restart_path, init_path, source, "masses");
+    // end
+
+    // load/set the energy scales
+    this->setEnergyScale(e_c, "c");
+    this->setExponent(n_c, "c");
+    // end
+
+    // load the particle positions, velocities, and box size
+    this->tryLoadData(frame_path, restart_path, init_path, source, "positions");
+    this->tryLoadData(frame_path, restart_path, init_path, source, "velocities");
+    this->tryLoadData(frame_path, restart_path, init_path, source, "box_size");
+    this->calculateParticleArea();
+    // calculate the packing fraction and set its value in the config
+    config["packing_fraction"] = this->getPackingFraction();
+    // end
+    
+    // neighbors
+    this->setupNeighbors(config);
+
+    // Define the unique dependencies
+    this->define_unique_dependencies();
+
+    return frame_number;
+}
+
+void Disk::initializeFromConfig(ConfigDict& config, bool minimize) {
+    long n_particles = config.at("n_particles").get<long>();
+    long particle_dim_block = config.at("particle_dim_block").get<long>();
+    double size_ratio = config.at("size_ratio").get<double>();
+    double count_ratio = config.at("count_ratio").get<double>();
+    double e_c = config.at("e_c").get<double>();
+    double n_c = config.at("n_c").get<double>();
+    double mass = config.at("mass").get<double>();
+    double packing_fraction = config.at("packing_fraction").get<double>();
+    long seed = config.at("seed").get<long>();
+
+    // set the config
+    this->setConfig(config);
+
+    // set the seed
+    this->setSeed(seed);
+
+    // set the number of particles
+    this->setNumParticles(n_particles);
+    this->initDynamicVariables();
+    // end
+
+    // load/set the particle radii
+    this->setBiDispersity(size_ratio, count_ratio);
+    // end
+
+    this->setKernelDimensions(particle_dim_block);
+    this->setDegreesOfFreedom();
+    this->initGeometricVariables();
+
+    // load/set the masses
+    this->setMass(mass);
+    // end
+
+    // load/set the energy scales
+    this->setEnergyScale(e_c, "c");
+    this->setExponent(n_c, "c");
+    // end
+
+    // load/set the particle positions and angles
+    this->initializeBox(packing_fraction);
+    thrust::host_vector<double> h_box_size = this->getBoxSize();
+    this->positions.fillRandomUniform(0.0, h_box_size[0], 0.0, h_box_size[1], 0.0, this->getSeed());
+    this->calculateParticleArea();
+    this->scaleToPackingFraction(packing_fraction);
+    
+    // neighbors
+    this->setupNeighbors(config);
+
+    // Minimize the positions here if desired
+    if (minimize) {
+        minimizeAdam(*this);
+    }
+
+    this->define_unique_dependencies();
+
+    // this->setSeed(config.at("seed").get<long>());
+    // this->setParticleCounts(config.at("n_particles").get<long>(), 0);
+    // this->setKernelDimensions(config.at("particle_dim_block").get<long>());
+
+    // this->setBiDispersity(config.at("size_ratio").get<double>(), config.at("count_ratio").get<double>());
+    // this->initializeBox(config.at("packing_fraction").get<double>());
+
+    // // TODO: make this a config - position initialization config: zero, random, etc.
+    // this->setRandomPositions();
+
+    // this->setEnergyScale(config.at("e_c").get<double>(), "c");
+    // this->setExponent(config.at("n_c").get<double>(), "c");
+    // this->setMass(config.at("mass").get<double>());
+
+    // this->setupNeighbors(config);
+
+    // this->setConfig(config);
+}
 
 void Disk::setKernelDimensions(long particle_dim_block) {
     int maxThreadsPerBlock;

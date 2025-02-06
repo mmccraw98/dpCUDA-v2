@@ -1,6 +1,6 @@
 #include "../../include/io/console_log.h"
 
-ConsoleLog::ConsoleLog(LogGroupConfigDict config, Orchestrator& orchestrator)
+ConsoleLog::ConsoleLog(ConfigDict config, Orchestrator& orchestrator)
     : ScalarLog(config, orchestrator) {
 }
 

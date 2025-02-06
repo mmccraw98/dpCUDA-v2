@@ -13,18 +13,6 @@
 
 
 /**
- * @brief IntegratorConfig class.
- * 
- * This class is used to store the configuration for the integrator object.
- */
-struct IntegratorConfigDict : public ConfigDict {
-public:
-    IntegratorConfigDict() : ConfigDict() {
-        insert("integrator_type", "none");
-    }
-};
-
-/**
  * @brief Integrator class.
  * 
  * Base class for all integrators.
@@ -35,7 +23,7 @@ protected:
     Particle& particle;  // Reference to Particle object
 
 public:
-    const IntegratorConfigDict& config;  // Reference to IntegratorConfig object
+    ConfigDict& config;  // Reference to IntegratorConfig object
 
     /**
      * @brief Constructor for Integrator class.
@@ -43,7 +31,7 @@ public:
      * @param particle Reference to Particle object.
      * @param config Reference to IntegratorConfig object.
      */
-    Integrator(Particle& particle, const IntegratorConfigDict& config);
+    Integrator(Particle& particle, ConfigDict& config);
 
     // Virtual destructor to ensure proper cleanup in derived classes
     virtual ~Integrator();

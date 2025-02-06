@@ -3,19 +3,12 @@
 #include "integrator.h"
 #include "../particles/base/particle.h"
 
-/**
- * @brief Configuration for the NVE integrator.
- * 
- * This class extends the IntegratorConfig class and adds a dt member variable.
- */
-class NVEConfigDict : public IntegratorConfigDict {
-public:
-    NVEConfigDict() {
-        insert("integrator_type", "NVE");
-        insert("dt", 0.0);
-    }
-};
-
+inline ConfigDict get_nve_config_dict(double dt) {
+    ConfigDict config;
+    config["integrator_type"] = "NVE";
+    config["dt"] = dt;
+    return config;
+}
 
 /**
  * @brief NVE integrator class.
@@ -30,7 +23,7 @@ public:
      * @param particle Reference to Particle object.
      * @param config Reference to NVEConfig object.
      */
-    NVE(Particle& particle, const NVEConfigDict& config);
+    NVE(Particle& particle, ConfigDict& config);
     ~NVE();
 
     double dt;  // time step

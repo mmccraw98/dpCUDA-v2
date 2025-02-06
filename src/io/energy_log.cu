@@ -2,7 +2,7 @@
 #include "../../include/io/energy_log.h"
 #include "../../include/io/io_utils.h"
 
-EnergyLog::EnergyLog(LogGroupConfigDict log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite)
+EnergyLog::EnergyLog(ConfigDict log_group_config, Orchestrator& orchestrator, const std::string& file_name, bool overwrite)
     : ScalarLog(log_group_config, orchestrator) {
     this->file_name = file_name;
     log_file = open_output_file(file_name, overwrite);

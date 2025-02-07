@@ -28,12 +28,16 @@ extern __constant__ long* d_vertex_particle_index_ptr;
 __global__ void kernelCalculateRigidDampedForces(double* forces_x, double* forces_y, double* torques, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double damping_coefficient);
 
 
-__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);
+__global__ void kernelUpdateRigidPositions(
+    double* last_positions_x, double* last_positions_y,
+    double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);
 
 __global__ void kernelUpdateRigidVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double* masses, const double* moments_of_inertia, const double dt, bool rotation);
 
 // vertex level
-__global__ void kernelTranslateAndRotateVertices1(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta);
+__global__ void kernelTranslateAndRotateVertices1(
+    const double* last_positions_x, const double* last_positions_y,
+    const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta);
 
 // particle level
 __global__ void kernelTranslateAndRotateVertices2(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta);
@@ -131,6 +135,7 @@ __global__ void kernelUpdateVertexNeighborList(
 // ----------------------------------------------------------------------
 
 __global__ void kernelRigidBumpyAdamStep(
+    double* __restrict__ last_positions_x, double* __restrict__ last_positions_y,
     double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
     double* __restrict__ first_moment_angle,
     double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
@@ -146,6 +151,7 @@ __global__ void kernelRigidBumpyAdamStep(
     double* __restrict__ last_cell_positions_x, double* __restrict__ last_cell_positions_y, double* __restrict__ cell_displacements_sq, bool rotation);
 
 __global__ void kernelRigidBumpyGradDescStep(
+    double* __restrict__ last_positions_x, double* __restrict__ last_positions_y,
     double* __restrict__ positions_x, double* __restrict__ positions_y,
     double* __restrict__ angles,
     double* __restrict__ delta_x, double* __restrict__ delta_y,

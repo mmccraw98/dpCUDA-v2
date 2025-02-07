@@ -19,8 +19,8 @@
 #include "../include/particles/factory.h"
 
 int main() {
-    std::string root_path = "/home/mmccraw/dev/data/25-02-01/validating-nve/rb-verlet-no-rotation/";
-    std::string particle_type = "RigidBumpyNoRotation";
+    std::string root_path = "/home/mmccraw/dev/data/25-02-01/validating-nve/rb-cell/";
+    std::string particle_type = "RigidBumpy";
 
     long num_steps_base = 1e5;
     long num_saves = 1e4;
@@ -41,7 +41,7 @@ int main() {
             long num_steps = num_steps_base * static_cast<long>(dt_start / dt_dimless);
             long save_every_N_steps = static_cast<long>(num_steps / num_saves);
 
-            std::unique_ptr<Particle> particle = createParticle(32, 0.6, particle_type, true);
+            std::unique_ptr<Particle> particle = createParticle(256, 0.6, particle_type, true);
             particle->setRandomVelocities(temperature);
 
             std::cout << "TIME UNIT: " << particle->getTimeUnit() << std::endl;

@@ -43,6 +43,8 @@ public:
     SwapData1D<double> vertex_potential_energy;
     SwapData1D<double> moments_of_inertia;
 
+    Data2D<double> last_positions;
+
     Data1D<double> first_moment_angle;
     Data1D<double> second_moment_angle;
 

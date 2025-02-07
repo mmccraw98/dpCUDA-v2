@@ -18,43 +18,63 @@ __constant__ long* d_vertex_particle_index_ptr;
 // ----------------------- Dynamics and Updates -------------------------
 // ----------------------------------------------------------------------
 
-__global__ void kernelUpdateRigidPositions(double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt) {
+__global__ void kernelUpdateRigidPositions(
+    double* last_positions_x, double* last_positions_y,
+    double* positions_x, double* positions_y, double* angles,
+    double* delta_x, double* delta_y, double* angle_delta,
+    const double* last_neigh_positions_x, const double* last_neigh_positions_y,
+    const double* last_cell_positions_x, const double* last_cell_positions_y,
+    double* neigh_displacements_sq, double* cell_displacements_sq,
+    const double* velocities_x, const double* velocities_y,
+    const double* angular_velocities, const double dt)
+{
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
 
-    double pos_x = positions_x[particle_id];
-    double pos_y = positions_y[particle_id];
+    // ---------------------------------------------------
+    // 1) Store the old (current) positions before updating
+    // ---------------------------------------------------
+    double old_x = positions_x[particle_id];
+    double old_y = positions_y[particle_id];
     double angle = angles[particle_id];
-    double vel_x = velocities_x[particle_id];
-    double vel_y = velocities_y[particle_id];
-    double ang_vel = angular_velocities[particle_id];
 
-    // Update positions
-    double temp_delta_x = vel_x * dt;
-    double temp_delta_y = vel_y * dt;
+    // Write them to "last_positions"
+    last_positions_x[particle_id] = old_x;
+    last_positions_y[particle_id] = old_y;
+
+    // ---------------------------------------------------
+    // 2) Velocity-Verlet style update to the new positions
+    // ---------------------------------------------------
+    double vel_x    = velocities_x[particle_id];
+    double vel_y    = velocities_y[particle_id];
+    double ang_vel  = angular_velocities[particle_id];
+
+    double temp_delta_x     = vel_x   * dt;
+    double temp_delta_y     = vel_y   * dt;
     double temp_angle_delta = ang_vel * dt;
-    delta_x[particle_id] = temp_delta_x;
-    delta_y[particle_id] = temp_delta_y;
-    angle_delta[particle_id] = temp_angle_delta;
 
-    pos_x += temp_delta_x;
-    pos_y += temp_delta_y;
-    angle += temp_angle_delta;
-    positions_x[particle_id] = pos_x;
-    positions_y[particle_id] = pos_y;
-    angles[particle_id] = angle;
+    delta_x[particle_id]      = temp_delta_x;
+    delta_y[particle_id]      = temp_delta_y;
+    angle_delta[particle_id]  = temp_angle_delta;
 
-    // Calculate squared displacement for neighbor list
-    double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
-    double dy_neigh = pos_y - last_neigh_positions_y[particle_id];
+    double new_x     = old_x + temp_delta_x;
+    double new_y     = old_y + temp_delta_y;
+    double new_angle = angle + temp_angle_delta;
+
+    positions_x[particle_id] = new_x;
+    positions_y[particle_id] = new_y;
+    angles[particle_id]      = new_angle;
+
+    // ---------------------------------------------------
+    // 3) Update neighbor/cell displacements
+    // ---------------------------------------------------
+    double dx_neigh = new_x - last_neigh_positions_x[particle_id];
+    double dy_neigh = new_y - last_neigh_positions_y[particle_id];
     neigh_displacements_sq[particle_id] = dx_neigh * dx_neigh + dy_neigh * dy_neigh;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
 
-    // Calculate squared displacement for cell list
-    double dx_cell = pos_x - last_cell_positions_x[particle_id];
-    double dy_cell = pos_y - last_cell_positions_y[particle_id];
+    double dx_cell = new_x - last_cell_positions_x[particle_id];
+    double dy_cell = new_y - last_cell_positions_y[particle_id];
     cell_displacements_sq[particle_id] = dx_cell * dx_cell + dy_cell * dy_cell;
-    // TODO: check for max displacement threshold here to avoid the thrust reduce call
 }
 
 __global__ void kernelCalculateRigidDampedForces(double* forces_x, double* forces_y, double* torques, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double damping_coefficient) {
@@ -95,31 +115,55 @@ __global__ void kernelUpdateRigidVelocities(double* velocities_x, double* veloci
     angular_velocities[particle_id] = ang_vel;
 }
 
-__global__ void kernelTranslateAndRotateVertices1(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
+__global__ void kernelTranslateAndRotateVertices1(
+    const double* last_positions_x, const double* last_positions_y,
+    const double* positions_x,      const double* positions_y,
+    double* vertex_positions_x,     double* vertex_positions_y,
+    const double* delta_x,          const double* delta_y,
+    const double* angle_delta)
+{
     long vertex_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (vertex_id >= d_n_vertices) return;
     
-    // Load particle data into registers to minimize repeated global memory access
     long particle_id = d_vertex_particle_index_ptr[vertex_id];
-    double pos_x = positions_x[particle_id];
-    double pos_y = positions_y[particle_id];
-    double vertex_pos_x = vertex_positions_x[vertex_id];
-    double vertex_pos_y = vertex_positions_y[vertex_id];
-    double delta_x_vertex = delta_x[particle_id];
-    double delta_y_vertex = delta_y[particle_id];
-    double angle_delta_vertex = angle_delta[particle_id];
 
-    // Get vertex position relative to particle center
-    double rel_x = vertex_pos_x - pos_x;
-    double rel_y = vertex_pos_y - pos_y;
+    // ------------------------------
+    // 1) Load old vs. new centers
+    // ------------------------------
+    double old_x = last_positions_x[particle_id];
+    double old_y = last_positions_y[particle_id];
+    double new_x = positions_x[particle_id];
+    double new_y = positions_y[particle_id];
 
-    // Rotate
-    double rot_x = rel_x * cos(angle_delta_vertex) - rel_y * sin(angle_delta_vertex);
-    double rot_y = rel_x * sin(angle_delta_vertex) + rel_y * cos(angle_delta_vertex);
+    // The vertex's old (current) position in global coords
+    double vx = vertex_positions_x[vertex_id];
+    double vy = vertex_positions_y[vertex_id];
 
-    // Translate
-    vertex_positions_x[vertex_id] = rot_x + pos_x + delta_x_vertex;
-    vertex_positions_y[vertex_id] = rot_y + pos_y + delta_y_vertex;
+    // The net translations & angle changes
+    double dx     = delta_x[particle_id];
+    double dy     = delta_y[particle_id];
+    double dtheta = angle_delta[particle_id];
+
+    // ----------------------------------------------------
+    // 2) Shift so the old center is at (0, 0), then rotate
+    // ----------------------------------------------------
+    double rx = vx - old_x; 
+    double ry = vy - old_y;
+
+    double cosA = cos(dtheta);
+    double sinA = sin(dtheta);
+
+    double rx_rot = rx * cosA - ry * sinA;
+    double ry_rot = rx * sinA + ry * cosA;
+
+    // --------------------------------------
+    // 3) Now place it at the new center
+    // --------------------------------------
+    double vx_new = new_x + rx_rot;
+    double vy_new = new_y + ry_rot;
+
+    vertex_positions_x[vertex_id] = vx_new;
+    vertex_positions_y[vertex_id] = vy_new;
 }
 
 __global__ void kernelTranslateAndRotateVertices2(const double* positions_x, const double* positions_y, double* vertex_positions_x, double* vertex_positions_y, const double* delta_x, const double* delta_y, const double* angle_delta) {
@@ -566,6 +610,7 @@ __global__ void kernelUpdateVertexNeighborList(
 
 
 __global__ void kernelRigidBumpyAdamStep(
+    double* __restrict__ last_positions_x, double* __restrict__ last_positions_y,
     double* __restrict__ first_moment_x, double* __restrict__ first_moment_y,
     double* __restrict__ first_moment_angle,
     double* __restrict__ second_moment_x, double* __restrict__ second_moment_y,
@@ -620,18 +665,23 @@ __global__ void kernelRigidBumpyAdamStep(
     double update_y = -alpha * m_hat_y / (sqrt(v_hat_y) + epsilon);
     double update_angle = -alpha * m_hat_angle / (sqrt(v_hat_angle) + epsilon);
 
+    // Store original positions
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    last_positions_x[particle_id] = pos_x;
+    last_positions_y[particle_id] = pos_y;
+
     // Update positions
-    positions_x[particle_id] += update_x;
-    positions_y[particle_id] += update_y;
+    pos_x += update_x;
+    pos_y += update_y;
     delta_x[particle_id] = update_x;
     delta_y[particle_id] = update_y;
     if (rotation) {
         angles[particle_id] += update_angle;
         angle_delta[particle_id] = update_angle;
     }
-
-    double pos_x = positions_x[particle_id];
-    double pos_y = positions_y[particle_id];
+    positions_x[particle_id] = pos_x;
+    positions_y[particle_id] = pos_y;
 
     double dx_neigh = pos_x - last_neigh_positions_x[particle_id];
     double dy_neigh = pos_y - last_neigh_positions_y[particle_id];

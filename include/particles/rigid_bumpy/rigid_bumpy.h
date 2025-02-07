@@ -75,6 +75,8 @@ public:
     Data1D<long> this_vertex_contact_counts;
     bool rotation = true;
 
+    void setRotation(bool rotation);
+
     std::unordered_map<std::string, std::vector<std::string>> calculation_dependencies = {  // replicate this for each derived class
         {"TE", {"calculate_kinetic_energy"}},
         {"T", {"calculate_kinetic_energy"}},

@@ -55,10 +55,12 @@ long RigidBumpy::load(std::filesystem::path root_path, std::string source, long 
     double n_c = config.at("n_c").get<double>();
     double mass = config.at("mass").get<double>();
     long seed = config.at("seed").get<long>();
+    bool rotation = config.at("rotation").get<bool>();
     double packing_fraction = config.at("packing_fraction").get<double>();
 
     this->setConfig(config);
     this->setSeed(seed);
+    this->setRotation(rotation);
 
     // set the number of particles
     this->setNumParticles(n_particles);
@@ -129,6 +131,9 @@ long RigidBumpy::load(std::filesystem::path root_path, std::string source, long 
     return frame_number;
 }
 
+void RigidBumpy::setRotation(bool rotation) {
+    this->rotation = rotation;
+}
 
 void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
     long n_particles = config.at("n_particles").get<long>();
@@ -146,9 +151,11 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
     double mass = config.at("mass").get<double>();
     long seed = config.at("seed").get<long>();
     double packing_fraction = config.at("packing_fraction").get<double>();
+    bool rotation = config.at("rotation").get<bool>();
 
     this->setConfig(config);
     this->setSeed(seed);
+    this->setRotation(rotation);
 
     // set the number of particles
     this->setNumParticles(n_particles);
@@ -1051,7 +1058,7 @@ void RigidBumpy::initCellListVariables() {
 
 double RigidBumpy::getGeometryScale() {
     double vertex_diameter = 2.0 * getVertexRadius();
-    double particle_diameter = getDiameter("max");
+    double particle_diameter = getDiameter("min");
     return vertex_diameter / particle_diameter;
 }
 

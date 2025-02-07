@@ -732,9 +732,7 @@ void Particle::initializeBox(double packing_fraction) {
     // set the box size to an arbitrary initial value
     double side_length = 1.0;
     thrust::host_vector<double> host_box_size(N_DIM, side_length);
-    std::cout << "getBoxArea: " << getBoxArea() << std::endl;
     setBoxSize(host_box_size);
-    std::cout << "getBoxArea: " << getBoxArea() << std::endl;
     // then rescale the box size to the desired packing fraction
     scaleToPackingFraction(packing_fraction);
 }
@@ -1095,6 +1093,8 @@ double Particle::calculateTemperature() {
 }
 
 double Particle::getTimeUnit() {
+    // for RB (when the e_c is set by the vertex, this is only useful for setting the simulation timestep)
+    // the true time unit is always defined using the particle e_c which is 1
     double average_mass = thrust::reduce(masses.d_vec.begin(), masses.d_vec.end()) / n_particles;
     return getDiameter("min") * std::sqrt(average_mass / getEnergyScale("c"));
 }

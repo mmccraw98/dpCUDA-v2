@@ -26,8 +26,8 @@ inline ConfigDict get_standard_disk_config(long n_particles, double packing_frac
     return config;
 }
 
-inline ConfigDict get_standard_rigid_bumpy_config(long n_particles, double packing_fraction) {
-    bool rotation = true;
+inline ConfigDict get_standard_rigid_bumpy_config(long n_particles, double packing_fraction, bool _rotation = true) {
+    bool rotation = _rotation;
     
     long n_vertices_per_small_particle = 26;
     long n_vertices_per_large_particle = 36;

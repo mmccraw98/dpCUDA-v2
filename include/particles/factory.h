@@ -25,7 +25,9 @@ inline std::unique_ptr<Particle> createParticle(long n_particles, double packing
     if (particle_type == "Disk") {
         config = get_standard_disk_config(n_particles, packing_fraction);
     } else if (particle_type == "RigidBumpy") {
-        config = get_standard_rigid_bumpy_config(n_particles, packing_fraction);
+        config = get_standard_rigid_bumpy_config(n_particles, packing_fraction, true);
+    } else if (particle_type == "RigidBumpyNoRotation") {
+        config = get_standard_rigid_bumpy_config(n_particles, packing_fraction, false);
     }
     return createParticle(config, minimize);
 }

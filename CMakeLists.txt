@@ -114,3 +114,7 @@ target_link_libraries(test_load_disk PRIVATE common_sources)
 # Run nve executable
 add_executable(runNVE scripts/runNVE.cpp)
 target_link_libraries(runNVE PRIVATE common_sources)
+
+# Validate nve executable
+add_executable(validateNVE scripts/validateNVE.cpp)
+target_link_libraries(validateNVE PRIVATE common_sources)

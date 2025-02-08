@@ -42,7 +42,9 @@ int main(int argc, char** argv) {
         // get the new output directory
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(6) << phi;
-        std::filesystem::path sample_dir = output_dir / ("phi-" + oss.str());
+        std::ostringstream oss_T;
+        oss_T << std::scientific << std::setprecision(6) << temperature;
+        std::filesystem::path sample_dir = output_dir / ("phi-" + oss.str()) / ("compression_T-" + oss_T.str());
         
         IOManager dynamics_io_manager(log_group_configs, *particle, &nve, sample_dir, 20, overwrite);
         dynamics_io_manager.write_params();

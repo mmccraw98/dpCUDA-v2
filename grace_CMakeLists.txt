@@ -1,0 +1,118 @@
+cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+project(dpCUDAv2 LANGUAGES CXX CUDA)
+
+# Optionally force a release build to reduce debug info (if acceptable)
+#set(CMAKE_BUILD_TYPE Release)
+
+# C++ standard
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# CUDA architecture
+set(CMAKE_CUDA_ARCHITECTURES 89)
+
+# --------------------------------------------------
+# FetchContent for nlohmann_json
+# --------------------------------------------------
+include(FetchContent)
+FetchContent_Declare(
+  nlohmann_json
+  GIT_REPOSITORY https://github.com/nlohmann/json.git
+  GIT_TAG        v3.11.2
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
+# --------------------------------------------------
+# Compiler flags (without LTO)
+# --------------------------------------------------
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-relaxed-constexpr \
+                      -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize \
+                      -MMD -MP -arch=sm_89")
+
+# --------------------------------------------------
+# Force the linker to disable debug compression and link the static libstdc++
+# --------------------------------------------------
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--compress-debug-sections=none -lstdc++ -static-libstdc++")
+
+# --------------------------------------------------
+# Include directories for your own headers
+# --------------------------------------------------
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/data
+    ${CMAKE_SOURCE_DIR}/include/integrator
+    ${CMAKE_SOURCE_DIR}/include/particles
+    ${CMAKE_SOURCE_DIR}/include/particles/base
+    ${CMAKE_SOURCE_DIR}/include/particles/disk
+    ${CMAKE_SOURCE_DIR}/include/particles/rigid_bumpy
+    ${CMAKE_SOURCE_DIR}/include/kernels
+    ${CMAKE_SOURCE_DIR}/include/io
+    ${CMAKE_SOURCE_DIR}/include/utils
+    ${CMAKE_SOURCE_DIR}/include/routines
+)
+
+# --------------------------------------------------
+# Build a STATIC library from common sources
+# --------------------------------------------------
+add_library(common_sources STATIC
+    src/data/data_1d.cu
+    src/data/data_2d.cu
+    src/particles/base/particle.cu
+    src/particles/base/kernels.cu
+    src/io/orchestrator.cu
+    src/io/io_manager.cu
+    src/io/base_log_groups.cu
+    src/io/console_log.cu
+    src/io/energy_log.cu
+    src/io/state_log.cu
+    src/integrator/integrator.cu
+    src/integrator/nve.cu
+    src/integrator/damped_nve.cu
+    src/integrator/grad_desc.cu
+    src/particles/disk/disk.cu
+    src/particles/disk/kernels.cu
+    src/particles/rigid_bumpy/rigid_bumpy.cu
+    src/particles/rigid_bumpy/kernels.cu
+    src/integrator/adam.cu
+    src/routines/initialization.cu
+    src/routines/compression.cu
+    src/routines/minimization.cu
+    src/io/io_utils.cu
+    src/utils/thread_pool.cpp
+)
+
+# --------------------------------------------------
+# Link nlohmann_json as PUBLIC so executables see its includes
+# --------------------------------------------------
+target_link_libraries(common_sources PUBLIC nlohmann_json::nlohmann_json)
+
+# CUDA separable compilation
+set_target_properties(common_sources PROPERTIES
+    CUDA_SEPARABLE_COMPILATION ON
+    CUDA_STANDARD 17
+)
+
+# --------------------------------------------------
+# Executables
+# --------------------------------------------------
+add_executable(test_create_rigid_bumpy scripts/test_create_rigid_bumpy.cpp)
+target_link_libraries(test_create_rigid_bumpy PRIVATE common_sources)
+
+add_executable(test_load_rigid_bumpy scripts/test_load_rigid_bumpy.cpp)
+target_link_libraries(test_load_rigid_bumpy PRIVATE common_sources)
+
+add_executable(test_create_disk scripts/test_create_disk.cpp)
+target_link_libraries(test_create_disk PRIVATE common_sources)
+
+add_executable(test_load_disk scripts/test_load_disk.cpp)
+target_link_libraries(test_load_disk PRIVATE common_sources)
+
+add_executable(runNVE scripts/runNVE.cpp)
+target_link_libraries(runNVE PRIVATE common_sources)
+
+add_executable(runRescaleNVT scripts/runRescaleNVT.cpp)
+target_link_libraries(runRescaleNVT PRIVATE common_sources)
+
+add_executable(runCreateSamplesRescaleNVT scripts/runCreateSamplesRescaleNVT.cpp)
+target_link_libraries(runCreateSamplesRescaleNVT PRIVATE common_sources)

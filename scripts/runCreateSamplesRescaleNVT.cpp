@@ -48,6 +48,8 @@ int main(int argc, char** argv) {
         dynamics_io_manager.write_params();
         run_config.save(sample_dir / "system" / "run_config.json");
 
+        auto start_time = std::chrono::high_resolution_clock::now();
+
         step = 0;
         while (step < num_steps) {
             nve.step();
@@ -59,6 +61,10 @@ int main(int argc, char** argv) {
         }
         dynamics_io_manager.log(step, true);
         std::cout << "Done with path: " << sample_dir << std::endl;
+        
+        auto end_time = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
+        std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
 
         particle->scaleToPackingFraction(phi + phi_increment);
     }

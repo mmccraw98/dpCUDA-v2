@@ -31,3 +31,20 @@ inline std::unique_ptr<Particle> createParticle(long n_particles, double packing
     }
     return createParticle(config, minimize);
 }
+
+inline std::tuple<std::unique_ptr<Particle>, long> loadParticle(std::filesystem::path path, std::string source, long frame = -2) {
+    ConfigDict config = load_config_dict(path / "system" / "particle_config.json");
+    std::string particle_type = config.at("particle_type").get<std::string>();
+    long step;
+    if (particle_type == "Disk") {
+        auto particle = std::make_unique<Disk>();
+        step = particle->load(path, source, frame);
+        return std::make_tuple(std::move(particle), step);
+    } else if (particle_type == "RigidBumpy") {
+        auto particle = std::make_unique<RigidBumpy>();
+        step = particle->load(path, source, frame);
+        return std::make_tuple(std::move(particle), step);
+    } else {
+        throw std::invalid_argument("Invalid particle type: " + particle_type);
+    }
+}

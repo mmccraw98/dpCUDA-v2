@@ -115,6 +115,10 @@ target_link_libraries(test_load_disk PRIVATE common_sources)
 add_executable(runNVE scripts/runNVE.cpp)
 target_link_libraries(runNVE PRIVATE common_sources)
 
-# Validate nve executable
-add_executable(validateNVE scripts/validateNVE.cpp)
-target_link_libraries(validateNVE PRIVATE common_sources)
+# Run rescale nvt executable
+add_executable(runRescaleNVT scripts/runRescaleNVT.cpp)
+target_link_libraries(runRescaleNVT PRIVATE common_sources)
+
+# Run create samples rescale nvt executable
+add_executable(runCreateSamplesRescaleNVT scripts/runCreateSamplesRescaleNVT.cpp)
+target_link_libraries(runCreateSamplesRescaleNVT PRIVATE common_sources)

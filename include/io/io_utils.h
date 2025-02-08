@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 #include "../include/data/data_1d.h"
 #include "../include/data/data_2d.h"
+#include "../include/utils/config_dict.h"
 
 /**
  * @brief Opens an input file

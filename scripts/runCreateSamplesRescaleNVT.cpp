@@ -16,11 +16,17 @@ int main(int argc, char** argv) {
     auto [particle, step, console_config, energy_config, state_config, run_config] = load_configs(argc, argv);
 
     // assign the run config variables
+    long rescale_freq = run_config["rescale_freq"].get<long>();
     long num_steps = run_config["num_steps"].get<long>() + step;
+    double phi_target = run_config["phi_target"].get<double>();
+    double phi_increment = run_config["phi_increment"].get<double>();
     double dt_dimless = run_config["dt_dimless"].get<double>();
     double temperature = run_config["temperature"].get<double>();
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
+
+    // clear the output directory
+    std::filesystem::remove_all(output_dir);
 
     particle->setRandomVelocities(temperature);
 
@@ -31,23 +37,31 @@ int main(int argc, char** argv) {
     std::vector<ConfigDict> log_group_configs = {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1e4, "restart")
     };
-    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 20, overwrite);
-    dynamics_io_manager.write_params();
-    run_config.save(output_dir / "system" / "run_config.json");
 
-    // start the timer
-    auto start_time = std::chrono::high_resolution_clock::now();
+    for (double phi = particle->getPackingFraction(); phi <= phi_target + phi_increment; phi += phi_increment) {
+        // get the new output directory
+        std::ostringstream oss;
+        oss << std::fixed << std::setprecision(6) << phi;
+        std::filesystem::path sample_dir = output_dir / ("phi-" + oss.str());
+        
+        IOManager dynamics_io_manager(log_group_configs, *particle, &nve, sample_dir, 20, overwrite);
+        dynamics_io_manager.write_params();
+        run_config.save(sample_dir / "system" / "run_config.json");
 
-    while (step < num_steps) {
-        nve.step();
-        dynamics_io_manager.log(step);
-        step++;
+        step = 0;
+        while (step < num_steps) {
+            nve.step();
+            dynamics_io_manager.log(step);
+            step++;
+            if (step % rescale_freq == 0) {
+                particle->scaleVelocitiesToTemperature(temperature);
+            }
+        }
+        dynamics_io_manager.log(step, true);
+        std::cout << "Done with path: " << sample_dir << std::endl;
+
+        particle->scaleToPackingFraction(phi + phi_increment);
     }
-    dynamics_io_manager.log(step, true);
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
-    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
 
     return 0;
 }

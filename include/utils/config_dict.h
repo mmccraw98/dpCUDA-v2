@@ -29,3 +29,9 @@ public:
         load(path.string());
     }
 };
+
+inline ConfigDict load_config_dict(const std::filesystem::path& path) {
+    ConfigDict config;
+    config.load(path);
+    return config;
+}

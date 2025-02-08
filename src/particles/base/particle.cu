@@ -576,7 +576,8 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.data = pair_separation_angle.getData();
         result.index_array_name = "";
     } else {
-        throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
+        result.name = "NULL";
+        // throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
     }
     return result;
 }

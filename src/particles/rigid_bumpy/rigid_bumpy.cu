@@ -865,7 +865,8 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.index_array_name = "";
 
         } else {
-            throw std::invalid_argument("RigidBumpy::getArrayData: array_name " + array_name + " not found");
+            result.name = "NULL";
+            // throw std::invalid_argument("RigidBumpy::getArrayData: array_name " + array_name + " not found");
         }
         return result;
     }

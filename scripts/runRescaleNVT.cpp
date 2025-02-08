@@ -16,6 +16,7 @@ int main(int argc, char** argv) {
     auto [particle, step, console_config, energy_config, state_config, run_config] = load_configs(argc, argv);
 
     // assign the run config variables
+    long rescale_freq = run_config["rescale_freq"].get<long>();
     long num_steps = run_config["num_steps"].get<long>() + step;
     double dt_dimless = run_config["dt_dimless"].get<double>();
     double temperature = run_config["temperature"].get<double>();
@@ -42,6 +43,9 @@ int main(int argc, char** argv) {
         nve.step();
         dynamics_io_manager.log(step);
         step++;
+        if (step % rescale_freq == 0) {
+            particle->scaleVelocitiesToTemperature(temperature);
+        }
     }
     dynamics_io_manager.log(step, true);
 

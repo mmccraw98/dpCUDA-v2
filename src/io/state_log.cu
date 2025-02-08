@@ -18,7 +18,9 @@ void StateLog::gather_data(long step) {
     }
     for (const auto& name : log_names) {
         ArrayData array_data = orchestrator.get_array_data(name);
-        gathered_data[name] = array_data;
+        if (array_data.name != "NULL") {
+            gathered_data[name] = array_data;
+        }
     }
 }
 

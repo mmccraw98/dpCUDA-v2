@@ -762,111 +762,127 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
     } catch (std::invalid_argument& e) {
         // try the rigid bumpy specific ones
         ArrayData result;
-        result.name = array_name;
+        result.name = "NULL";
         if (array_name == "vertex_positions") {
             result.type = DataType::Double;
             result.size = vertex_positions.size;
             result.data = std::make_pair(vertex_positions.getDataX(), vertex_positions.getDataY());
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "vertex_velocities") {
             result.type = DataType::Double;
             result.size = vertex_velocities.size;
             result.data = std::make_pair(vertex_velocities.getDataX(), vertex_velocities.getDataY());
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "vertex_forces") {
             result.type = DataType::Double;
             result.size = vertex_forces.size;
             result.data = std::make_pair(vertex_forces.getDataX(), vertex_forces.getDataY());
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "vertex_masses") {
             result.type = DataType::Double;
             result.size = vertex_masses.size;
             result.data = vertex_masses.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "angles") {
             result.type = DataType::Double;
             result.size = angles.size;
             result.data = angles.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "angular_velocities") {
             result.type = DataType::Double;
             result.size = angular_velocities.size;
             result.data = angular_velocities.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "torques") {
             result.type = DataType::Double;
             result.size = torques.size;
             result.data = torques.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "area") {
             result.type = DataType::Double;
             result.size = area.size;
             result.data = area.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "vertex_particle_index") {
             result.type = DataType::Long;
             result.size = vertex_particle_index.size;
             result.data = vertex_particle_index.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "particle_start_index") {
             result.type = DataType::Long;
             result.size = particle_start_index.size;
             result.data = particle_start_index.getData();
             result.index_array_name = "";
+            result.name = array_name;
         } else if (array_name == "num_vertices_in_particle") {
             result.type = DataType::Long;
             result.size = num_vertices_in_particle.size;
             result.data = num_vertices_in_particle.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "vertex_neighbor_list") {
             result.type = DataType::Long;
             result.size = vertex_neighbor_list.size;
             result.data = vertex_neighbor_list.getData();
             result.index_array_name = "";// TODO:
+            result.name = array_name;
         } else if (array_name == "num_vertex_neighbors") {
             result.type = DataType::Long;
             result.size = num_vertex_neighbors.size;
             result.data = num_vertex_neighbors.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "vertex_index") {
             result.type = DataType::Long;
             result.size = vertex_index.size;
             result.data = vertex_index.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "static_vertex_index") {
             result.type = DataType::Long;
             result.size = static_vertex_index.size;
             result.data = static_vertex_index.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "moments_of_inertia") {
             result.type = DataType::Double;
             result.size = moments_of_inertia.size;
             result.data = moments_of_inertia.getData();
             result.index_array_name = "static_particle_index";
+            result.name = array_name;
         } else if (array_name == "vertex_torques") {
             result.type = DataType::Double;
             result.size = vertex_torques.size;
             result.data = vertex_torques.getData();
             result.index_array_name = "static_vertex_index";
+            result.name = array_name;
         } else if (array_name == "angle_pairs_i") {
             result.type = DataType::Double;
             result.size = angle_pairs_i.size;
             result.data = angle_pairs_i.getData();
             result.index_array_name = "";
+            result.name = array_name;
         } else if (array_name == "angle_pairs_j") {
             result.type = DataType::Double;
             result.size = angle_pairs_j.size;
             result.data = angle_pairs_j.getData();
             result.index_array_name = "";
+            result.name = array_name;
         } else if (array_name == "this_vertex_contact_counts") {
             result.type = DataType::Long;
             result.size = this_vertex_contact_counts.size;
             result.data = this_vertex_contact_counts.getData();
             result.index_array_name = "";
-
-        } else {
-            result.name = "NULL";
-            // throw std::invalid_argument("RigidBumpy::getArrayData: array_name " + array_name + " not found");
+            result.name = array_name;
         }
         return result;
     }

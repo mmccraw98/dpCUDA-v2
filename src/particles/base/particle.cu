@@ -474,110 +474,130 @@ void Particle::handle_calculation_for_single_dependency(std::string dependency_c
 
 ArrayData Particle::getArrayData(const std::string& array_name) {
     ArrayData result;
-    result.name = array_name;
+    result.name = "NULL";
     if (array_name == "positions" || array_name == "particlePos") {
         result.type = DataType::Double;
         result.size = positions.size;
         result.data = std::make_pair(positions.getDataX(), positions.getDataY());
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "velocities") {
         result.type = DataType::Double;
         result.size = velocities.size;
         result.data = std::make_pair(velocities.getDataX(), velocities.getDataY());
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "forces") {
         result.type = DataType::Double;
         result.size = forces.size;
         result.data = std::make_pair(forces.getDataX(), forces.getDataY());
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "box_size" || array_name == "boxSize") {
         result.type = DataType::Double;
         result.size = box_size.size;
         result.data = box_size.getData();
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "radii") {
         result.type = DataType::Double;
         result.size = radii.size;
         result.data = radii.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "masses") {
         result.type = DataType::Double;
         result.size = masses.size;
         result.data = masses.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "kinetic_energy") {
         result.type = DataType::Double;
         result.size = kinetic_energy.size;
         result.data = kinetic_energy.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "potential_energy") {
         result.type = DataType::Double;
         result.size = potential_energy.size;
         result.data = potential_energy.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "neighbor_list") {
         result.type = DataType::Long;
         result.size = neighbor_list.size;
         result.data = neighbor_list.getData();
         result.index_array_name = ""; // can handle this by saying it is an (n_particles x max_neighbors_allocated) array
+        result.name = array_name;
     } else if (array_name == "num_neighbors") {
         result.type = DataType::Long;
         result.size = num_neighbors.size;
         result.data = num_neighbors.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "cell_index") {
         result.type = DataType::Long;
         result.size = cell_index.size;
         result.data = cell_index.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "particle_index") {
         result.type = DataType::Long;
         result.size = particle_index.size;
         result.data = particle_index.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "static_particle_index") {
         result.type = DataType::Long;
         result.size = static_particle_index.size;
         result.data = static_particle_index.getData();
         result.index_array_name = "static_particle_index";
+        result.name = array_name;
     } else if (array_name == "cell_start") {
         result.type = DataType::Long;
         result.size = cell_start.size;
         result.data = cell_start.getData();
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "force_pairs") {
         result.type = DataType::Double;
         result.size = force_pairs.size;
         result.data = std::make_pair(force_pairs.getDataX(), force_pairs.getDataY());
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "distance_pairs") {
         result.type = DataType::Double;
         result.size = distance_pairs.size;
         result.data = std::make_pair(distance_pairs.getDataX(), distance_pairs.getDataY());
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "pair_ids") {
         result.type = DataType::Long;
         result.size = pair_ids.size;
         result.data = std::make_pair(pair_ids.getDataX(), pair_ids.getDataY());
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "overlap_pairs") {
         result.type = DataType::Double;
         result.size = overlap_pairs.size;
         result.data = overlap_pairs.getData();
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "radsum_pairs") {
         result.type = DataType::Double;
         result.size = radsum_pairs.size;
         result.data = radsum_pairs.getData();
         result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "pair_separation_angle") {
         result.type = DataType::Double;
         result.size = pair_separation_angle.size;
         result.data = pair_separation_angle.getData();
         result.index_array_name = "";
-    } else {
-        result.name = "NULL";
-        // throw std::invalid_argument("Particle::getArrayData: array_name " + array_name + " not found");
+        result.name = array_name;
+    }
+    if (result.name == "NULL") {
+        throw std::invalid_argument("Particle::getArrayData: array_name not found: " + array_name);
     }
     return result;
 }

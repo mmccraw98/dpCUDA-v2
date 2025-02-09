@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1e4, "restart")
     };
 
-    for (double phi = particle->getPackingFraction(); phi <= phi_target + phi_increment; phi += phi_increment) {
+    for (double phi = particle->getPackingFraction(); phi <= phi_target; phi += phi_increment) {
         // get the new output directory
         std::ostringstream oss;
         oss << std::fixed << std::setprecision(6) << phi;

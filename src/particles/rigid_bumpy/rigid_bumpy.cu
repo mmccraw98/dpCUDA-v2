@@ -121,7 +121,7 @@ long RigidBumpy::load(std::filesystem::path root_path, std::string source, long 
     // load/set the box size and packing fraction
     this->calculateParticleArea();
     this->config["packing_fraction"] = this->getPackingFraction();
-    this->scaleToPackingFraction(packing_fraction);
+    this->scaleToPackingFractionFull(packing_fraction);
 
     // neighbors
     this->setupNeighbors(config);
@@ -233,15 +233,15 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
     // end
 
     // load/set the energy scale and exponent
-    // double geometric_factor = std::pow(this->getGeometryScale(), 2);
-    // double new_e_c = e_c * geometric_factor;
-    this->setEnergyScale(e_c, "c");
+    double geometric_factor = std::pow(this->getGeometryScale(), 2);
+    double new_e_c = e_c * geometric_factor;
+    this->setEnergyScale(new_e_c, "c");
     this->setExponent(n_c, "c");
-    // this->config["e_c"] = new_e_c;
+    this->config["e_c"] = new_e_c;
 
     // load/set the box size and packing fraction
     this->calculateParticleArea();
-    this->scaleToPackingFraction(packing_fraction);
+    this->scaleToPackingFractionFull(packing_fraction);
 
     // neighbors
     this->setupNeighbors(config);
@@ -919,10 +919,16 @@ double RigidBumpy::getParticleArea() const {
 // calculate the contribution to the area from the vertices
 void RigidBumpy::scalePositions(double scale_factor) {
     // kernelScalePositions<<<particle_dim_grid, particle_dim_block>>>(
-        // positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, scale_factor
+    //     positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, scale_factor
     // );
     positions.scale(scale_factor, scale_factor);
     vertex_positions.scale(scale_factor, scale_factor);
+}
+
+void RigidBumpy::scalePositionsFull(double scale_factor) {
+    kernelScalePositions<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, scale_factor
+    );
 }
 
 void RigidBumpy::syncVertexNeighborList() {

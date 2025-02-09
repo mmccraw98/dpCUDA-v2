@@ -866,7 +866,21 @@ void Particle::scaleToPackingFraction(double packing_fraction) {
     updateCellSize();
 }
 
+void Particle::scaleToPackingFractionFull(double packing_fraction) {
+    double new_side_length = std::pow(getParticleArea() / packing_fraction, 1.0 / N_DIM);
+    double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
+    double scale_factor = new_side_length / side_length;
+    scalePositionsFull(scale_factor);
+    thrust::host_vector<double> host_box_size(N_DIM, new_side_length);
+    setBoxSize(host_box_size);
+    updateCellSize();
+}
+
 void Particle::scalePositions(double scale_factor) {  // scale the positions but not the particle sizes
+    positions.scale(scale_factor, scale_factor);
+}
+
+void Particle::scalePositionsFull(double scale_factor) {  // scale the positions and the particle sizes
     positions.scale(scale_factor, scale_factor);
 }
 

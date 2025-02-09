@@ -1,49 +1,20 @@
+# Minimum required version of CMake
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
+
+# Project name and supported languages
 project(dpCUDAv2 LANGUAGES CXX CUDA)
 
-# (Optional) Force a release build type if desired
-#set(CMAKE_BUILD_TYPE Release)
-
-# C++ standard
+# Specify the C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# CUDA architecture
-set(CMAKE_CUDA_ARCHITECTURES 89)
+# Set CUDA architectures (adjust based on your GPU)
+set(CMAKE_CUDA_ARCHITECTURES "80;86;89")
 
-# --- RPATH settings to ensure the proper libstdc++ is used at runtime ---
-set(CMAKE_INSTALL_RPATH "/vast/palmer/apps/avx2/software/GCCcore/10.2.0/lib64")
-set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
-# -----------------------------------------------------------------------
+# Set CUDA directory (if needed)
+set(CUDA_TOOLKIT_ROOT_DIR /usr/local/cuda-11.8)
 
-# --------------------------------------------------
-# Fetch nlohmann_json (v3.11.2) via FetchContent
-# --------------------------------------------------
-include(FetchContent)
-FetchContent_Declare(
-  nlohmann_json
-  GIT_REPOSITORY https://github.com/nlohmann/json.git
-  GIT_TAG        v3.11.2
-)
-FetchContent_MakeAvailable(nlohmann_json)
-
-# --------------------------------------------------
-# Compiler flags (LTO removed) and enable relocatable device code
-# --------------------------------------------------
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
-# Adding -rdc=true ensures that NVCC keeps all device symbols during linking.
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -rdc=true --expt-extended-lambda --expt-relaxed-constexpr \
-                      -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize \
-                      -MMD -MP -arch=sm_89")
-
-# --------------------------------------------------
-# Linker flags: disable compressed debug sections and force static linking of libstdc++
-# --------------------------------------------------
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--compress-debug-sections=none -lstdc++ -static-libstdc++")
-
-# --------------------------------------------------
-# Include directories for your own headers
-# --------------------------------------------------
+# Add include directories (including CUDA's include directory)
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/data
@@ -56,11 +27,26 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/io
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/include/routines
+    ${CUDA_TOOLKIT_ROOT_DIR}/include
 )
 
-# --------------------------------------------------
-# Build a STATIC library from common sources
-# --------------------------------------------------
+# Find the nlohmann_json package
+find_package(nlohmann_json 3.2.0 REQUIRED)
+
+# Ensure the compiler sees nlohmann/json.hpp
+# (Points to where you installed nlohmann_json 3.2.0)
+include_directories("/home/mrm252/project/dpCUDA2/nlohmann_json/install/include")
+
+# CC compiler flags (G++) - remove -flto
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
+
+# NVCC compiler flags (CUDA compiler) - also remove -flto
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-relaxed-constexpr -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize -MMD -MP")
+
+# Libraries for C++ - (optional, reapply if you have specific needs)
+# set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+# Define a STATIC library for shared sources to ensure proper CUDA linkage
 add_library(common_sources STATIC
     src/data/data_1d.cu
     src/data/data_2d.cu
@@ -88,37 +74,53 @@ add_library(common_sources STATIC
     src/utils/thread_pool.cpp
 )
 
-# --------------------------------------------------
-# Link nlohmann_json and cudadevrt for device linking
-# --------------------------------------------------
-target_link_libraries(common_sources PUBLIC nlohmann_json::nlohmann_json cudadevrt)
+# Link nlohmann_json to the common_sources library
+target_link_libraries(common_sources PRIVATE nlohmann_json::nlohmann_json)
 
-# Enable CUDA separable compilation with CUDA 17 standard
+# Set properties for CUDA separable compilation
 set_target_properties(common_sources PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_STANDARD 17
 )
 
-# --------------------------------------------------
-# Executable targets linking to common_sources
-# --------------------------------------------------
+# Example executables
+
+# add_executable(test_load_2 scripts/test_load_2.cpp)
+# target_link_libraries(test_load_2 PRIVATE common_sources)
+
+# add_executable(jam scripts/jam.cpp)
+# target_link_libraries(jam PRIVATE common_sources)
+
+# add_executable(run_nve scripts/run_nve.cpp)
+# target_link_libraries(run_nve PRIVATE common_sources)
+
+# add_executable(test scripts/test.cpp)
+# target_link_libraries(test PRIVATE common_sources)
+
+# Test create rigid bumpy executable
 add_executable(test_create_rigid_bumpy scripts/test_create_rigid_bumpy.cpp)
 target_link_libraries(test_create_rigid_bumpy PRIVATE common_sources)
 
+# Test load rigid bumpy executable
 add_executable(test_load_rigid_bumpy scripts/test_load_rigid_bumpy.cpp)
 target_link_libraries(test_load_rigid_bumpy PRIVATE common_sources)
 
+# Test create disk executable
 add_executable(test_create_disk scripts/test_create_disk.cpp)
 target_link_libraries(test_create_disk PRIVATE common_sources)
 
+# Test load disk executable
 add_executable(test_load_disk scripts/test_load_disk.cpp)
 target_link_libraries(test_load_disk PRIVATE common_sources)
 
+# Run nve executable
 add_executable(runNVE scripts/runNVE.cpp)
 target_link_libraries(runNVE PRIVATE common_sources)
 
+# Run rescale nvt executable
 add_executable(runRescaleNVT scripts/runRescaleNVT.cpp)
 target_link_libraries(runRescaleNVT PRIVATE common_sources)
 
+# Run create samples rescale nvt executable
 add_executable(runCreateSamplesRescaleNVT scripts/runCreateSamplesRescaleNVT.cpp)
 target_link_libraries(runCreateSamplesRescaleNVT PRIVATE common_sources)

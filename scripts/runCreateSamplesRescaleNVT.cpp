@@ -68,7 +68,7 @@ int main(int argc, char** argv) {
         auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
         std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
 
-        particle->scaleToPackingFraction(phi + phi_increment);
+        particle->scaleToPackingFractionFull(phi + phi_increment);
     }
 
     return 0;

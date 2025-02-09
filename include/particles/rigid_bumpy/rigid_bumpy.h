@@ -141,6 +141,8 @@ public:
 
     void scalePositions(double scale_factor) override;
 
+    void scalePositionsFull(double scale_factor) override;
+
     void initGeometricVariables();
 
     void scaleVelocitiesToTemperature(double temperature) override;

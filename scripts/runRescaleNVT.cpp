@@ -17,9 +17,11 @@ int main(int argc, char** argv) {
 
     // assign the run config variables
     long rescale_freq = run_config["rescale_freq"].get<long>();
+    long compression_freq = run_config["compression_freq"].get<long>();
     long num_steps = run_config["num_steps"].get<long>() + step;
     double dt_dimless = run_config["dt_dimless"].get<double>();
     double temperature = run_config["temperature"].get<double>();
+    double packing_fraction_increment = run_config["packing_fraction_increment"].get<double>();
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
@@ -45,6 +47,10 @@ int main(int argc, char** argv) {
         step++;
         if (step % rescale_freq == 0) {
             particle->scaleVelocitiesToTemperature(temperature);
+        }
+        if (step % compression_freq == 0) {
+            double phi = particle->getPackingFraction();
+            particle->scaleToPackingFractionFull(phi + packing_fraction_increment);
         }
     }
     dynamics_io_manager.log(step, true);

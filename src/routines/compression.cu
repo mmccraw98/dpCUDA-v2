@@ -51,7 +51,7 @@ void jam_adam(Particle& particle, Adam& adam, IOManager& io_manager, long num_co
             }
         }
         io_manager.log(compression_step);
-        particle.scaleToPackingFraction(packing_fraction + packing_fraction_increment * sign);
+        particle.scaleToPackingFractionFull(packing_fraction + packing_fraction_increment * sign);
         packing_fraction = particle.getPackingFraction();
         compression_step++;
     } 
@@ -85,7 +85,7 @@ void compress_adam(Particle& particle, Adam& adam, IOManager& io_manager, long n
             break;
         }
         io_manager.log(compression_step);
-        particle.scaleToPackingFraction(packing_fraction + packing_fraction_increment);
+        particle.scaleToPackingFractionFull(packing_fraction + packing_fraction_increment);
         packing_fraction = particle.getPackingFraction();
         compression_step++;
     }
@@ -115,7 +115,7 @@ void decompress_adam(Particle& particle, Adam& adam, IOManager& io_manager, long
             adam_step++;
         }
         io_manager.log(compression_step);
-        particle.scaleToPackingFraction(packing_fraction - packing_fraction_increment);
+        particle.scaleToPackingFractionFull(packing_fraction - packing_fraction_increment);
         packing_fraction = particle.getPackingFraction();
         compression_step++;
         if (avg_pe < min_pe_target) {
@@ -151,7 +151,7 @@ void compress_to_phi_adam(Particle& particle, Adam& adam, IOManager& io_manager,
             adam_step++;
         }
         io_manager.log(compression_step);
-        particle.scaleToPackingFraction(packing_fraction + packing_fraction_increment);
+        particle.scaleToPackingFractionFull(packing_fraction + packing_fraction_increment);
         packing_fraction = particle.getPackingFraction();
         compression_step++;
     }

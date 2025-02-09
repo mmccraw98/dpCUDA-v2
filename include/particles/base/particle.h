@@ -406,6 +406,8 @@ public:
      */
     virtual void scaleToPackingFraction(double packing_fraction);
 
+    virtual void scaleToPackingFractionFull(double packing_fraction);
+
     /**
      * @brief Get the total kinetic energy of the particles.
      * 
@@ -447,6 +449,8 @@ public:
      * @param scale_factor The scaling factor.
      */
     virtual void scalePositions(double scale_factor);
+
+    virtual void scalePositionsFull(double scale_factor);
 
     /**
      * @brief Update the positions of the particles using an explicit Euler method.

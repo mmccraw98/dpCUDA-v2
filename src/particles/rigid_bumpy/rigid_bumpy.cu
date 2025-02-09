@@ -233,11 +233,11 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
     // end
 
     // load/set the energy scale and exponent
-    double geometric_factor = std::pow(this->getGeometryScale(), 2);
-    double new_e_c = e_c * geometric_factor;
-    this->setEnergyScale(new_e_c, "c");
+    // double geometric_factor = std::pow(this->getGeometryScale(), 2);
+    // double new_e_c = e_c * geometric_factor;
+    this->setEnergyScale(e_c, "c");
     this->setExponent(n_c, "c");
-    this->config["e_c"] = new_e_c;
+    // this->config["e_c"] = new_e_c;
 
     // load/set the box size and packing fraction
     this->calculateParticleArea();

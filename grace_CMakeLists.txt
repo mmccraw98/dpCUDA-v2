@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.18 FATAL_ERROR)
 project(dpCUDAv2 LANGUAGES CXX CUDA)
 
-# Optionally force a release build to reduce debug info (if acceptable)
+# (Optional) Force a release build type if desired
 #set(CMAKE_BUILD_TYPE Release)
 
 # C++ standard
@@ -11,8 +11,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # CUDA architecture
 set(CMAKE_CUDA_ARCHITECTURES 89)
 
+# --- RPATH settings to ensure the proper libstdc++ is used at runtime ---
+set(CMAKE_INSTALL_RPATH "/vast/palmer/apps/avx2/software/GCCcore/10.2.0/lib64")
+set(CMAKE_BUILD_WITH_INSTALL_RPATH TRUE)
+# -----------------------------------------------------------------------
+
 # --------------------------------------------------
-# FetchContent for nlohmann_json
+# Fetch nlohmann_json (v3.11.2) via FetchContent
 # --------------------------------------------------
 include(FetchContent)
 FetchContent_Declare(
@@ -23,15 +28,16 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(nlohmann_json)
 
 # --------------------------------------------------
-# Compiler flags (without LTO)
+# Compiler flags (LTO removed) and enable relocatable device code
 # --------------------------------------------------
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -fdevirtualize -MMD -MP")
-set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 --expt-extended-lambda --expt-relaxed-constexpr \
+# Adding -rdc=true ensures that NVCC keeps all device symbols during linking.
+set(CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS} -O3 -rdc=true --expt-extended-lambda --expt-relaxed-constexpr \
                       -diag-suppress=550 -Wno-deprecated-gpu-targets -Xcompiler -fdevirtualize \
                       -MMD -MP -arch=sm_89")
 
 # --------------------------------------------------
-# Force the linker to disable debug compression and link the static libstdc++
+# Linker flags: disable compressed debug sections and force static linking of libstdc++
 # --------------------------------------------------
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--compress-debug-sections=none -lstdc++ -static-libstdc++")
 
@@ -83,18 +89,18 @@ add_library(common_sources STATIC
 )
 
 # --------------------------------------------------
-# Link nlohmann_json as PUBLIC so executables see its includes
+# Link nlohmann_json and cudadevrt for device linking
 # --------------------------------------------------
-target_link_libraries(common_sources PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(common_sources PUBLIC nlohmann_json::nlohmann_json cudadevrt)
 
-# CUDA separable compilation
+# Enable CUDA separable compilation with CUDA 17 standard
 set_target_properties(common_sources PROPERTIES
     CUDA_SEPARABLE_COMPILATION ON
     CUDA_STANDARD 17
 )
 
 # --------------------------------------------------
-# Executables
+# Executable targets linking to common_sources
 # --------------------------------------------------
 add_executable(test_create_rigid_bumpy scripts/test_create_rigid_bumpy.cpp)
 target_link_libraries(test_create_rigid_bumpy PRIVATE common_sources)

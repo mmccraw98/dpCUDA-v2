@@ -36,14 +36,16 @@ inline std::tuple<std::unique_ptr<Particle>, long, ConfigDict, ConfigDict, Confi
     } else if (!input_path.empty() && !output_path.empty()) {
         // if the input path is defined and the output path is defined, load the particle from the input system path
         // load particle
-        config_root = input_path;
+        config_root = output_path;
         std::tie(particle, step) = loadParticle(input_path, "restart", -2);
+        // do not resume the run
+        step = 0;
     } else if (!input_path.empty() && output_path.empty()) {
         // if the input path is defined and the output path is not defined, resume the run from the last step
         // load particle and step
         config_root = input_path;
         std::tie(particle, step) = loadParticle(input_path, "restart", -2);
-        // load step
+        // use the step from the input path
     } else {
         throw std::invalid_argument("Run config must define either an input or output path!  run_config: " + run_config.dump(4));
     }

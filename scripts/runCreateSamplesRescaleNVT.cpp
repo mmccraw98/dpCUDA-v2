@@ -25,9 +25,6 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
-    // clear the output directory
-    std::filesystem::remove_all(output_dir);
-
     particle->setRandomVelocities(temperature);
 
     ConfigDict nve_config_dict = get_nve_config_dict(dt_dimless / particle->getTimeUnit());
@@ -45,6 +42,11 @@ int main(int argc, char** argv) {
         std::ostringstream oss_T;
         oss_T << std::scientific << std::setprecision(6) << temperature;
         std::filesystem::path sample_dir = output_dir / ("phi-" + oss.str()) / ("compression_T-" + oss_T.str());
+
+        // clear the output directory
+        std::filesystem::remove_all(sample_dir);
+
+        particle->config["packing_fraction"] = phi;
         
         IOManager dynamics_io_manager(log_group_configs, *particle, &nve, sample_dir, 20, overwrite);
         dynamics_io_manager.write_params();

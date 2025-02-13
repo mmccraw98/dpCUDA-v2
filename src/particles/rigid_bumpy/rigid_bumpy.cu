@@ -121,7 +121,7 @@ long RigidBumpy::load(std::filesystem::path root_path, std::string source, long 
     // load/set the box size and packing fraction
     this->calculateParticleArea();
     this->config["packing_fraction"] = this->getPackingFraction();
-    this->scaleToPackingFractionFull(packing_fraction);
+    // this->scaleToPackingFractionFull(packing_fraction);
 
     // neighbors
     this->setupNeighbors(config);

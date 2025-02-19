@@ -71,6 +71,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     const double* positions_y,
     const double* vertex_positions_x,
     const double* vertex_positions_y,
+    double* potential_pairs,
     double* force_pairs_x,
     double* force_pairs_y,
     double* distance_pairs_x,

@@ -71,6 +71,7 @@ public:
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
         {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
+        {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"force_pairs", {"calculate_force_distance_pairs"}},
         {"distance_pairs", {"calculate_force_distance_pairs"}},
         {"pair_ids", {"calculate_force_distance_pairs"}},
@@ -112,6 +113,7 @@ public:
     Data1D<long> particle_index;
     Data1D<long> static_particle_index;
     Data1D<long> cell_start;
+    Data1D<double> potential_pairs;
     Data2D<double> force_pairs;
     Data1D<double> overlap_pairs;
     Data1D<double> radsum_pairs;

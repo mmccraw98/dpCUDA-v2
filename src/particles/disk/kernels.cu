@@ -70,7 +70,7 @@ __global__ void kernelCalcDiskWallForces(const double* positions_x, const double
     potential_energy[particle_id] += interaction_energy;
 }
 
-__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle) {
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* potential_pairs, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     long static_particle_id = static_particle_index[particle_id];
     if (particle_id >= d_n_particles) return;
@@ -99,7 +99,9 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
             pos_x, pos_y, rad, other_x, other_y, other_rad, 
             force_x, force_y
         );
+
         long pair_id = particle_id * d_max_neighbors_allocated + n;
+        potential_pairs[pair_id] = interaction_energy;
         force_pairs_x[pair_id] = force_x;
         force_pairs_y[pair_id] = force_y;
         double x_dist = pbcDistance(pos_x, other_x, 0);

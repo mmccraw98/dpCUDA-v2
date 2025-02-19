@@ -84,6 +84,7 @@ public:
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
         {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
+        {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"force_pairs", {"calculate_force_distance_pairs"}},
         {"distance_pairs", {"calculate_force_distance_pairs"}},
         {"pair_ids", {"calculate_force_distance_pairs"}},

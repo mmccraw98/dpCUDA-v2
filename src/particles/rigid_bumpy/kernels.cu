@@ -377,6 +377,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     const double* positions_y,
     const double* vertex_positions_x,
     const double* vertex_positions_y,
+    double* potential_pairs,
     double* force_pairs_x,
     double* force_pairs_y,
     double* distance_pairs_x,
@@ -418,6 +419,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         long vertex_count_i = 0;
         long vertex_count_j = 0;
 
+        double interaction_energy = 0.0;
+
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
             long vertex_id = d_particle_start_index_ptr[particle_id] + v;
@@ -437,7 +440,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
 
                 double temp_force_x, temp_force_y;
-                double interaction_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
+                interaction_energy += calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
                 force_x += temp_force_x;
                 force_y += temp_force_y;
                 if (interaction_energy > 0.0) {
@@ -451,6 +454,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         }
 
         long pair_id = particle_id * d_max_neighbors_allocated + n;
+        potential_pairs[pair_id] = interaction_energy;
         force_pairs_x[pair_id] = force_x;
         force_pairs_y[pair_id] = force_y;
         double x_dist = pbcDistance(pos_x, other_pos_x, 0);

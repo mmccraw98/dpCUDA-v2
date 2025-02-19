@@ -1185,7 +1185,7 @@ void RigidBumpy::zeroForceAndPotentialEnergy() {
 
 void RigidBumpy::calculateForceDistancePairs() {
     // "angle_pairs_i", "angle_pairs_j", "pair_separation_angle", "pair_contact_vertex_count"
-
+    potential_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
     distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
     pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
@@ -1202,6 +1202,7 @@ void RigidBumpy::calculateForceDistancePairs() {
         positions.y.d_ptr,
         vertex_positions.x.d_ptr,
         vertex_positions.y.d_ptr,
+        potential_pairs.d_ptr,
         force_pairs.x.d_ptr,
         force_pairs.y.d_ptr,
         distance_pairs.x.d_ptr,

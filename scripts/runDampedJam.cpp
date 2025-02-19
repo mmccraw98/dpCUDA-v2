@@ -28,11 +28,6 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
-
-    long pe_hist_size = 1000;
-    std::vector<double> pe_hist(pe_hist_size, 0.0);
-    long pe_hist_index = 0;
-
     long last_decompression_step = 0;
     double max_compression_step_increment = compression_step_increment;
 
@@ -50,11 +45,21 @@ int main(int argc, char** argv) {
     run_config.save(output_dir / "system" / "run_config.json");
 
 
+    // ----------------------------------------------------------------------
+    // NEW COMPRESSION LOOP
+    // ----------------------------------------------------------------------
+
 
     // start the timer
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // compression loop
+    long pe_hist_size = 1000;
+    std::vector<double> pe_hist(pe_hist_size, 0.0);
+    long pe_hist_index = 0;
+    double last_sign = 1.0;
+    double sign = 1.0;
+    long compression_step_index = 0;
     while (compression_step < num_compression_steps) {
         damped_nve.step();
         // log the potential energy
@@ -72,8 +77,29 @@ int main(int argc, char** argv) {
                 pe_fluct = sqrt(pe_fluct / pe_hist_size) / pe_avg;
             }
             if (pe_fluct < avg_pe_target || pe < avg_pe_target) {
-                // compress
-                particle->scaleToPackingFractionFull(particle->getPackingFraction() + compression_step_increment);
+                compression_step_index++;
+                if (pe < avg_pe_target) {
+                    // compress
+                    sign = 1.0;
+                }
+                else if (pe < avg_pe_target * pe_target_fraction && compression_step_increment < 2.0 * min_compression_step_increment) {
+                    // done
+                    break;
+                }
+                else {
+                    // decompress
+                    sign = -1.0;
+                    last_decompression_step = compression_step;
+                }
+                if (last_sign != sign) {
+                    compression_step_increment = std::max(compression_step_increment / 2.0, min_compression_step_increment);
+                }
+                if (compression_step_index - last_decompression_step > 100) {
+                    last_decompression_step = compression_step_index;
+                    compression_step_increment = std::min(compression_step_increment * 2.0, max_compression_step_increment);
+                }
+                particle->scaleToPackingFractionFull(particle->getPackingFraction() + compression_step_increment * sign);
+                last_sign = sign;
             }
         }
         dynamics_io_manager.log(compression_step);
@@ -107,6 +133,7 @@ int main(int argc, char** argv) {
 
     // // start the timer
     // auto start_time = std::chrono::high_resolution_clock::now();
+    // double last_sign = 1.0;
 
     // // compression loop
     // while (compression_step < num_compression_steps) {
@@ -124,27 +151,31 @@ int main(int argc, char** argv) {
     //     }
     //     dynamics_io_manager.log(compression_step);
 
-    //     // if the potential energy per particle is below a set value, compress, else decompress
     //     double avg_pe = particle->totalPotentialEnergy() / n_particles;
     //     double sign = 1.0;
+    //     // if the potential energy is just slightly below the target, it is done (only if the step size is sufficiently small to avoid early exits)
+    //     if (avg_pe > pe_target_fraction * avg_pe_target && compression_step_increment < 2.0 * min_compression_step_increment) {
+    //         break;
+    //     }
+    //     // if the potential energy per particle is below a set value, compress, else decompress
     //     if (avg_pe > avg_pe_target) {
     //         sign = -1.0;
     //         last_decompression_step = compression_step;
-    //         if (compression_step_increment / 2.0 > min_compression_step_increment) {
-    //             compression_step_increment /= 2.0;
-    //             std::cout << "SHRINKING STEP SIZE" << std::endl;
-    //         }
     //     }
-    //     // if the potential energy is just slightly below the target, it is done (only if the step size is sufficiently small to avoid early exits)
-    //     else if (avg_pe > pe_target_fraction * avg_pe_target && compression_step_increment < 2.0 * min_compression_step_increment) {
-    //         break;
+    //     // if we just switched between compressing/decompressing, shrink the step size
+    //     if (last_sign != sign) {
+    //         // std::cout << "SHRINKING STEP SIZE" << std::endl;
+    //         compression_step_increment = std::max(compression_step_increment / 2.0, min_compression_step_increment);
     //     }
+    //     // if we haven't had to decompress for a while, expand the step size slowly
     //     if (compression_step - last_decompression_step > 100) {
-    //         std::cout << "EXPANDING STEP SIZE" << std::endl;
+    //         last_decompression_step = compression_step;
+    //         // std::cout << "EXPANDING STEP SIZE" << std::endl;
     //         compression_step_increment = std::min(compression_step_increment * 2.0, max_compression_step_increment);
     //     }
     //     particle->scaleToPackingFractionFull(particle->getPackingFraction() + compression_step_increment * sign);
     //     compression_step++;
+    //     last_sign = sign;
     // }
     // dynamics_io_manager.log(compression_step, true);
 

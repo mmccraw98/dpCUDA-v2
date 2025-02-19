@@ -565,6 +565,12 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.data = std::make_pair(force_pairs.getDataX(), force_pairs.getDataY());
         result.index_array_name = "";
         result.name = array_name;
+    } else if (array_name == "potential_pairs") {
+        result.type = DataType::Double;
+        result.size = potential_pairs.size;
+        result.data = potential_pairs.getData();
+        result.index_array_name = "";
+        result.name = array_name;
     } else if (array_name == "distance_pairs") {
         result.type = DataType::Double;
         result.size = distance_pairs.size;

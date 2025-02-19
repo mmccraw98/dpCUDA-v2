@@ -227,6 +227,7 @@ void Disk::calculateKineticEnergy() {
 }
 
 void Disk::calculateForceDistancePairs() {
+    potential_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
     distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
     pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
@@ -235,7 +236,7 @@ void Disk::calculateForceDistancePairs() {
 
     pair_separation_angle.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     
-    kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pair_separation_angle.d_ptr);
+    kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, potential_pairs.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pair_separation_angle.d_ptr);
 }
 
 void Disk::calculateWallForces() {

@@ -27,9 +27,8 @@ IOManager::IOManager(std::vector<ConfigDict> log_configs,
             std::filesystem::remove_all(root_path);
             std::filesystem::create_directories(root_path);
         } else if (std::filesystem::exists(root_path)) {
-            std::cerr << "ERROR: IOManager::IOManager: root path " << root_path
+            std::cout << "ERROR: IOManager::IOManager: root path " << root_path
                       << " already exists and overwriting is disabled!\n";
-            return;
         }
     }
 

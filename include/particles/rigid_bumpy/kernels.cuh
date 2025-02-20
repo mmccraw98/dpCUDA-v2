@@ -86,7 +86,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* angle_pairs_i,
     double* angle_pairs_j,
     long* this_vertex_contact_count,
-    const double* angles
+    const double* angles,
+    double* pair_friction_coefficient
 );
 
 // ----------------------------------------------------------------------

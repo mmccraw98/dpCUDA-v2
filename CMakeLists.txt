@@ -131,3 +131,7 @@ target_link_libraries(runDampedJam PRIVATE common_sources)
 # Run quench nve executable
 add_executable(runQuenchNVE scripts/runQuenchNVE.cpp)
 target_link_libraries(runQuenchNVE PRIVATE common_sources)
+
+# Run post proc calc executable
+add_executable(postProcCalc scripts/postProcCalc.cpp)
+target_link_libraries(postProcCalc PRIVATE common_sources)

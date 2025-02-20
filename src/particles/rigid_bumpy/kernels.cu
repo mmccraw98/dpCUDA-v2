@@ -392,7 +392,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* angle_pairs_i,
     double* angle_pairs_j,
     long* this_vertex_contact_count,
-    const double* angles
+    const double* angles,
+    double* pair_friction_coefficient
 ) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -475,6 +476,19 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         angle_pairs_i[pair_id] = angles[particle_id];
         angle_pairs_j[pair_id] = angles[other_id];
         this_vertex_contact_count[pair_id] = vertex_count_i;
+
+        // calculate friction if the force is nonzero
+        double friction_coefficient = 0.0;
+        if (force_x != 0.0 || force_y != 0.0) {
+            double normal_force_x = force_x * x_dist / dist;
+            double normal_force_y = force_y * y_dist / dist;
+            double normal_force = sqrt(normal_force_x * normal_force_x + normal_force_y * normal_force_y);
+            double tangential_force_x = force_x - normal_force_x;
+            double tangential_force_y = force_y - normal_force_y;
+            double tangential_force = sqrt(tangential_force_x * tangential_force_x + tangential_force_y * tangential_force_y);
+            friction_coefficient = tangential_force / normal_force;
+        }
+        pair_friction_coefficient[pair_id] = friction_coefficient;
     }
 }
 

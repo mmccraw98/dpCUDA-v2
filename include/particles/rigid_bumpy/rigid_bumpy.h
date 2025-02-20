@@ -75,6 +75,7 @@ public:
     Data1D<double> angle_pairs_i;
     Data1D<double> angle_pairs_j;
     Data1D<long> this_vertex_contact_counts;
+    Data1D<double> pair_friction_coefficient;
     bool rotation = true;
 
     void setRotation(bool rotation);
@@ -93,6 +94,7 @@ public:
         {"angle_pairs_j", {"calculate_force_distance_pairs"}},
         {"this_vertex_contact_counts", {"calculate_force_distance_pairs"}},
         {"vertex_contact_counts_j", {"calculate_force_distance_pairs"}},
+        {"pair_friction_coefficient", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
 

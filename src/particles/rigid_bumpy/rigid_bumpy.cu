@@ -883,6 +883,12 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.data = this_vertex_contact_counts.getData();
             result.index_array_name = "";
             result.name = array_name;
+        } else if (array_name == "pair_friction_coefficient") {
+            result.type = DataType::Double;
+            result.size = pair_friction_coefficient.size;
+            result.data = pair_friction_coefficient.getData();
+            result.index_array_name = "";
+            result.name = array_name;
         }
         return result;
     }
@@ -1196,7 +1202,8 @@ void RigidBumpy::calculateForceDistancePairs() {
     angle_pairs_i.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     angle_pairs_j.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     this_vertex_contact_counts.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
-
+    pair_friction_coefficient.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
+    
     kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr,
         positions.y.d_ptr,
@@ -1217,7 +1224,8 @@ void RigidBumpy::calculateForceDistancePairs() {
         angle_pairs_i.d_ptr,
         angle_pairs_j.d_ptr,
         this_vertex_contact_counts.d_ptr,
-        angles.d_ptr
+        angles.d_ptr,
+        pair_friction_coefficient.d_ptr
     ); 
 
 

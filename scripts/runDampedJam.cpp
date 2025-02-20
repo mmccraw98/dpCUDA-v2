@@ -30,6 +30,9 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
+    double e_c = particle->getEnergyScale("c");
+    avg_pe_target /= e_c;
+
     long last_decompression_step = 0;
     double max_compression_step_increment = compression_step_increment;
 

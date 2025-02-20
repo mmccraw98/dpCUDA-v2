@@ -1190,14 +1190,12 @@ void RigidBumpy::zeroForceAndPotentialEnergy() {
 }
 
 void RigidBumpy::calculateForceDistancePairs() {
-    // "angle_pairs_i", "angle_pairs_j", "pair_separation_angle", "pair_contact_vertex_count"
     potential_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     force_pairs.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
     distance_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0, -1.0);
     pair_ids.resizeAndFill(n_particles * max_neighbors_allocated, -1L, -1L);
     overlap_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     radsum_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
-
     pair_separation_angle.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     angle_pairs_i.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     angle_pairs_j.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
@@ -1226,9 +1224,7 @@ void RigidBumpy::calculateForceDistancePairs() {
         this_vertex_contact_counts.d_ptr,
         angles.d_ptr,
         pair_friction_coefficient.d_ptr
-    ); 
-
-
+    );
 }
 
 void RigidBumpy::initAdamVariables() {

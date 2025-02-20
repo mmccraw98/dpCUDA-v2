@@ -76,6 +76,9 @@ public:
         {"distance_pairs", {"calculate_force_distance_pairs"}},
         {"pair_ids", {"calculate_force_distance_pairs"}},
         {"pair_separation_angle", {"calculate_force_distance_pairs"}},
+        {"potential_pairs", {"calculate_force_distance_pairs"}},
+        {"overlap_pairs", {"calculate_force_distance_pairs"}},
+        {"radsum_pairs", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
@@ -423,6 +426,8 @@ public:
      * @return The total potential energy.
      */
     double totalPotentialEnergy() const;
+
+    void initParticleIndex();
 
     /**
      * @brief Get the total energy of the particles.

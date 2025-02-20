@@ -94,7 +94,7 @@ IOManager::IOManager(std::vector<ConfigDict> log_configs,
         make_dir(init_dir_path.string(), true);
         restart_dir_path = system_dir_path / restart_dir_name;
         make_dir(restart_dir_path.string(), true);
-
+        state_log->handle_dependencies();
         state_log->gather_data(0);
         state_log->write_state_to_path(init_dir_path);
     }

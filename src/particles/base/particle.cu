@@ -232,6 +232,7 @@ double Particle::getForceBalance() {
 void Particle::setNeighborMethod(std::string method_name) {
     this->using_cell_list = false;
     this->neighbor_list_update_method = method_name;
+    this->initParticleIndex();
     if (method_name == "cell") {
         std::cout << "Particle::setNeighborMethod: Setting neighbor list update method to cell" << std::endl;
         this->initNeighborListPtr = &Particle::initCellList;
@@ -996,13 +997,17 @@ void Particle::initAllToAllList() {
     updateVerletList();
 }
 
-void Particle::initCellListVariables() {
-    cell_index.resizeAndFill(n_particles, -1L);
+void Particle::initParticleIndex() {
     particle_index.resize(n_particles);
     static_particle_index.resize(n_particles);
-    cell_start.resize(n_cells + 1);
     thrust::sequence(particle_index.d_vec.begin(), particle_index.d_vec.end());
     thrust::sequence(static_particle_index.d_vec.begin(), static_particle_index.d_vec.end());
+}
+
+void Particle::initCellListVariables() {
+    cell_index.resizeAndFill(n_particles, -1L);
+    cell_start.resize(n_cells + 1);
+    initParticleIndex();
 }
 
 void Particle::initCellList() {

@@ -46,7 +46,6 @@ void Orchestrator::reset_dependency_status() {
 }
 
 void Orchestrator::handle_dependencies(std::string log_name) { // io manager will give us all the log names and we check if any have dependencies then we get the particle to calculate them
-    // print out the dependency status
     particle.calculate_dependencies(log_name);
 }
 

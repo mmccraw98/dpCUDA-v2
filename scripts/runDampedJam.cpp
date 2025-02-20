@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
         double avg_pe = particle->totalPotentialEnergy() / n_particles;
         double sign = 1.0;
         // if the potential energy is just slightly below the target, it is done (only if the step size is sufficiently small to avoid early exits)
-        if (avg_pe > pe_target_fraction * avg_pe_target && compression_step_increment < 3.0 * min_compression_step_increment) {
+        if (avg_pe > avg_pe_target && avg_pe < avg_pe_target * pe_target_fraction && compression_step_increment < 2.0 * min_compression_step_increment) {
             break;
         }
         // if the potential energy per particle is below a set value, compress, else decompress

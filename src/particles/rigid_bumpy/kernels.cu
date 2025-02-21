@@ -421,6 +421,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         long vertex_count_j = 0;
 
         double interaction_energy = 0.0;
+        double temp_energy;
 
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
@@ -441,10 +442,11 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
 
                 double temp_force_x, temp_force_y;
-                interaction_energy += calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
+                temp_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
+                interaction_energy += temp_energy;
                 force_x += temp_force_x;
                 force_y += temp_force_y;
-                if (interaction_energy > 0.0) {
+                if (temp_energy > 0.0) {
                     is_contact = true;
                 }
             }

@@ -159,6 +159,11 @@ void Particle::tryLoadData(std::filesystem::path frame_path, std::filesystem::pa
     else if (source == "init") {
         source_path = init_path;
     }
+    else {
+        std::cout << "Particle::tryLoadData: Unsupported source: " << source << ".  Results not guranteed!" << std::endl;
+        std::filesystem::path restart_path_root = restart_path.parent_path();
+        source_path = restart_path_root / source;
+    }
     bool could_load = tryLoadArrayData(source_path / (file_name_without_extension + ".dat"));
     if (!could_load && source == "frame") {
         // try to load from the restart path
@@ -453,6 +458,10 @@ void Particle::handle_calculation_for_single_dependency(std::string dependency_c
         calculateKineticEnergy();
     } else if (dependency_calculation_name == "calculate_force_distance_pairs") {
         calculateForceDistancePairs();
+    } else if (dependency_calculation_name == "count_contacts") {
+        countContacts();
+    } else if (dependency_calculation_name == "calculate_stress_tensor") {
+        calculateStressTensor();
     }
     // fill in the rest here....
 
@@ -602,7 +611,32 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.data = pair_separation_angle.getData();
         result.index_array_name = "";
         result.name = array_name;
+    } else if (array_name == "contact_counts") {
+        result.type = DataType::Long;
+        result.size = contact_counts.size;
+        result.data = contact_counts.getData();
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "stress_tensor_x") {
+        result.type = DataType::Double;
+        result.size = stress_tensor_x.size;
+        result.data = std::make_pair(stress_tensor_x.getDataX(), stress_tensor_x.getDataY());
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "stress_tensor_y") {
+        result.type = DataType::Double;
+        result.size = stress_tensor_y.size;
+        result.data = std::make_pair(stress_tensor_y.getDataX(), stress_tensor_y.getDataY());
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "stress_tensor") {
+        result.type = DataType::Double;
+        result.size = std::array<long, 2>{4, 1};
+        result.data = getStressTensor();
+        result.index_array_name = "";
+        result.name = array_name;
     }
+    
     if (result.name == "NULL") {
         throw std::invalid_argument("Particle::getArrayData: array_name not found: " + array_name);
     }
@@ -878,6 +912,15 @@ void Particle::scaleToPackingFractionFull(double packing_fraction) {
     double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
     double scale_factor = new_side_length / side_length;
     scalePositionsFull(scale_factor);
+    thrust::host_vector<double> host_box_size(N_DIM, new_side_length);
+    setBoxSize(host_box_size);
+    updateCellSize();
+}
+
+void Particle::scaleBox(double scale_factor) {
+    scalePositionsFull(scale_factor);
+    double side_length = std::pow(getBoxArea(), 1.0 / N_DIM);
+    double new_side_length = side_length * scale_factor;
     thrust::host_vector<double> host_box_size(N_DIM, new_side_length);
     setBoxSize(host_box_size);
     updateCellSize();
@@ -1160,4 +1203,24 @@ double Particle::getGeometryScale() {
 
 void Particle::calculateDampedForces(double damping_coefficient) {
     kernelCalculateDampedForces<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, damping_coefficient);
+}
+
+double Particle::getContactCount() const {
+    return thrust::reduce(contact_counts.d_vec.begin(), contact_counts.d_vec.end(), 0L);
+}
+
+double Particle::getPressure() {
+    // xum over the xx and yy components of the stress tensor
+    double pressure_x = thrust::reduce(stress_tensor_x.x.d_vec.begin(), stress_tensor_x.x.d_vec.end(), 0.0, thrust::plus<double>());
+    double pressure_y = thrust::reduce(stress_tensor_y.y.d_vec.begin(), stress_tensor_y.y.d_vec.end(), 0.0, thrust::plus<double>());
+    return (pressure_x + pressure_y) / N_DIM;
+}
+
+thrust::host_vector<double> Particle::getStressTensor() {
+    thrust::host_vector<double> stress_tensor(N_DIM * N_DIM);
+    stress_tensor[0] = thrust::reduce(stress_tensor_x.x.d_vec.begin(), stress_tensor_x.x.d_vec.end(), 0.0, thrust::plus<double>());
+    stress_tensor[1] = thrust::reduce(stress_tensor_x.y.d_vec.begin(), stress_tensor_x.y.d_vec.end(), 0.0, thrust::plus<double>());
+    stress_tensor[2] = thrust::reduce(stress_tensor_y.x.d_vec.begin(), stress_tensor_y.x.d_vec.end(), 0.0, thrust::plus<double>());
+    stress_tensor[3] = thrust::reduce(stress_tensor_y.y.d_vec.begin(), stress_tensor_y.y.d_vec.end(), 0.0, thrust::plus<double>());
+    return stress_tensor;
 }

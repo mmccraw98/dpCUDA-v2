@@ -437,7 +437,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 long other_particle_id = d_vertex_particle_index_ptr[other_vertex_id];
 
                 // calculate the interaction force between the vertex and the other vertex only if it belongs to the other particle
-                if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id != other_id) continue;
+                if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id == particle_id) continue;
                 double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
 
@@ -494,6 +494,92 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     }
 }
 
+
+__global__ void kernelCalcRigidBumpyStressTensor(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ angular_velocities,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ vertex_masses,
+    double* __restrict__ stress_tensor_x_x, double* __restrict__ stress_tensor_x_y,
+    double* __restrict__ stress_tensor_y_x, double* __restrict__ stress_tensor_y_y
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+    
+    double stress_tensor_x_x_acc = 0.0;
+    double stress_tensor_x_y_acc = 0.0;
+    double stress_tensor_y_x_acc = 0.0;
+    double stress_tensor_y_y_acc = 0.0;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double ang_vel = angular_velocities[particle_id];
+
+    double vertex_vel_x, vertex_vel_y;
+
+    double box_area = d_box_size[0] * d_box_size[1];
+
+    // loop over the vertices of the particle
+    for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
+        long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+        double vertex_pos_x = vertex_positions_x[vertex_id];
+        double vertex_pos_y = vertex_positions_y[vertex_id];
+        double vertex_mass = vertex_masses[vertex_id];
+
+        double rel_pos_x = vertex_pos_x - pos_x;
+        double rel_pos_y = vertex_pos_y - pos_y;
+        double p_rad = sqrt(rel_pos_x * rel_pos_x + rel_pos_y * rel_pos_y);
+
+        vertex_vel_x = vel_x;
+        vertex_vel_y = vel_y;
+        if (ang_vel != 0.0) {
+            double angle = atan2(rel_pos_y, rel_pos_x);
+            vertex_vel_x -= sin(angle) * ang_vel * p_rad;
+            vertex_vel_y += cos(angle) * ang_vel * p_rad;
+        }
+
+        // add the kinetic contribution of the vertex
+        stress_tensor_x_x_acc += vertex_mass * vertex_vel_x * vertex_vel_x;
+        stress_tensor_x_y_acc += vertex_mass * vertex_vel_x * vertex_vel_y;
+        stress_tensor_y_x_acc += vertex_mass * vertex_vel_y * vertex_vel_x;
+        stress_tensor_y_y_acc += vertex_mass * vertex_vel_y * vertex_vel_y;
+        
+        // loop over the neighbors of the vertex
+        for (long n_v = 0; n_v < d_num_vertex_neighbors_ptr[vertex_id]; n_v++) {
+            long other_vertex_id = d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated + n_v];
+            long other_particle_id = d_vertex_particle_index_ptr[other_vertex_id];
+            
+            // calculate the interaction force between the vertex and the other vertex only if it belongs to the other particle
+            if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id == particle_id) continue;
+
+            double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
+            double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
+            
+            double x_dist = pbcDistance(vertex_pos_x, other_vertex_pos_x, 0);
+            double y_dist = pbcDistance(vertex_pos_y, other_vertex_pos_y, 1);
+            
+            double force_x, force_y;
+            double interaction_energy = calcPointPointInteraction(
+                vertex_pos_x, vertex_pos_y, d_vertex_radius, 
+                other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, 
+                force_x, force_y
+            );
+
+            // divide by 2 to avoid double counting
+            stress_tensor_x_x_acc += x_dist * force_x / 2;
+            stress_tensor_x_y_acc += x_dist * force_y / 2;
+            stress_tensor_y_x_acc += y_dist * force_x / 2;
+            stress_tensor_y_y_acc += y_dist * force_y / 2;
+        }
+    }
+    stress_tensor_x_x[particle_id] = stress_tensor_x_x_acc / box_area;
+    stress_tensor_x_y[particle_id] = stress_tensor_x_y_acc / box_area;
+    stress_tensor_y_x[particle_id] = stress_tensor_y_x_acc / box_area;
+    stress_tensor_y_y[particle_id] = stress_tensor_y_y_acc / box_area;
+}
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
@@ -622,6 +708,68 @@ __global__ void kernelUpdateVertexNeighborList(
     }
     d_num_vertex_neighbors_ptr[vertex_id] = added_vertex_neighbors;
     // printf("vertex_id: %ld - %ld\n", vertex_id, added_vertex_neighbors);
+}
+
+__global__ void kernelCountRigidBumpyContacts(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ radii,
+    long* __restrict__ contact_counts
+) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long num_neighbors = d_num_neighbors_ptr[particle_id];
+    if (num_neighbors == 0) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double rad = radii[particle_id];
+
+    double vertex_radsum = 2 * d_vertex_radius;
+
+    // loop over the particle neighbors
+    for (long n = 0; n < num_neighbors; n++) {
+        long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_id == -1 || other_id == particle_id) continue;
+
+        double other_pos_x = positions_x[other_id];
+        double other_pos_y = positions_y[other_id];
+        double other_rad = radii[other_id];
+        
+        double force_x = 0.0, force_y = 0.0;
+        long vertex_count_i = 0;
+        long vertex_count_j = 0;
+
+        double interaction_energy = 0.0;
+        double temp_energy;
+
+        // loop over the vertices of this particle
+        for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
+            long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+            double vertex_pos_x = vertex_positions_x[vertex_id];
+            double vertex_pos_y = vertex_positions_y[vertex_id];
+
+            // loop over the neighbors of the vertex
+            for (long n_v = 0; n_v < d_num_vertex_neighbors_ptr[vertex_id]; n_v++) {
+                long other_vertex_id = d_vertex_neighbor_list_ptr[vertex_id * d_max_vertex_neighbors_allocated + n_v];
+                long other_particle_id = d_vertex_particle_index_ptr[other_vertex_id];
+
+                // calculate the interaction force between the vertex and the other vertex only if it belongs to the other particle
+                if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id != other_id) continue;
+                double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
+                double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
+
+                double dx = pbcDistance(vertex_pos_x, other_vertex_pos_x, 0);
+                double dy = pbcDistance(vertex_pos_y, other_vertex_pos_y, 1);
+                double dist = sqrt(dx * dx + dy * dy);
+                if (dist < vertex_radsum) {
+                    contact_counts[particle_id]++;
+                    break;
+                }
+            }
+        }
+    }
 }
 
 // ----------------------------------------------------------------------

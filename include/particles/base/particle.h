@@ -70,6 +70,11 @@ public:
         {"TE", {"calculate_kinetic_energy"}},
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
+        {"Zp", {"count_contacts"}},
+        {"P", {"calculate_stress_tensor"}},
+        {"stress_tensor_x", {"calculate_stress_tensor"}},
+        {"stress_tensor_y", {"calculate_stress_tensor"}},
+        {"stress_tensor", {"calculate_stress_tensor"}},
         {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
         {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"force_pairs", {"calculate_force_distance_pairs"}},
@@ -122,8 +127,12 @@ public:
     Data1D<double> radsum_pairs;
     Data2D<double> distance_pairs;
     Data2D<long> pair_ids;
+    Data1D<long> contact_counts;
 
     Data1D<double> pair_separation_angle;
+
+    Data2D<double> stress_tensor_x;
+    Data2D<double> stress_tensor_y;
 
     // adam minimizer variables
     SwapData2D<double> first_moment;
@@ -231,6 +240,10 @@ public:
     void syncNumVertices();
 
     void updateCellSize();
+
+    virtual void calculateStressTensor() = 0;
+
+    double getPressure();
 
     /**
      * @brief Set the number of particles and vertices and synchronize to the device constant memory.
@@ -412,6 +425,8 @@ public:
     virtual void scaleToPackingFraction(double packing_fraction);
 
     virtual void scaleToPackingFractionFull(double packing_fraction);
+
+    void scaleBox(double scale_factor);
 
     /**
      * @brief Get the total kinetic energy of the particles.
@@ -643,4 +658,10 @@ public:
     virtual void calculateDampedForces(double damping_coefficient);
 
     virtual void calculateParticleArea() {};
+
+    virtual void countContacts() = 0;
+
+    double getContactCount() const;
+
+    thrust::host_vector<double> getStressTensor();
 };

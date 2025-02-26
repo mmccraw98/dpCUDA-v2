@@ -45,6 +45,10 @@ public:
             return particle.calculateTemperature();
         } else if (unmodified_log_name == "phi") {
             return particle.getPackingFraction();
+        } else if (unmodified_log_name == "Zp") {
+            return particle.getContactCount();
+        } else if (unmodified_log_name == "P") {
+            return particle.getPressure();
         } else {
             std::cerr << "Orchestrator::get_value: Log name not recognized: " << unmodified_log_name << std::endl;
             return 0.0;

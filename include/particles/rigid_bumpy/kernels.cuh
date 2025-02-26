@@ -90,6 +90,16 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* pair_friction_coefficient
 );
 
+__global__ void kernelCalcRigidBumpyStressTensor(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
+    const double* __restrict__ angular_velocities,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ vertex_masses,
+    double* __restrict__ stress_tensor_x_x, double* __restrict__ stress_tensor_x_y,
+    double* __restrict__ stress_tensor_y_x, double* __restrict__ stress_tensor_y_y
+);
+
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------
 // ----------------------------------------------------------------------
@@ -130,6 +140,13 @@ __global__ void kernelUpdateVertexNeighborList(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double cutoff,
     const double particle_cutoff
+);
+
+__global__ void kernelCountRigidBumpyContacts(
+    const double* __restrict__ positions_x, const double* __restrict__ positions_y,
+    const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
+    const double* __restrict__ radii,
+    long* __restrict__ contact_counts
 );
 
 // ----------------------------------------------------------------------

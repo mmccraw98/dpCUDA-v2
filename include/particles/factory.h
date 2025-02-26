@@ -39,6 +39,7 @@ inline std::tuple<std::unique_ptr<Particle>, long> loadParticle(std::filesystem:
     if (particle_type == "Disk") {
         auto particle = std::make_unique<Disk>();
         step = particle->load(path, source, frame);
+        std::cout << "successfully loaded disk" << std::endl;
         return std::make_tuple(std::move(particle), step);
     } else if (particle_type == "RigidBumpy") {
         auto particle = std::make_unique<RigidBumpy>();

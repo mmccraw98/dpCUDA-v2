@@ -73,7 +73,7 @@ public:
      * @brief Writes a restart file containing current state and step
      * @param step The current simulation step
      */
-    void write_restart_file(long step);
+    void write_restart_file(long step, std::string dir_name);
 
 private:
     // --- Main references and orchestrator

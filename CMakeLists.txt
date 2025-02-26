@@ -135,3 +135,11 @@ target_link_libraries(runQuenchNVE PRIVATE common_sources)
 # Run post proc calc executable
 add_executable(postProcCalc scripts/postProcCalc.cpp)
 target_link_libraries(postProcCalc PRIVATE common_sources)
+
+# Run icp pack executable
+add_executable(runICPPack scripts/runICPPack.cpp)
+target_link_libraries(runICPPack PRIVATE common_sources)
+
+# Run Arthur jam executable
+add_executable(runArthurJam scripts/runArthurJam.cpp)
+target_link_libraries(runArthurJam PRIVATE common_sources)

@@ -239,6 +239,13 @@ void Disk::calculateForceDistancePairs() {
     kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, potential_pairs.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pair_separation_angle.d_ptr);
 }
 
+void Disk::countContacts() {
+    contact_counts.resizeAndFill(n_particles, 0L);
+    kernelCountDiskContacts<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, contact_counts.d_ptr
+    );
+}
+
 void Disk::calculateWallForces() {
     kernelCalcDiskWallForces<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
 }
@@ -257,4 +264,10 @@ void Disk::loadData(const std::string& root) {
     
     // SwapData2D<double> positions = read_2d_swap_data_from_file<double>(last_step_dir + "/positions.dat", particle_config.n_particles, 2);
     // Data1D<double> radii = read_1d_data_from_file<double>(source_path + "system/init/radii.dat", particle_config.n_particles);
+}
+
+void Disk::calculateStressTensor() {
+    stress_tensor_x.resizeAndFill(n_particles, 0.0, 0.0);
+    stress_tensor_y.resizeAndFill(n_particles, 0.0, 0.0);
+    kernelCalcDiskStressTensor<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, masses.d_ptr, radii.d_ptr, stress_tensor_x.x.d_ptr, stress_tensor_x.y.d_ptr, stress_tensor_y.x.d_ptr, stress_tensor_y.y.d_ptr);
 }

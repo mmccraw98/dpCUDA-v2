@@ -161,14 +161,13 @@ void IOManager::log(long step, bool force) {
     }
 }
 
-void IOManager::write_restart_file(long step) {
+void IOManager::write_restart_file(long step, std::string dir_name) {
     if (!state_log) return;
-    // Write the state to the restart directory
-    state_log->write_state_to_path(restart_dir_path);
-
-    // Write the current step
-    write_json_to_file(restart_dir_path / "current_step.json",
-                       nlohmann::json{{"step", step}});
+    std::filesystem::path dir_path = system_dir_path / dir_name;
+    make_dir(dir_path.string(), true);
+    state_log->handle_dependencies();
+    state_log->gather_data(0);
+    state_log->write_state_to_path(dir_path);
 }
 
 void IOManager::write_log_configs(std::filesystem::path path) {

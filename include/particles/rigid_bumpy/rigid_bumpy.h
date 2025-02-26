@@ -84,6 +84,11 @@ public:
         {"TE", {"calculate_kinetic_energy"}},
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
+        {"Zp", {"count_contacts"}},
+        {"P", {"calculate_stress_tensor"}},
+        {"stress_tensor_x", {"calculate_stress_tensor"}},
+        {"stress_tensor_y", {"calculate_stress_tensor"}},
+        {"stress_tensor", {"calculate_stress_tensor"}},
         {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
         {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"force_pairs", {"calculate_force_distance_pairs"}},
@@ -192,6 +197,8 @@ public:
 
     bool setNeighborSize(double neighbor_cutoff_multiplier, double neighbor_displacement_multiplier) override;
 
+    void countContacts() override;
+
     void reorderParticleData() override;
 
     void initCellListVariables() override;
@@ -211,6 +218,8 @@ public:
     void calculateWallForces();
 
     void calculateDampedForces(double damping_coefficient);
+
+    void calculateStressTensor() override;
 
     void loadData(const std::string& root) override;
 };

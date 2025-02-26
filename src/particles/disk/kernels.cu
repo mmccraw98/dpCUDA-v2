@@ -122,3 +122,80 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
         pair_separation_angle[pair_id] = atan2(y_dist, x_dist);
     }
 }
+
+__global__ void kernelCountDiskContacts(const double* positions_x, const double* positions_y, const double* radii, long* contact_counts) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long num_neighbors = d_num_neighbors_ptr[particle_id];
+    if (num_neighbors == 0) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double rad = radii[particle_id];
+
+    for (long n = 0; n < num_neighbors; n++) {
+        long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_id == -1 || other_id == particle_id) continue;
+
+        double other_x = positions_x[other_id];
+        double other_y = positions_y[other_id];
+        double other_rad = radii[other_id];
+
+        double dist = sqrt(pbcDistance(pos_x, other_x, 0) * pbcDistance(pos_x, other_x, 0) + pbcDistance(pos_y, other_y, 1) * pbcDistance(pos_y, other_y, 1));
+        if (dist < rad + other_rad) {
+            contact_counts[particle_id]++;
+        }
+    }
+}
+
+__global__ void kernelCalcDiskStressTensor(const double* positions_x, const double* positions_y, const double* velocities_x, const double* velocities_y, const double* masses, const double* radii, double* stress_tensor_x_x, double* stress_tensor_x_y, double* stress_tensor_y_x, double* stress_tensor_y_y) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double pos_x = positions_x[particle_id];
+    double pos_y = positions_y[particle_id];
+    double mass = masses[particle_id];
+    double rad = radii[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+
+    // initialize stress tensor using the kinetic part
+    double stress_tensor_x_x_acc = mass * vel_x * vel_x;
+    double stress_tensor_x_y_acc = mass * vel_x * vel_y;
+    double stress_tensor_y_x_acc = stress_tensor_x_y_acc;
+    double stress_tensor_y_y_acc = mass * vel_y * vel_y;
+
+    double box_area = d_box_size[0] * d_box_size[1];
+
+    // calculate the virial part
+    for (long n = 0; n < d_max_neighbors_allocated; n++) {
+        long other_id = d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + n];
+        if (other_id == -1 || other_id == particle_id) continue;
+
+        double other_x = positions_x[other_id];
+        double other_y = positions_y[other_id];
+        double other_rad = radii[other_id];
+
+        double x_dist = pbcDistance(pos_x, other_x, 0);
+        double y_dist = pbcDistance(pos_y, other_y, 1);
+        double dist = sqrt(x_dist * x_dist + y_dist * y_dist);
+        
+        double force_x, force_y;
+        double interaction_energy = calcPointPointInteraction(
+            pos_x, pos_y, rad, other_x, other_y, other_rad, 
+            force_x, force_y
+        );
+
+        // divide by 2 to avoid double counting
+        stress_tensor_x_x_acc += x_dist * force_x / 2;
+        stress_tensor_x_y_acc += x_dist * force_y / 2;
+        stress_tensor_y_x_acc += y_dist * force_x / 2;
+        stress_tensor_y_y_acc += y_dist * force_y / 2;
+    }
+
+    stress_tensor_x_x[particle_id] = stress_tensor_x_x_acc / box_area;
+    stress_tensor_x_y[particle_id] = stress_tensor_x_y_acc / box_area;
+    stress_tensor_y_x[particle_id] = stress_tensor_y_x_acc / box_area;
+    stress_tensor_y_y[particle_id] = stress_tensor_y_y_acc / box_area;
+}

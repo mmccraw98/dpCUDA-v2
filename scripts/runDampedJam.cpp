@@ -132,14 +132,6 @@ int main(int argc, char** argv) {
 
 
 
-
-
-
-
-
-
-
-
     // ----------------------------------------------------------------------
     // OLD COMPRESSION LOOP
     // ----------------------------------------------------------------------
@@ -177,14 +169,12 @@ int main(int argc, char** argv) {
         }
         // if we just switched between compressing/decompressing, shrink the step size
         if (last_sign != sign) {
-            // std::cout << "SHRINKING STEP SIZE" << std::endl;
             compression_step_increment = std::max(compression_step_increment / 2.0, min_compression_step_increment);
         }
         // if we haven't had to decompress for a while, expand the step size slowly
-        if (compression_step - last_decompression_step > 100) {
+        if (compression_step - last_decompression_step > 1000) {
             last_decompression_step = compression_step;
-            // std::cout << "EXPANDING STEP SIZE" << std::endl;
-            compression_step_increment = std::min(compression_step_increment * 2.0, max_compression_step_increment);
+            compression_step_increment = std::min(compression_step_increment * 1.1, max_compression_step_increment);
         }
         particle->scaleToPackingFractionFull(particle->getPackingFraction() + compression_step_increment * sign);
         particle->removeMeanVelocities();

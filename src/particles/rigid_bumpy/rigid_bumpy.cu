@@ -195,7 +195,7 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
             this->positions.getDataY(),
             this->radii.getData(),
             this->box_size.getData(),
-            0.05
+            0.001
         );
         this->positions.setData(min_positions_x, min_positions_y);
         this->radii.setData(min_radii);
@@ -1263,4 +1263,19 @@ void RigidBumpy::calculateWallForces() {
 
 void RigidBumpy::calculateDampedForces(double damping_coefficient) {
     kernelCalculateRigidDampedForces<<<particle_dim_grid, particle_dim_block>>>(forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, damping_coefficient);
+}
+
+void RigidBumpy::countContacts() {
+    contact_counts.resizeAndFill(n_particles, 0L);
+    kernelCountRigidBumpyContacts<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, radii.d_ptr, contact_counts.d_ptr
+    );
+}
+
+void RigidBumpy::calculateStressTensor() {
+    stress_tensor_x.resizeAndFill(n_particles, 0.0, 0.0);
+    stress_tensor_y.resizeAndFill(n_particles, 0.0, 0.0);
+    kernelCalcRigidBumpyStressTensor<<<particle_dim_grid, particle_dim_block>>>(
+        positions.x.d_ptr, positions.y.d_ptr, velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_masses.d_ptr, stress_tensor_x.x.d_ptr, stress_tensor_x.y.d_ptr, stress_tensor_y.x.d_ptr, stress_tensor_y.y.d_ptr
+    );
 }

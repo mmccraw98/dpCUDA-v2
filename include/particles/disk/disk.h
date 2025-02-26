@@ -71,4 +71,8 @@ public:
     void calculateWallForces() override;
 
     void loadData(const std::string& root) override;
+
+    void countContacts() override;
+
+    void calculateStressTensor() override;
 };

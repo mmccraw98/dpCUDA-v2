@@ -615,19 +615,19 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.type = DataType::Long;
         result.size = contact_counts.size;
         result.data = contact_counts.getData();
-        result.index_array_name = "";
+        result.index_array_name = "static_particle_index";
         result.name = array_name;
     } else if (array_name == "stress_tensor_x") {
         result.type = DataType::Double;
         result.size = stress_tensor_x.size;
         result.data = std::make_pair(stress_tensor_x.getDataX(), stress_tensor_x.getDataY());
-        result.index_array_name = "";
+        result.index_array_name = "static_particle_index";
         result.name = array_name;
     } else if (array_name == "stress_tensor_y") {
         result.type = DataType::Double;
         result.size = stress_tensor_y.size;
         result.data = std::make_pair(stress_tensor_y.getDataX(), stress_tensor_y.getDataY());
-        result.index_array_name = "";
+        result.index_array_name = "static_particle_index";
         result.name = array_name;
     } else if (array_name == "stress_tensor") {
         result.type = DataType::Double;

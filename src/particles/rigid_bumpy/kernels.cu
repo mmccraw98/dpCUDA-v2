@@ -437,7 +437,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 long other_particle_id = d_vertex_particle_index_ptr[other_vertex_id];
 
                 // calculate the interaction force between the vertex and the other vertex only if it belongs to the other particle
-                if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id == particle_id) continue;
+                if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id != other_id) continue;
                 double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
 
@@ -744,6 +744,8 @@ __global__ void kernelCountRigidBumpyContacts(
         double interaction_energy = 0.0;
         double temp_energy;
 
+        bool is_contact = false;
+
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
             long vertex_id = d_particle_start_index_ptr[particle_id] + v;
@@ -765,9 +767,11 @@ __global__ void kernelCountRigidBumpyContacts(
                 double dist = sqrt(dx * dx + dy * dy);
                 if (dist < vertex_radsum) {
                     contact_counts[particle_id]++;
+                    is_contact = true;
                     break;
                 }
             }
+            if (is_contact) break;
         }
     }
 }

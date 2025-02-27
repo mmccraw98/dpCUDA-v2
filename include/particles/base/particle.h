@@ -166,6 +166,8 @@ public:
 
     std::pair<long, long> getBiDisperseParticleCounts();
 
+    virtual void stopRattlerVelocities();
+
     virtual void initAdamVariables();
     virtual void clearAdamVariables();
     virtual void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon);

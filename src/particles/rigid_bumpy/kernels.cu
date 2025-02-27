@@ -234,6 +234,17 @@ __global__ void kernelCalculateTranslationalAndRotationalKineticEnergy(
     kinetic_energy[particle_id] = 0.5 * mass * (vel_x * vel_x + vel_y * vel_y) + 0.5 * moment_of_inertia * ang_vel * ang_vel;
 }
 
+__global__ void kernelStopRattlerVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const long* __restrict__ contact_counts, const double rattler_threshold) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    if (contact_counts[particle_id] < rattler_threshold) {
+        velocities_x[particle_id] = 0.0;
+        velocities_y[particle_id] = 0.0;
+        angular_velocities[particle_id] = 0.0;
+    }
+}
+
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
 // ----------------------------------------------------------------------
@@ -393,7 +404,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* angle_pairs_j,
     long* this_vertex_contact_count,
     const double* angles,
-    double* pair_friction_coefficient
+    double* pair_friction_coefficient,
+    double* pair_vertex_overlaps
 ) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -422,6 +434,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
 
         double interaction_energy = 0.0;
         double temp_energy;
+        double temp_vertex_overlap = 0.0;
 
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
@@ -448,6 +461,9 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 force_y += temp_force_y;
                 if (temp_energy > 0.0) {
                     is_contact = true;
+                    double dx = pbcDistance(vertex_pos_x, other_vertex_pos_x, 0);
+                    double dy = pbcDistance(vertex_pos_y, other_vertex_pos_y, 1);
+                    temp_vertex_overlap += (d_vertex_radius * 2) - sqrt(dx * dx + dy * dy);
                 }
             }
 
@@ -467,6 +483,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         
         this_pair_id[pair_id] = static_particle_id;
         other_pair_id[pair_id] = other_static_id;
+
+        pair_vertex_overlaps[pair_id] = temp_vertex_overlap;
         
         // this_pair_id[pair_id] = particle_id;
         // other_pair_id[pair_id] = other_id;

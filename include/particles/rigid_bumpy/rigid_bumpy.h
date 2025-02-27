@@ -76,6 +76,8 @@ public:
     Data1D<double> angle_pairs_j;
     Data1D<long> this_vertex_contact_counts;
     Data1D<double> pair_friction_coefficient;
+    Data1D<double> pair_vertex_overlaps;
+
     bool rotation = true;
 
     void setRotation(bool rotation);
@@ -100,6 +102,7 @@ public:
         {"this_vertex_contact_counts", {"calculate_force_distance_pairs"}},
         {"vertex_contact_counts_j", {"calculate_force_distance_pairs"}},
         {"pair_friction_coefficient", {"calculate_force_distance_pairs"}},
+        {"pair_vertex_overlaps", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
 
@@ -155,6 +158,8 @@ public:
 
     void scaleVelocitiesToTemperature(double temperature) override;
     void setRandomVelocities(double temperature) override;
+
+    void stopRattlerVelocities() override;
 
     void syncVertexIndices();
 

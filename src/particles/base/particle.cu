@@ -871,6 +871,12 @@ double Particle::getBoxArea() const {
     return thrust::reduce(box_size.d_vec.begin(), box_size.d_vec.end(), 1.0, thrust::multiplies<double>());
 }
 
+void Particle::stopRattlerVelocities() {
+    double rattler_threshold = 3;
+    countContacts();
+    kernelStopRattlerVelocities<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, contact_counts.d_ptr, rattler_threshold);
+}
+
 double Particle::getPackingFraction() {
     double box_area = getBoxArea();
     double area = getParticleArea();

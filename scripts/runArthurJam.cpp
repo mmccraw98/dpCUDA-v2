@@ -45,7 +45,7 @@ int main(int argc, char** argv) {
     std::vector<std::string> init_names = particle->getFundamentalValues();
     std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts"};
     if (particle_type == "RigidBumpy") {
-        std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient"};
+        std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient", "pair_vertex_overlaps"};
         pair_names.insert(pair_names.end(), rb_pair_names.begin(), rb_pair_names.end());
     }
     init_names.insert(init_names.end(), pair_names.begin(), pair_names.end());
@@ -76,10 +76,11 @@ int main(int argc, char** argv) {
             dynamics_step++;
         }
         io_manager.log(compression_step);
+        particle->stopRattlerVelocities();
         particle->removeMeanVelocities();
         particle->calculateStressTensor();
         double pressure = particle->getPressure();
-        particle->countContacts();
+        // particle->countContacts();  NO LONGER NEEDED SINCE STOPPING RATTLE VELOS
         long num_contacts = particle->getContactCount();
         double L = std::sqrt(particle->getBoxArea());
         double L_prior = L;

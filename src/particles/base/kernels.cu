@@ -155,6 +155,16 @@ __global__ void kernelCalculateTranslationalKineticEnergy(
     kinetic_energy[particle_id] = 0.5 * mass * velocity_sq;
 }
 
+__global__ void kernelStopRattlerVelocities(double* velocities_x, double* velocities_y, const long* __restrict__ contact_counts, const double rattler_threshold) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    if (contact_counts[particle_id] < rattler_threshold) {
+        velocities_x[particle_id] = 0.0;
+        velocities_y[particle_id] = 0.0;
+    }
+}
+
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------

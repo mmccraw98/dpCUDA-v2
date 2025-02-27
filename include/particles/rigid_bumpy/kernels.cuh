@@ -51,6 +51,7 @@ __global__ void kernelCalculateTranslationalAndRotationalKineticEnergy(
     const double* __restrict__ masses, const double* __restrict__ angular_velocities,
     const double* __restrict__ moments_of_inertia, double* __restrict__ kinetic_energy);
 
+__global__ void kernelStopRattlerVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const long* __restrict__ contact_counts, const double rattler_threshold);
 
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
@@ -87,7 +88,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* angle_pairs_j,
     long* this_vertex_contact_count,
     const double* angles,
-    double* pair_friction_coefficient
+    double* pair_friction_coefficient,
+    double* pair_vertex_overlaps
 );
 
 __global__ void kernelCalcRigidBumpyStressTensor(

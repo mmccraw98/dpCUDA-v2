@@ -124,6 +124,8 @@ __global__ void kernelCalculateTranslationalKineticEnergy(
     const double* __restrict__ masses, double* __restrict__ kinetic_energy);
 
 
+__global__ void kernelStopRattlerVelocities(double* velocities_x, double* velocities_y, const long* __restrict__ contact_counts, const double rattler_threshold);
+
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
 // ----------------------------------------------------------------------

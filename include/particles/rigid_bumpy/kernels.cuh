@@ -118,6 +118,8 @@ __global__ void kernelReorderRigidBumpyParticleData(
     const double* __restrict__ velocities_x, const double* __restrict__ velocities_y,
     double* __restrict__ velocities_x_new, double* __restrict__ velocities_y_new,
     const double* __restrict__ angular_velocities, const double* __restrict__ torques,
+    double* __restrict__ angles,
+    double* __restrict__ angles_new,
     double* __restrict__ angular_velocities_new, double* __restrict__ torques_new,
     const double* __restrict__ masses, const double* __restrict__ radii,
     double* __restrict__ masses_new, double* __restrict__ radii_new,

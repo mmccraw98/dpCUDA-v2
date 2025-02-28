@@ -617,6 +617,7 @@ __global__ void kernelReorderRigidBumpyParticleData(
     double* __restrict__ velocities_x_new, double* __restrict__ velocities_y_new,
     const double* __restrict__ angular_velocities, const double* __restrict__ torques,
     double* __restrict__ angular_velocities_new, double* __restrict__ torques_new,
+    double* __restrict__ angles, double* __restrict__ angles_new,
     const double* __restrict__ masses, const double* __restrict__ radii,
     double* __restrict__ masses_new, double* __restrict__ radii_new,
     const double* __restrict__ moments_of_inertia,
@@ -641,6 +642,7 @@ __global__ void kernelReorderRigidBumpyParticleData(
     velocities_y_new[new_particle_id] = velocities_y[old_particle_id];
     angular_velocities_new[new_particle_id] = angular_velocities[old_particle_id];
     torques_new[new_particle_id] = torques[old_particle_id];
+    angles_new[new_particle_id] = angles[old_particle_id];
     masses_new[new_particle_id] = masses[old_particle_id];
     radii_new[new_particle_id] = radii[old_particle_id];
     moments_of_inertia_new[new_particle_id] = moments_of_inertia[old_particle_id];

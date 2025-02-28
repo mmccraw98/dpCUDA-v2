@@ -195,7 +195,7 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
             this->positions.getDataY(),
             this->radii.getData(),
             this->box_size.getData(),
-            0.001
+            0.05
         );
         this->positions.setData(min_positions_x, min_positions_y);
         this->radii.setData(min_radii);
@@ -1143,6 +1143,8 @@ void RigidBumpy::reorderParticleData() {
         velocities.x.d_temp_ptr, velocities.y.d_temp_ptr,
         angular_velocities.d_ptr, torques.d_ptr,
         angular_velocities.d_temp_ptr, torques.d_temp_ptr,
+        angles.d_ptr,
+        angles.d_temp_ptr,
         masses.d_ptr, radii.d_ptr,
         masses.d_temp_ptr, radii.d_temp_ptr,
         moments_of_inertia.d_ptr,
@@ -1176,6 +1178,7 @@ void RigidBumpy::reorderParticleData() {
     forces.swap();
     velocities.swap();
     angular_velocities.swap();
+    angles.swap();
     torques.swap();
     masses.swap();
     radii.swap();

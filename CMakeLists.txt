@@ -143,3 +143,7 @@ target_link_libraries(runICPPack PRIVATE common_sources)
 # Run Arthur jam executable
 add_executable(runArthurJam scripts/runArthurJam.cpp)
 target_link_libraries(runArthurJam PRIVATE common_sources)
+
+# Run Adam executable
+add_executable(runAdam scripts/runAdam.cpp)
+target_link_libraries(runAdam PRIVATE common_sources)

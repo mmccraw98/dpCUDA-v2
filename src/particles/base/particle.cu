@@ -635,6 +635,18 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.data = getStressTensor();
         result.index_array_name = "";
         result.name = array_name;
+    } else if (array_name == "hessian_pairs_x") {
+        result.type = DataType::Double;
+        result.size = hessian_pairs_x.size;
+        result.data = std::make_pair(hessian_pairs_x.getDataX(), hessian_pairs_x.getDataY());
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "hessian_pairs_y") {
+        result.type = DataType::Double;
+        result.size = hessian_pairs_y.size;
+        result.data = std::make_pair(hessian_pairs_y.getDataX(), hessian_pairs_y.getDataY());
+        result.index_array_name = "";
+        result.name = array_name;
     }
     
     if (result.name == "NULL") {

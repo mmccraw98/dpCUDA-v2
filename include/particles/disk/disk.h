@@ -53,7 +53,7 @@ public:
      * @return The overlap fraction of the particles.
      */
     double getOverlapFraction() const override;
-    
+
     /**
      * @brief Calculate the forces and potential energies of the particles.
      * V = e / n * (1 - r / sigma) ^ n

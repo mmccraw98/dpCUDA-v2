@@ -165,3 +165,7 @@ target_link_libraries(runArthurJam PRIVATE common_sources)
 # Run Adam executable
 add_executable(runAdam scripts/runAdam.cpp)
 target_link_libraries(runAdam PRIVATE common_sources)
+
+# Run Compress executable
+add_executable(runCompress scripts/runCompress.cpp)
+target_link_libraries(runCompress PRIVATE common_sources)

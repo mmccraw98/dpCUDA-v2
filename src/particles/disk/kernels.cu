@@ -70,7 +70,7 @@ __global__ void kernelCalcDiskWallForces(const double* positions_x, const double
     potential_energy[particle_id] += interaction_energy;
 }
 
-__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* potential_pairs, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle) {
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* potential_pairs, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle, double* hessian_pairs_x_x, double* hessian_pairs_x_y, double* hessian_pairs_y_x, double* hessian_pairs_y_y) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     long static_particle_id = static_particle_index[particle_id];
     if (particle_id >= d_n_particles) return;
@@ -120,6 +120,23 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
         overlap_pairs[pair_id] = dist - (rad + other_rad);
         radsum_pairs[pair_id] = rad + other_rad;
         pair_separation_angle[pair_id] = atan2(y_dist, x_dist);
+
+        if (dist < rad + other_rad) {
+            double radsum = rad + other_rad;
+            double tension = - d_e_c / radsum * std::pow(1 - dist / radsum, d_n_c - 1);
+            double stiffness = d_e_c * (d_n_c - 1) / (radsum * radsum) * std::pow(1 - dist / radsum, d_n_c - 2);
+            double x_dist_hat = x_dist / dist;
+            double y_dist_hat = y_dist / dist;
+            double hess_x_x = -stiffness * x_dist_hat * x_dist_hat - tension / dist * (1 - x_dist_hat * x_dist_hat);
+            double hess_x_y = -stiffness * x_dist_hat * y_dist_hat + tension / dist * x_dist_hat * y_dist_hat;
+            double hess_y_x = -stiffness * y_dist_hat * x_dist_hat + tension / dist * y_dist_hat * x_dist_hat;
+            double hess_y_y = -stiffness * y_dist_hat * y_dist_hat - tension / dist * (1 - y_dist_hat * y_dist_hat);
+
+            hessian_pairs_x_x[pair_id] = hess_x_x;
+            hessian_pairs_x_y[pair_id] = hess_x_y;
+            hessian_pairs_y_x[pair_id] = hess_y_x;
+            hessian_pairs_y_y[pair_id] = hess_y_y;
+        }
     }
 }
 

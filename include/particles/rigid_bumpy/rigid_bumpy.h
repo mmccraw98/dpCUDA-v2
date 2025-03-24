@@ -78,6 +78,11 @@ public:
     Data1D<double> pair_friction_coefficient;
     Data1D<double> pair_vertex_overlaps;
 
+    Data1D<double> last_angles;
+    Data1D<double> last_angular_velocities;
+    Data1D<double> last_torques;
+    Data2D<double> last_vertex_positions;
+
     bool rotation = true;
 
     void setRotation(bool rotation);
@@ -159,7 +164,13 @@ public:
     void scaleVelocitiesToTemperature(double temperature) override;
     void setRandomVelocities(double temperature) override;
 
+    double getPowerFire() override;
+
     void stopRattlerVelocities() override;
+
+    void setVelocitiesToZero() override;
+
+    void mixVelocitiesAndForces(double alpha);
 
     void syncVertexIndices();
 
@@ -175,6 +186,10 @@ public:
     void initializeVerticesFromDiskPacking(SwapData2D<double>& disk_positions, SwapData1D<double>& disk_radii, long num_vertices_in_small_particle, long particle_dim_block, long vertex_dim_block);
 
     double getOverlapFraction() const override;
+
+    void setLastState() override;
+
+    void revertToLastState() override;
 
     void setMass(double mass) override;
 

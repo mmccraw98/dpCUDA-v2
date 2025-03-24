@@ -138,6 +138,11 @@ public:
     Data2D<double> stress_tensor_x;
     Data2D<double> stress_tensor_y;
 
+    Data2D<double> last_positions;
+    Data2D<double> last_forces;
+    Data2D<double> last_velocities;
+    Data1D<double> last_box_size;
+
     // adam minimizer variables
     SwapData2D<double> first_moment;
     SwapData2D<double> second_moment;
@@ -572,6 +577,16 @@ public:
      * @brief Update the neighbor list using the cell list.
      */
     virtual void updateCellNeighborList();
+
+    virtual void setLastState();
+
+    virtual void revertToLastState();
+
+    virtual double getPowerFire();
+
+    virtual void setVelocitiesToZero();
+
+    virtual void mixVelocitiesAndForces(double alpha);
 
     /**
      * @brief Set the neighbor cutoff for the particles based on some multiple of a defined length scale.

@@ -86,6 +86,34 @@ __global__ void kernelCalculateRigidDampedForces(double* forces_x, double* force
     torques[particle_id] -= damping_coefficient * angular_velocities[particle_id];
 }
 
+__global__ void kernelMixRigidVelocitiesAndForces(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double alpha) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+    double force_x = forces_x[particle_id];
+    double force_y = forces_y[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double force_norm = std::sqrt(force_x * force_x + force_y * force_y);
+    double vel_norm = std::sqrt(vel_x * vel_x + vel_y * vel_y);
+    double mixing_ratio = 0.0;
+    if (force_norm > 1e-16) {
+        mixing_ratio = vel_norm / force_norm * alpha;
+    }
+
+    double ang_vel = angular_velocities[particle_id];
+    double torque = torques[particle_id];
+    double torque_norm = std::abs(torque);
+    double ang_vel_norm = std::abs(ang_vel);
+    double torque_mixing_ratio = 0.0;
+    if (torque_norm > 1e-16) {
+        torque_mixing_ratio = ang_vel_norm / torque_norm * alpha;
+    }
+
+    velocities_x[particle_id] = vel_x * (1 - alpha) + force_x * mixing_ratio;
+    velocities_y[particle_id] = vel_y * (1 - alpha) + force_y * mixing_ratio;
+    angular_velocities[particle_id] = ang_vel * (1 - alpha) + torque * torque_mixing_ratio;
+}
+
 __global__ void kernelUpdateRigidVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double* masses, const double* moments_of_inertia, const double dt, bool rotation) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;

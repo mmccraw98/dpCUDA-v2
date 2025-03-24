@@ -87,6 +87,25 @@ __global__ void kernelCalculateDampedForces(double* forces_x, double* forces_y, 
     forces_y[particle_id] -= damping_coefficient * velocities_y[particle_id];
 }
 
+__global__ void kernelMixVelocitiesAndForces(double* velocities_x, double* velocities_y, const double* forces_x, const double* forces_y, const double alpha) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    double force_x = forces_x[particle_id];
+    double force_y = forces_y[particle_id];
+    double vel_x = velocities_x[particle_id];
+    double vel_y = velocities_y[particle_id];
+    double force_norm = std::sqrt(force_x * force_x + force_y * force_y);
+    double vel_norm = std::sqrt(vel_x * vel_x + vel_y * vel_y);
+    double mixing_ratio = 0.0;
+    if (force_norm > 1e-16) {
+        mixing_ratio = vel_norm / force_norm * alpha;
+    }
+
+    velocities_x[particle_id] = vel_x * (1 - alpha) + force_x * mixing_ratio;
+    velocities_y[particle_id] = vel_y * (1 - alpha) + force_y * mixing_ratio;
+}
+
 // TODO: use the __restrict__ keyword for the pointers since they are not overlapping
 // TODO: this could be parallelized over particles and dimensions
 // This is also called 2x more than the position update so it would be good to keep it lightweight

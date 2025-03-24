@@ -832,6 +832,14 @@ void Particle::removeMeanVelocities() {
     kernelRemoveMeanVelocities<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, mean_vel_x, mean_vel_y);
 }
 
+void Particle::setVelocitiesToZero() {
+    velocities.fill(0.0, 0.0);
+}
+
+void Particle::mixVelocitiesAndForces(double alpha) {
+    kernelMixVelocitiesAndForces<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha);
+}
+
 void Particle::scaleVelocitiesToTemperature(double temperature) {
     double current_temp = calculateTemperature();
     if (current_temp <= 0.0) {
@@ -887,6 +895,39 @@ void Particle::stopRattlerVelocities() {
     double rattler_threshold = 3;
     countContacts();
     kernelStopRattlerVelocities<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, contact_counts.d_ptr, rattler_threshold);
+}
+
+void Particle::setLastState() {
+    last_positions.setData(positions.getDataX(), positions.getDataY());
+    last_forces.setData(forces.getDataX(), forces.getDataY());
+    last_velocities.setData(velocities.getDataX(), velocities.getDataY());
+    last_box_size.setData(getBoxSize());
+}
+
+// make sure to update the neighbor list after reverting to the last state, to be sure
+void Particle::revertToLastState() {
+    positions.setData(last_positions.getDataX(), last_positions.getDataY());
+    forces.setData(last_forces.getDataX(), last_forces.getDataY());
+    velocities.setData(last_velocities.getDataX(), last_velocities.getDataY());
+    setBoxSize(last_box_size.d_vec);
+}
+
+double Particle::getPowerFire() {
+    double power_x = thrust::transform_reduce(
+        thrust::make_zip_iterator(thrust::make_tuple(forces.x.d_vec.begin(), velocities.x.d_vec.begin())),
+        thrust::make_zip_iterator(thrust::make_tuple(forces.x.d_vec.end(), velocities.x.d_vec.end())),
+        DotProduct(),      // unary functor taking a tuple -> double
+        0.0,
+        thrust::plus<double>()
+    );
+    double power_y = thrust::transform_reduce(
+        thrust::make_zip_iterator(thrust::make_tuple(forces.y.d_vec.begin(), velocities.y.d_vec.begin())),
+        thrust::make_zip_iterator(thrust::make_tuple(forces.y.d_vec.end(), velocities.y.d_vec.end())),
+        DotProduct(),      // unary functor taking a tuple -> double
+        0.0,
+        thrust::plus<double>()
+    );
+    return power_x + power_y;
 }
 
 double Particle::getPackingFraction() {

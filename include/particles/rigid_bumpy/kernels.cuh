@@ -28,6 +28,8 @@ extern __constant__ long* d_vertex_particle_index_ptr;
 __global__ void kernelCalculateRigidDampedForces(double* forces_x, double* forces_y, double* torques, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double damping_coefficient);
 
 
+__global__ void kernelMixRigidVelocitiesAndForces(double* velocities_x, double* velocities_y, double* angular_velocities, const double* forces_x, const double* forces_y, const double* torques, const double alpha);
+
 __global__ void kernelUpdateRigidPositions(
     double* last_positions_x, double* last_positions_y,
     double* positions_x, double* positions_y, double* angles, double* delta_x, double* delta_y, double* angle_delta, const double* last_neigh_positions_x, const double* last_neigh_positions_y, const double* last_cell_positions_x, const double* last_cell_positions_y, double* neigh_displacements_sq, double* cell_displacements_sq, const double* velocities_x, const double* velocities_y, const double* angular_velocities, const double dt);

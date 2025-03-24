@@ -108,7 +108,6 @@ void Disk::initializeFromConfig(ConfigDict& config, bool minimize) {
 
     // set the config
     this->setConfig(config);
-
     // set the seed
     this->setSeed(seed);
 

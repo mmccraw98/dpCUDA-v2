@@ -56,6 +56,7 @@ add_library(common_sources STATIC
     src/io/state_log.cu
     src/integrator/integrator.cu
     src/integrator/nve.cu
+    src/integrator/fire.cu
     src/integrator/damped_nve.cu
     src/integrator/grad_desc.cu
     src/particles/disk/disk.cu
@@ -151,3 +152,15 @@ target_link_libraries(runAdam PRIVATE common_sources)
 # Run Compress executable
 add_executable(runCompress scripts/runCompress.cpp)
 target_link_libraries(runCompress PRIVATE common_sources)
+
+# Run Arthur jam with Adam executable
+add_executable(runArthurJamWithAdam scripts/runArthurJamWithAdam.cpp)
+target_link_libraries(runArthurJamWithAdam PRIVATE common_sources)
+
+# Run Fire executable
+add_executable(runFire scripts/runFire.cpp)
+target_link_libraries(runFire PRIVATE common_sources)
+
+# Run Arthur jam with Fire executable
+add_executable(runArthurJamWithFire scripts/runArthurJamWithFire.cpp)
+target_link_libraries(runArthurJamWithFire PRIVATE common_sources)

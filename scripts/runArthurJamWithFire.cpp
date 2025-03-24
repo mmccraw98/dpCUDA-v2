@@ -5,7 +5,7 @@
 #include "../include/io/base_log_groups.h"
 #include "../include/particles/factory.h"
 #include "../include/particles/standard_configs.h"
-#include "../include/integrator/adam.h"
+#include "../include/integrator/fire.h"
 #include "../include/routines/compression.h"
 #include "../include/routines/initialization.h"
 #include "../include/particles/factory.h"
@@ -25,10 +25,6 @@ int main(int argc, char** argv) {
     std::string particle_type = particle->getConfig().at("particle_type").get<std::string>();
 
     // assign the run config variables
-    long num_dynamics_steps = run_config["num_dynamics_steps"].get<long>();
-    double dt_dimless = run_config["dt_dimless"].get<double>();
-    double damping_coefficient = run_config["damping_coefficient"].get<double>();
-    double avg_ke_tolerance = run_config["avg_ke_tolerance"].get<double>();
     long num_compression_steps = run_config["num_compression_steps"].get<long>();
     double compression_rate = run_config["compression_rate"].get<double>();
     double pressure_tolerance_low = run_config["pressure_tolerance_low"].get<double>();
@@ -39,9 +35,6 @@ int main(int argc, char** argv) {
 
     long n_particles = particle->n_particles;
 
-    ConfigDict damped_nve_config = get_damped_nve_config_dict(dt_dimless * particle->getTimeUnit() * particle->getGeometryScale(), damping_coefficient);
-    DampedNVE damped_nve(*particle, damped_nve_config);
-
     std::vector<std::string> init_names = particle->getFundamentalValues();
     std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts"};
     if (particle_type == "RigidBumpy") {
@@ -50,9 +43,9 @@ int main(int argc, char** argv) {
     }
     init_names.insert(init_names.end(), pair_names.begin(), pair_names.end());
     std::vector<ConfigDict> log_group_configs = {
-        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1e4, "restart")
+        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1, "restart")
     };
-    IOManager io_manager(log_group_configs, *particle, &damped_nve, output_dir, 20, overwrite);
+    IOManager io_manager(log_group_configs, *particle, nullptr, output_dir, 20, overwrite);
     io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
 
@@ -63,22 +56,10 @@ int main(int argc, char** argv) {
     double L_low = -1, L_high = -1, L_last = -1;
     double eps = 1 - compression_rate;
     while (compression_step < num_compression_steps) {
-        long dynamics_step = 0;
-        while (dynamics_step < num_dynamics_steps) {
-            damped_nve.step();
-            particle->calculateKineticEnergy();
-            double avg_ke = particle->totalKineticEnergy() / n_particles;
-            if (avg_ke < avg_ke_tolerance) {
-                // below seems to make the algorithm work very poorly
-                // particle->scaleVelocitiesToTemperature(0.0);  // stop the motion so pressure is just virial
-                break;
-            }
-            dynamics_step++;
-        }
-        particle->stopRattlerVelocities();
-        particle->removeMeanVelocities();
+        minimizeFire(*particle);
         particle->calculateStressTensor();
         double pressure = particle->getPressure();
+        particle->countContacts();
         long num_contacts = particle->getContactCount();
         double L = std::sqrt(particle->getBoxArea());
         double L_prior = L;

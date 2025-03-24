@@ -58,6 +58,19 @@ struct Square {
 };
 
 /**
+ * @brief Functor to compute the dot product of two vectors
+ * 
+ */
+struct DotProduct {
+    template <typename Tuple>
+    __host__ __device__ double operator()(const Tuple& t) const {
+        double a = thrust::get<0>(t);
+        double b = thrust::get<1>(t);
+        return a * b;
+    }
+};
+
+/**
  * @brief Functor to compute the radius from the area of a circle
  * 
  */

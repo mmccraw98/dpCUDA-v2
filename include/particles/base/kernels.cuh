@@ -91,6 +91,8 @@ __global__ void kernelUpdatePositions(double* positions_x, double* positions_y, 
 __global__ void kernelCalculateDampedForces(double* forces_x, double* forces_y, const double* velocities_x, const double* velocities_y, const double damping_coefficient);
 
 
+__global__ void kernelMixVelocitiesAndForces(double* velocities_x, double* velocities_y, const double* forces_x, const double* forces_y, const double alpha);
+
 /**
  * @brief Update the velocities of the particles using an explicit Euler method.
  * 

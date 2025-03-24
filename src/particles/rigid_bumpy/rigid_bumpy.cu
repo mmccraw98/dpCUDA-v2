@@ -1037,6 +1037,34 @@ void RigidBumpy::calculateParticlePositions() {
     );
 }
 
+void RigidBumpy::setLastState() {
+    Particle::setLastState();
+    last_angles.setData(angles.getData());
+    last_angular_velocities.setData(angular_velocities.getData());
+    last_torques.setData(torques.getData());
+    last_vertex_positions.setData(vertex_positions.getDataX(), vertex_positions.getDataY());
+}
+
+// make sure to update the neighbor list after reverting to the last state, to be sure
+void RigidBumpy::revertToLastState() {
+    Particle::revertToLastState();
+    angles.setData(last_angles.getData());
+    angular_velocities.setData(last_angular_velocities.getData());
+    torques.setData(last_torques.getData());
+    vertex_positions.setData(last_vertex_positions.getDataX(), last_vertex_positions.getDataY());
+}
+
+double RigidBumpy::getPowerFire() {
+    double translational_power = Particle::getPowerFire();
+    double rotational_power = thrust::inner_product(torques.d_ptr, torques.d_ptr + n_particles, angular_velocities.d_ptr, 0.0);
+    return translational_power + rotational_power;
+}
+
+void RigidBumpy::setVelocitiesToZero() {
+    Particle::setVelocitiesToZero();
+    angular_velocities.fill(0.0);
+}
+
 void RigidBumpy::updateVertexVerletList() {
     vertex_neighbor_list.fill(-1L);
     kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
@@ -1098,6 +1126,12 @@ double RigidBumpy::getGeometryScale() {
     double vertex_diameter = 2.0 * getVertexRadius();
     double particle_diameter = getDiameter("min");
     return vertex_diameter / particle_diameter;
+}
+
+void RigidBumpy::mixVelocitiesAndForces(double alpha) {
+    kernelMixRigidVelocitiesAndForces<<<particle_dim_grid, particle_dim_block>>>(
+        velocities.x.d_ptr, velocities.y.d_ptr, angular_velocities.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, alpha
+    );
 }
 
 

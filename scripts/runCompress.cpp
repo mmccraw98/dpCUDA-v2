@@ -32,7 +32,7 @@ int main(int argc, char** argv) {
     std::vector<ConfigDict> log_group_configs = {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1, "restart")
     };
-    IOManager dynamics_io_manager(log_group_configs, *particle, nullptr, output_dir, 20, overwrite);
+    IOManager dynamics_io_manager(log_group_configs, *particle, nullptr, output_dir, 1, overwrite);
     dynamics_io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
     dynamics_io_manager.log(0, true);
@@ -45,7 +45,22 @@ int main(int argc, char** argv) {
     particle->scaleToPackingFractionFull(phi + delta_phi);
 
     // minimizeAdam(*particle);
-    minimizeFire(*particle);
+
+    double avg_pe_target = 1e-20;
+    double avg_pe_diff_target = 1e-30;
+
+    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
+    std::cout << "1" << std::endl;
+
+    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
+    std::cout << "2" << std::endl;
+
+    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
+    std::cout << "3" << std::endl;
+
+    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
+    std::cout << "4" << std::endl;
+
     dynamics_io_manager.log(1, true);
 
     auto end_time = std::chrono::high_resolution_clock::now();

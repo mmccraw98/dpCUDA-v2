@@ -2,7 +2,7 @@
 
 Fire::Fire(Particle& particle, ConfigDict& config) : Integrator(particle, config), alpha(config.at("alpha_init").get<double>()), dt(config.at("dt").get<double>()) {
     dt_max = 10.0 * dt;
-    dt_min = 0.1 * dt;
+    dt_min = 0.001 * dt;
     alpha_init = alpha;
 }
 

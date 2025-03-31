@@ -141,6 +141,8 @@ public:
     Data2D<double> last_positions;
     Data2D<double> last_forces;
     Data2D<double> last_velocities;
+    Data1D<double> last_radii;
+    Data1D<double> last_masses;
     Data1D<double> last_box_size;
 
     // adam minimizer variables
@@ -579,6 +581,8 @@ public:
     virtual void updateCellNeighborList();
 
     virtual void setLastState();
+
+    virtual void revertToLastStateVariables();
 
     virtual void revertToLastState();
 

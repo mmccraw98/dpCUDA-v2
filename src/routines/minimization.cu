@@ -73,8 +73,14 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
 
     long step = 0;
     double dof = static_cast<double>(particle.n_dof);
-    double last_avg_pe = 0.0;
-    double avg_pe_diff = 0.0;
+    double avg_pe_diff = 1e9;
+
+    // start with the velocities set to zero and the forces calculated
+    particle.setVelocitiesToZero();
+    particle.zeroForceAndPotentialEnergy();  // not needed since forces are calculated in place
+    particle.checkForNeighborUpdate();
+    particle.calculateForces();
+    double last_avg_pe = particle.totalPotentialEnergy() / dof;
 
     while (step < num_steps) {
         fire.step();
@@ -104,6 +110,14 @@ void minimizeFire(Particle& particle, long log_every_n) {
     double dt = 1e-2;
     long num_steps = 1e5;
     minimizeFire(particle, alpha_init, dt, num_steps, log_every_n);
+}
+
+void minimizeFire(Particle& particle, double avg_pe_target, double avg_pe_diff_target) {
+    double alpha_init = 0.1;
+    double dt = 1e-2;
+    long num_steps = 1e5;
+    long log_every_n = 1e3;
+    minimizeFire(particle, alpha_init, dt, avg_pe_target, avg_pe_diff_target, num_steps, log_every_n);
 }
 
 void minimizeFire(Particle& particle) {

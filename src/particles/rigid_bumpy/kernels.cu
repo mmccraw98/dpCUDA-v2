@@ -98,6 +98,9 @@ __global__ void kernelMixRigidVelocitiesAndForces(double* velocities_x, double* 
     double mixing_ratio = 0.0;
     if (force_norm > 1e-16) {
         mixing_ratio = vel_norm / force_norm * alpha;
+    } else {
+        vel_x = 0.0;
+        vel_y = 0.0;
     }
 
     double ang_vel = angular_velocities[particle_id];
@@ -107,6 +110,9 @@ __global__ void kernelMixRigidVelocitiesAndForces(double* velocities_x, double* 
     double torque_mixing_ratio = 0.0;
     if (torque_norm > 1e-16) {
         torque_mixing_ratio = ang_vel_norm / torque_norm * alpha;
+    } else {
+        ang_vel = 0.0;
+        torque_mixing_ratio = 0.0;
     }
 
     velocities_x[particle_id] = vel_x * (1 - alpha) + force_x * mixing_ratio;

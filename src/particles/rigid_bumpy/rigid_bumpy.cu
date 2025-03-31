@@ -1046,8 +1046,8 @@ void RigidBumpy::setLastState() {
 }
 
 // make sure to update the neighbor list after reverting to the last state, to be sure
-void RigidBumpy::revertToLastState() {
-    Particle::revertToLastState();
+void RigidBumpy::revertToLastStateVariables() {
+    Particle::revertToLastStateVariables();
     angles.setData(last_angles.getData());
     angular_velocities.setData(last_angular_velocities.getData());
     torques.setData(last_torques.getData());
@@ -1056,7 +1056,13 @@ void RigidBumpy::revertToLastState() {
 
 double RigidBumpy::getPowerFire() {
     double translational_power = Particle::getPowerFire();
-    double rotational_power = thrust::inner_product(torques.d_ptr, torques.d_ptr + n_particles, angular_velocities.d_ptr, 0.0);
+    double rotational_power = thrust::transform_reduce(
+        thrust::make_zip_iterator(thrust::make_tuple(torques.d_vec.begin(), angular_velocities.d_vec.begin())),
+        thrust::make_zip_iterator(thrust::make_tuple(torques.d_vec.end(), angular_velocities.d_vec.end())),
+        DotProduct(),      // unary functor taking a tuple -> double
+        0.0,
+        thrust::plus<double>()
+    );
     return translational_power + rotational_power;
 }
 

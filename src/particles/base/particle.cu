@@ -905,11 +905,18 @@ void Particle::setLastState() {
 }
 
 // make sure to update the neighbor list after reverting to the last state, to be sure
-void Particle::revertToLastState() {
+void Particle::revertToLastStateVariables() {
     positions.setData(last_positions.getDataX(), last_positions.getDataY());
     forces.setData(last_forces.getDataX(), last_forces.getDataY());
     velocities.setData(last_velocities.getDataX(), last_velocities.getDataY());
+    radii.setData(last_radii.d_vec);
+    masses.setData(last_masses.d_vec);
+}
+
+void Particle::revertToLastState() {
+    revertToLastStateVariables();
     setBoxSize(last_box_size.d_vec);
+    updateNeighborList();
 }
 
 double Particle::getPowerFire() {

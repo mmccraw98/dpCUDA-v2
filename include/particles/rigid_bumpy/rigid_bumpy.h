@@ -189,7 +189,7 @@ public:
 
     void setLastState() override;
 
-    void revertToLastState() override;
+    void revertToLastStateVariables() override;
 
     void setMass(double mass) override;
 

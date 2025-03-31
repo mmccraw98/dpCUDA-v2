@@ -22,7 +22,9 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
-    particle->setRandomVelocities(temperature);
+    if (temperature > 0) {
+        particle->setRandomVelocities(temperature);
+    }
 
     ConfigDict nve_config_dict = get_nve_config_dict(dt_dimless / particle->getTimeUnit());
     NVE nve(*particle, nve_config_dict);

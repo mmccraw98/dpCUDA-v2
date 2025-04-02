@@ -34,7 +34,15 @@ int main(int argc, char** argv) {
     bool overwrite = true;
 
     long n_particles = particle->n_particles;
-    minimizeFire(*particle, 1e-16, 0);  // need to start with no contacts
+    while (true) {
+        minimizeFire(*particle, 1e-16, 0);  // need to start with no contacts
+        particle->calculateStressTensor();
+        double pressure = particle->getPressure();
+        if (pressure < pressure_tolerance_low) {
+            break;
+        }
+        particle->scaleBox(1.01);
+    }
 
     std::vector<std::string> init_names = particle->getFundamentalValues();
     std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_xx", "hessian_pairs_xy", "hessian_pairs_yy"};

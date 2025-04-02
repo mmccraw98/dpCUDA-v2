@@ -153,10 +153,6 @@ target_link_libraries(runAdam PRIVATE common_sources)
 add_executable(runCompress scripts/runCompress.cpp)
 target_link_libraries(runCompress PRIVATE common_sources)
 
-# Run Arthur jam with Adam executable
-add_executable(runArthurJamWithAdam scripts/runArthurJamWithAdam.cpp)
-target_link_libraries(runArthurJamWithAdam PRIVATE common_sources)
-
 # Run Fire executable
 add_executable(runFire scripts/runFire.cpp)
 target_link_libraries(runFire PRIVATE common_sources)
@@ -165,6 +161,6 @@ target_link_libraries(runFire PRIVATE common_sources)
 add_executable(runArthurJamWithFire scripts/runArthurJamWithFire.cpp)
 target_link_libraries(runArthurJamWithFire PRIVATE common_sources)
 
-# Run Arthur jam with Fire and PE executable
-add_executable(runArthurJamWithFireAndPE scripts/runArthurJamWithFireAndPE.cpp)
-target_link_libraries(runArthurJamWithFireAndPE PRIVATE common_sources)
+# Run jam executable
+add_executable(runJam scripts/runJam.cpp)
+target_link_libraries(runJam PRIVATE common_sources)

@@ -82,7 +82,8 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
     IOManager io_manager(log_group_configs, particle, &fire, "", 1, true);
 
     long step = 0;
-    double dof = static_cast<double>(particle.n_dof);
+    // double dof = static_cast<double>(particle.n_dof);
+    double dof = static_cast<double>(particle.n_particles);
     double avg_pe_diff = 1e9;
 
     // start with the velocities set to zero and the forces calculated
@@ -99,6 +100,9 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
         avg_pe_diff = std::abs(avg_pe - last_avg_pe);
         last_avg_pe = avg_pe;
         if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target || fire.stopped) {
+            if (avg_pe_diff < avg_pe_diff_target) {
+                std::cout << "Broken due to pe diff" << std::endl;
+            }
             break;
         }
         step++;
@@ -107,6 +111,7 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
     if (step >= num_steps) {
         std::cout << "Warning: minimization did not converge" << std::endl;
     }
+    particle.setVelocitiesToZero();
 }
 
 void minimizeFire(Particle& particle, double alpha_init, double dt, long num_steps, long log_every_n) {

@@ -87,7 +87,8 @@ int main(int argc, char** argv) {
         if (pressure < pressure_tolerance_low) {  // unjammed state
             L_low = L;
             // SAVE: set last state to current state
-            io_manager.write_restart_file(compression_step, "last_state");
+            // io_manager.write_restart_file(compression_step, "last_state");
+            particle->setLastState();
             L_last = L;
             if (L_high != -1) {  // searching within L_hi and L_lo
                 L = (L_high + L_low) / 2;
@@ -99,7 +100,8 @@ int main(int argc, char** argv) {
             if (pressure > pressure_tolerance_high) {  // jammed state
                 L_high = L;
                 // REVERT: set current state to last state
-                particle->load(output_dir, "last_state");
+                // particle->load(output_dir, "last_state");
+                particle->revertToLastState();
                 L_prior = L_last;
                 L = (L_high + L_low) / 2;
             } else if (num_contacts > 2 * n_particles) {  // final state

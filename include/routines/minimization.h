@@ -11,6 +11,8 @@ void minimizeAdam(Particle& particle, double alpha, double beta1, double beta2, 
 
 void minimizeAdam(Particle& particle);
 
+void minimizeAdam(Particle& particle, double avg_pe_target, double avg_pe_diff_target);
+
 void minimizeAdam(Particle& particle, long log_every_n);
 
 void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_pe_target, double avg_pe_diff_target, long num_steps, long log_every_n);

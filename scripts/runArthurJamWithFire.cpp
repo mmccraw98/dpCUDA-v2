@@ -34,6 +34,7 @@ int main(int argc, char** argv) {
     bool overwrite = true;
 
     long n_particles = particle->n_particles;
+    minimizeFire(*particle, 1e-16, 0);  // need to start with no contacts
 
     std::vector<std::string> init_names = particle->getFundamentalValues();
     std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_xx", "hessian_pairs_xy", "hessian_pairs_yy"};
@@ -45,7 +46,7 @@ int main(int argc, char** argv) {
     std::vector<ConfigDict> log_group_configs = {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1, "restart")
     };
-    IOManager io_manager(log_group_configs, *particle, nullptr, output_dir, 20, overwrite);
+    IOManager io_manager(log_group_configs, *particle, nullptr, output_dir, 1, overwrite);
     io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
 

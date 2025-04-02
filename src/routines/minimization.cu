@@ -62,6 +62,16 @@ void minimizeAdam(Particle& particle, long log_every_n) {
     minimizeAdam(particle, alpha, beta1, beta2, epsilon, num_steps, log_every_n);
 }
 
+void minimizeAdam(Particle& particle, double avg_pe_target, double avg_pe_diff_target) {
+    double alpha = 1e-5;
+    double beta1 = 0.9;
+    double beta2 = 0.999;
+    double epsilon = 1e-8;
+    long num_steps = 1e5;
+    long log_every_n = 1e3;
+    minimizeAdam(particle, alpha, beta1, beta2, epsilon, avg_pe_target, avg_pe_diff_target, num_steps, log_every_n);
+}
+
 void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_pe_target, double avg_pe_diff_target, long num_steps, long log_every_n) {
     ConfigDict fire_config = get_fire_config_dict(alpha_init, dt);
     Fire fire(particle, fire_config);

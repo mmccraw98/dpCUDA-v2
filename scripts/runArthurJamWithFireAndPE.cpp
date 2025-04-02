@@ -49,7 +49,7 @@ int main(int argc, char** argv) {
     std::vector<ConfigDict> log_group_configs = {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1, "restart")
     };
-    IOManager io_manager(log_group_configs, *particle, nullptr, output_dir, 20, overwrite);
+    IOManager io_manager(log_group_configs, *particle, nullptr, output_dir, 1, overwrite);
     io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
 
@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
     double L_low = -1, L_high = -1, L_last = -1;
     double eps = 1 - compression_rate;
     while (compression_step < num_compression_steps) {
-        minimizeFire(*particle, pressure_tolerance_low / 2, pressure_tolerance_low / 10);
+        minimizeFire(*particle, pressure_tolerance_low / 2, pressure_tolerance_low / 1000);
         double pe_per_particle = particle->totalPotentialEnergy() / n_particles;
         particle->countContacts();
         long num_contacts = particle->getContactCount();
@@ -87,12 +87,6 @@ int main(int argc, char** argv) {
                 // particle->load(output_dir, "last_state");
                 particle->revertToLastState();
                 L_prior = L_last;
-                // TODO: maybe set L from the box size
-                double L_prior_desired = particle->box_size.getData()[0];
-                if (L_prior_desired != L_last) {
-                    std::cout << "Error: L_prior_desired != L_prior" << std::endl;
-                    std::cout << "diff: " << L_prior_desired - L_last << std::endl;
-                }
                 L = (L_high + L_low) / 2;
             } else if (num_contacts > 2 * n_particles) {  // final state
                 break;  // added contact criteria to avoid early termination

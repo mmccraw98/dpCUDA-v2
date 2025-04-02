@@ -164,3 +164,7 @@ target_link_libraries(runFire PRIVATE common_sources)
 # Run Arthur jam with Fire executable
 add_executable(runArthurJamWithFire scripts/runArthurJamWithFire.cpp)
 target_link_libraries(runArthurJamWithFire PRIVATE common_sources)
+
+# Run Arthur jam with Fire and PE executable
+add_executable(runArthurJamWithFireAndPE scripts/runArthurJamWithFireAndPE.cpp)
+target_link_libraries(runArthurJamWithFireAndPE PRIVATE common_sources)

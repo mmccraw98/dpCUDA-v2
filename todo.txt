@@ -27,6 +27,7 @@ cmake \
 make -j1 VERBOSE=1
 
 
+- change last state to use device arrays?
 - speed up cell list binary search
 - make sure min cell size always exceeds some particle diameter multiple
 - tune neighbor list sizes and parameters for better performance

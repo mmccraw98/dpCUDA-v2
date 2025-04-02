@@ -233,11 +233,12 @@ void Disk::calculateForceDistancePairs() {
     overlap_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     radsum_pairs.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
 
-    hessian_pairs_x.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
-    hessian_pairs_y.resizeAndFill(n_particles * max_neighbors_allocated, 0.0, 0.0);
+    hessian_pairs_xx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_xy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_yy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
     pair_separation_angle.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     
-    kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, potential_pairs.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pair_separation_angle.d_ptr, hessian_pairs_x.x.d_ptr, hessian_pairs_x.y.d_ptr, hessian_pairs_y.x.d_ptr, hessian_pairs_y.y.d_ptr);
+    kernelCalcDiskForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, potential_pairs.d_ptr, force_pairs.x.d_ptr, force_pairs.y.d_ptr, distance_pairs.x.d_ptr, distance_pairs.y.d_ptr, pair_ids.x.d_ptr, pair_ids.y.d_ptr, overlap_pairs.d_ptr, radsum_pairs.d_ptr, radii.d_ptr, static_particle_index.d_ptr, pair_separation_angle.d_ptr, hessian_pairs_xx.d_ptr, hessian_pairs_xy.d_ptr, hessian_pairs_yy.d_ptr);
 }
 
 void Disk::countContacts() {

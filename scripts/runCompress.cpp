@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     bool overwrite = true;
 
     std::vector<std::string> init_names = particle->getFundamentalValues();
-    std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_x", "hessian_pairs_y"};
+    std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_xx", "hessian_pairs_xy", "hessian_pairs_yy"};
     std::string particle_type = particle->config["particle_type"].get<std::string>();
     if (particle_type == "RigidBumpy") {
         std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient", "pair_vertex_overlaps"};

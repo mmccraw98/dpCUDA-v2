@@ -895,6 +895,24 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.data = pair_vertex_overlaps.getData();
             result.index_array_name = "";
             result.name = array_name;
+        } else if (array_name == "hessian_pairs_xt") {
+            result.type = DataType::Double;
+            result.size = hessian_pairs_xt.size;
+            result.data = hessian_pairs_xt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_pairs_yt") {
+            result.type = DataType::Double;
+            result.size = hessian_pairs_yt.size;
+            result.data = hessian_pairs_yt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_pairs_tt") {
+            result.type = DataType::Double;
+            result.size = hessian_pairs_tt.size;
+            result.data = hessian_pairs_tt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
         }
         return result;
     }
@@ -1039,10 +1057,21 @@ void RigidBumpy::calculateParticlePositions() {
 
 void RigidBumpy::setLastState() {
     Particle::setLastState();
+    last_angles.resize(angles.size[0]);
+    last_angular_velocities.resize(angular_velocities.size[0]);
+    last_torques.resize(torques.size[0]);
+    last_vertex_positions.resize(vertex_positions.size[0]);
+    last_num_vertices_in_particle.resize(num_vertices_in_particle.size[0]);
+    last_particle_start_index.resize(particle_start_index.size[0]);
+    last_vertex_particle_index.resize(vertex_particle_index.size[0]);
+
     last_angles.setData(angles.getData());
     last_angular_velocities.setData(angular_velocities.getData());
     last_torques.setData(torques.getData());
     last_vertex_positions.setData(vertex_positions.getDataX(), vertex_positions.getDataY());
+    last_num_vertices_in_particle.setData(num_vertices_in_particle.getData());
+    last_particle_start_index.setData(particle_start_index.getData());
+    last_vertex_particle_index.setData(vertex_particle_index.getData());
 }
 
 // make sure to update the neighbor list after reverting to the last state, to be sure
@@ -1052,6 +1081,9 @@ void RigidBumpy::revertToLastStateVariables() {
     angular_velocities.setData(last_angular_velocities.getData());
     torques.setData(last_torques.getData());
     vertex_positions.setData(last_vertex_positions.getDataX(), last_vertex_positions.getDataY());
+    num_vertices_in_particle.setData(last_num_vertices_in_particle.getData());
+    particle_start_index.setData(last_particle_start_index.getData());
+    vertex_particle_index.setData(last_vertex_particle_index.getData());
 }
 
 double RigidBumpy::getPowerFire() {
@@ -1274,7 +1306,13 @@ void RigidBumpy::calculateForceDistancePairs() {
         this_vertex_contact_counts.d_ptr,
         angles.d_ptr,
         pair_friction_coefficient.d_ptr,
-        pair_vertex_overlaps.d_ptr
+        pair_vertex_overlaps.d_ptr,
+        hessian_pairs_xx.d_ptr,
+        hessian_pairs_xy.d_ptr,
+        hessian_pairs_yy.d_ptr,
+        hessian_pairs_xt.d_ptr,
+        hessian_pairs_yt.d_ptr,
+        hessian_pairs_tt.d_ptr
     );
 }
 

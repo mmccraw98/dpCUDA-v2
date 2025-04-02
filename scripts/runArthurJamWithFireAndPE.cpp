@@ -33,6 +33,10 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool overwrite = true;
 
+    // we have to start with no contacts
+    minimizeFire(*particle, pressure_tolerance_low / 1000, 0);
+
+
     long n_particles = particle->n_particles;
 
     std::vector<std::string> init_names = particle->getFundamentalValues();
@@ -56,19 +60,19 @@ int main(int argc, char** argv) {
     double L_low = -1, L_high = -1, L_last = -1;
     double eps = 1 - compression_rate;
     while (compression_step < num_compression_steps) {
-        minimizeFire(*particle);
-        particle->calculateStressTensor();
-        double pressure = particle->getPressure();
+        minimizeFire(*particle, pressure_tolerance_low / 2, pressure_tolerance_low / 10);
+        double pe_per_particle = particle->totalPotentialEnergy() / n_particles;
         particle->countContacts();
         long num_contacts = particle->getContactCount();
         double L = std::sqrt(particle->getBoxArea());
         double L_prior = L;
         io_manager.log(compression_step, true);
 
-        if (pressure < pressure_tolerance_low) {  // unjammed state
+        if (pe_per_particle < pressure_tolerance_low) {  // unjammed state
             L_low = L;
             // SAVE: set last state to current state
-            io_manager.write_restart_file(compression_step, "last_state");
+            // io_manager.write_restart_file(compression_step, "last_state");
+            particle->setLastState();
             L_last = L;
             if (L_high != -1) {  // searching within L_hi and L_lo
                 L = (L_high + L_low) / 2;
@@ -77,11 +81,18 @@ int main(int argc, char** argv) {
                 L = L * compression_rate;
             }
         } else {  // jammed state or final state
-            if (pressure > pressure_tolerance_high) {  // jammed state
+            if (pe_per_particle > pressure_tolerance_high) {  // jammed state
                 L_high = L;
                 // REVERT: set current state to last state
-                particle->load(output_dir, "last_state");
+                // particle->load(output_dir, "last_state");
+                particle->revertToLastState();
                 L_prior = L_last;
+                // TODO: maybe set L from the box size
+                double L_prior_desired = particle->box_size.getData()[0];
+                if (L_prior_desired != L_last) {
+                    std::cout << "Error: L_prior_desired != L_prior" << std::endl;
+                    std::cout << "diff: " << L_prior_desired - L_last << std::endl;
+                }
                 L = (L_high + L_low) / 2;
             } else if (num_contacts > 2 * n_particles) {  // final state
                 break;  // added contact criteria to avoid early termination

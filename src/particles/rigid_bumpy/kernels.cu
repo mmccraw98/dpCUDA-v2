@@ -439,7 +439,13 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     long* this_vertex_contact_count,
     const double* angles,
     double* pair_friction_coefficient,
-    double* pair_vertex_overlaps
+    double* pair_vertex_overlaps,
+    double* hessian_pairs_xx,
+    double* hessian_pairs_xy,
+    double* hessian_pairs_yy,
+    double* hessian_pairs_xt,
+    double* hessian_pairs_yt,
+    double* hessian_pairs_tt
 ) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -451,6 +457,9 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double pos_x = positions_x[particle_id];
     double pos_y = positions_y[particle_id];
     double rad = radii[particle_id];
+
+    double hess_xx = 0.0, hess_xy = 0.0, hess_yy = 0.0;
+    double hess_xt = 0.0, hess_yt = 0.0, hess_tt = 0.0;
 
     // loop over the particle neighbors
     for (long n = 0; n < num_neighbors; n++) {
@@ -498,6 +507,17 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                     double dx = pbcDistance(vertex_pos_x, other_vertex_pos_x, 0);
                     double dy = pbcDistance(vertex_pos_y, other_vertex_pos_y, 1);
                     temp_vertex_overlap += (d_vertex_radius * 2) - sqrt(dx * dx + dy * dy);
+
+                    double dist = sqrt(dx * dx + dy * dy);
+                    double radsum = d_vertex_radius * 2.0;
+
+                    std::array<double, 6> hess_terms;
+                    for (int a = 0; a < 3; a++) {
+                        for (int b = a; b < 3; b++) {
+                            hess_terms[a * 3 + b] = 0.0;
+                        }
+                    }
+                    
                 }
             }
 

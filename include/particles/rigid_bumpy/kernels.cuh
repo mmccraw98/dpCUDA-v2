@@ -91,7 +91,13 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     long* this_vertex_contact_count,
     const double* angles,
     double* pair_friction_coefficient,
-    double* pair_vertex_overlaps
+    double* pair_vertex_overlaps,
+    double* hessian_pairs_xx,
+    double* hessian_pairs_xy,
+    double* hessian_pairs_yy,
+    double* hessian_pairs_xt,
+    double* hessian_pairs_yt,
+    double* hessian_pairs_tt
 );
 
 __global__ void kernelCalcRigidBumpyStressTensor(

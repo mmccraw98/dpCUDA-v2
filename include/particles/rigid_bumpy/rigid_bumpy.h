@@ -82,6 +82,11 @@ public:
     Data1D<double> last_angular_velocities;
     Data1D<double> last_torques;
     Data2D<double> last_vertex_positions;
+    Data1D<long> last_num_vertices_in_particle;
+    Data1D<long> last_particle_start_index;
+    Data1D<long> last_vertex_particle_index;
+
+    Data1D<double> hessian_pairs_xt, hessian_pairs_yt, hessian_pairs_tt;
 
     bool rotation = true;
 
@@ -108,6 +113,12 @@ public:
         {"vertex_contact_counts_j", {"calculate_force_distance_pairs"}},
         {"pair_friction_coefficient", {"calculate_force_distance_pairs"}},
         {"pair_vertex_overlaps", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_xx", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_yy", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_xt", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_yt", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_tt", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
 

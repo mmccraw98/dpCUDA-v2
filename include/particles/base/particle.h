@@ -84,8 +84,9 @@ public:
         {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"overlap_pairs", {"calculate_force_distance_pairs"}},
         {"radsum_pairs", {"calculate_force_distance_pairs"}},
-        {"hessian_pairs_x", {"calculate_force_distance_pairs"}},
-        {"hessian_pairs_y", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_xx", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_yy", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
@@ -130,8 +131,7 @@ public:
     Data2D<double> distance_pairs;
     Data2D<long> pair_ids;
     Data1D<long> contact_counts;
-    Data2D<double> hessian_pairs_x;
-    Data2D<double> hessian_pairs_y;
+    Data1D<double> hessian_pairs_xx, hessian_pairs_xy, hessian_pairs_yy;
 
     Data1D<double> pair_separation_angle;
 

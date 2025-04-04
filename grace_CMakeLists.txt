@@ -168,3 +168,11 @@ target_link_libraries(runArthurJamWithFire PRIVATE common_sources)
 # Run jam executable
 add_executable(runJam scripts/runJam.cpp)
 target_link_libraries(runJam PRIVATE common_sources)
+
+# Run create samples nve executable
+add_executable(runCreateSamplesNVE scripts/runCreateSamplesNVE.cpp)
+target_link_libraries(runCreateSamplesNVE PRIVATE common_sources)
+
+# Run calc pair corr executable
+add_executable(calcPairCorr scripts/calcPairCorr.cpp)
+target_link_libraries(calcPairCorr PRIVATE common_sources)

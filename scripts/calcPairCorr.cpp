@@ -1,5 +1,6 @@
 #include "../include/particles/disk/disk.h"
 #include "../include/particles/rigid_bumpy/rigid_bumpy.h"
+#include "../include/integrator/nve.h"
 #include "../include/integrator/fire.h"
 #include "../include/io/io_manager.h"
 #include "../include/io/base_log_groups.h"
@@ -16,10 +17,11 @@ int main(int argc, char** argv) {
 
     // assign the run config variables
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
-    double alpha_init = run_config["fire_alpha_init"];
-    double dt = run_config["fire_dt"];
-    long num_steps = run_config["fire_num_steps"];
-    long log_every_n = run_config["fire_log_every_n"];
+    double avg_pe_tol = run_config["avg_pe_tol"];
+    double phi_target = run_config["phi_target"];
+    double temperature = run_config["temperature"];
+    double final_temperature = run_config["final_temperature"];
+    long num_steps = run_config["num_steps"];
     bool overwrite = true;
 
     std::string particle_type = particle->getConfig().at("particle_type").get<std::string>();
@@ -31,21 +33,37 @@ int main(int argc, char** argv) {
     }
     init_names.insert(init_names.end(), pair_names.begin(), pair_names.end());
     std::vector<ConfigDict> log_group_configs = {
-        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, 1e4, "restart")
+        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, num_steps * 2, "restart")
     };
-    IOManager dynamics_io_manager(log_group_configs, *particle, nullptr, output_dir, 20, overwrite);
+    ConfigDict nve_config_dict = get_nve_config_dict(1e-2 / particle->getTimeUnit());
+    NVE nve(*particle, nve_config_dict);
+    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 1, overwrite);
     dynamics_io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
 
-    // start the timer
-    auto start_time = std::chrono::high_resolution_clock::now();
+    double phi = particle->getPackingFraction();
+    particle->setRandomVelocities(temperature);
+    double compression_per_step = (phi_target - phi) / static_cast<double>(num_steps);
+    while (step < num_steps + 1) {
+        particle->scaleToPackingFractionFull(phi + compression_per_step * step);
+        particle->scaleVelocitiesToTemperature(temperature);
+        nve.step();
+        dynamics_io_manager.log(step);
+        step++;
+    }
 
-    minimizeFire(*particle, alpha_init, dt, num_steps, log_every_n);
+
+    if (final_temperature != temperature && final_temperature != 0) {
+        while (step < num_steps + num_steps / 2) {
+            particle->scaleVelocitiesToTemperature(final_temperature);
+            nve.step();
+            dynamics_io_manager.log(step);
+            step++;
+        }
+    } else if (final_temperature == 0) {
+        minimizeFire(*particle, avg_pe_tol, 1e-16);
+    }
+
     dynamics_io_manager.log(0, true);
-
-    auto end_time = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);
-    std::cout << "Time taken: " << duration.count() << " seconds" << std::endl;
-
     return 0;
 }

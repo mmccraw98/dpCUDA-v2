@@ -35,7 +35,7 @@ int main(int argc, char** argv) {
     std::vector<ConfigDict> log_group_configs = {
         console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, num_steps * 2, "restart")
     };
-    ConfigDict nve_config_dict = get_nve_config_dict(1e-2 / particle->getTimeUnit());
+    ConfigDict nve_config_dict = get_nve_config_dict(1e-2);
     NVE nve(*particle, nve_config_dict);
     IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 1, overwrite);
     dynamics_io_manager.write_params();
@@ -51,10 +51,16 @@ int main(int argc, char** argv) {
         dynamics_io_manager.log(step);
         step++;
     }
+    while (step < num_steps * 2) {
+        particle->scaleVelocitiesToTemperature(temperature);
+        nve.step();
+        dynamics_io_manager.log(step);
+        step++;
+    }
 
 
     if (final_temperature != temperature && final_temperature != 0) {
-        while (step < num_steps + num_steps / 2) {
+        while (step < num_steps * 3) {
             particle->scaleVelocitiesToTemperature(final_temperature);
             nve.step();
             dynamics_io_manager.log(step);

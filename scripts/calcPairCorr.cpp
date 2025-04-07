@@ -22,6 +22,7 @@ int main(int argc, char** argv) {
     double temperature = run_config["temperature"];
     double final_temperature = run_config["final_temperature"];
     long num_steps = run_config["num_steps"];
+    long num_equil_steps = run_config["num_equil_steps"];
     bool overwrite = true;
 
     std::string particle_type = particle->getConfig().at("particle_type").get<std::string>();
@@ -51,7 +52,7 @@ int main(int argc, char** argv) {
         dynamics_io_manager.log(step);
         step++;
     }
-    while (step < num_steps * 2) {
+    while (step < num_steps + 1 + num_equil_steps) {
         particle->scaleVelocitiesToTemperature(temperature);
         nve.step();
         dynamics_io_manager.log(step);
@@ -60,7 +61,7 @@ int main(int argc, char** argv) {
 
 
     if (final_temperature != temperature && final_temperature != 0) {
-        while (step < num_steps * 3) {
+        while (step < num_steps + 1 + num_equil_steps * 2) {
             particle->scaleVelocitiesToTemperature(final_temperature);
             nve.step();
             dynamics_io_manager.log(step);

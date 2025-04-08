@@ -103,6 +103,8 @@ public:
         {"stress_tensor", {"calculate_stress_tensor"}},
         {"kinetic_energy", {"calculate_kinetic_energy"}},  // kinetic energy array
         {"potential_pairs", {"calculate_force_distance_pairs"}},
+        {"radsum_pairs", {"calculate_force_distance_pairs"}},
+        {"overlap_pairs", {"calculate_force_distance_pairs"}},
         {"force_pairs", {"calculate_force_distance_pairs"}},
         {"distance_pairs", {"calculate_force_distance_pairs"}},
         {"pair_ids", {"calculate_force_distance_pairs"}},

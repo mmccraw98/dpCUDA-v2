@@ -21,56 +21,67 @@ int main(int argc, char** argv) {
     double phi_target = run_config["phi_target"];
     double temperature = run_config["temperature"];
     double final_temperature = run_config["final_temperature"];
-    long num_steps = run_config["num_steps"];
     long num_equil_steps = run_config["num_equil_steps"];
+    long num_steps = run_config["num_steps"];
+    double compression_per_step = run_config["compression_per_step"];
     bool overwrite = true;
+    double phi = particle->getPackingFraction();
+    long num_compression_steps = static_cast<long>(std::round((phi_target - phi) / compression_per_step));
 
-    std::string particle_type = particle->getConfig().at("particle_type").get<std::string>();
-    std::vector<std::string> init_names = particle->getFundamentalValues();
-    std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts"};
-    if (particle_type == "RigidBumpy") {
-        std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient", "pair_vertex_overlaps"};
-        pair_names.insert(pair_names.end(), rb_pair_names.begin(), rb_pair_names.end());
-    }
-    init_names.insert(init_names.end(), pair_names.begin(), pair_names.end());
-    std::vector<ConfigDict> log_group_configs = {
-        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, num_steps * 2, "restart")
-    };
+    // compress to the target packing fraction
     ConfigDict nve_config_dict = get_nve_config_dict(1e-2);
     NVE nve(*particle, nve_config_dict);
-    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 1, overwrite);
-    dynamics_io_manager.write_params();
-    run_config.save(output_dir / "system" / "run_config.json");
-
-    double phi = particle->getPackingFraction();
+    std::vector<std::string> console_log_names = console_config["log_names"].get<std::vector<std::string>>();
+    std::vector<ConfigDict> console_log_config = {config_from_names_lin(console_log_names, std::min(num_compression_steps, num_equil_steps), 10, "console")};
+    IOManager compression_io_manager(console_log_config, *particle, &nve, output_dir, 1, overwrite);
     particle->setRandomVelocities(temperature);
-    double compression_per_step = (phi_target - phi) / static_cast<double>(num_steps);
-    while (step < num_steps + 1) {
+    step = 0;
+    while (step < num_compression_steps + 1) {
         particle->scaleToPackingFractionFull(phi + compression_per_step * step);
         particle->scaleVelocitiesToTemperature(temperature);
         nve.step();
-        dynamics_io_manager.log(step);
+        compression_io_manager.log(step);
         step++;
     }
-    while (step < num_steps + 1 + num_equil_steps) {
+    // allow to equilibrate at the target packing fraction
+    step = 0;
+    while (step < num_equil_steps) {
         particle->scaleVelocitiesToTemperature(temperature);
         nve.step();
-        dynamics_io_manager.log(step);
+        compression_io_manager.log(step);
         step++;
     }
 
-
-    if (final_temperature != temperature && final_temperature != 0) {
-        while (step < num_steps + 1 + num_equil_steps * 2) {
-            particle->scaleVelocitiesToTemperature(final_temperature);
-            nve.step();
-            dynamics_io_manager.log(step);
-            step++;
+    // run dynamics at specified temperature, saving the configuration periodically
+    // if the temperature is 0, dynamics are still run, but the potential energy is minimized before the configuration is saved
+    double dynamics_temperature = final_temperature;
+    if (final_temperature == 0) {
+        dynamics_temperature = temperature;
+    }
+    step = 0;
+    long state_save_frequency = state_config["save_freq"].get<long>();
+    std::vector<std::string> init_names = particle->getFundamentalValues();
+    std::vector<ConfigDict> log_group_configs = {
+        console_config, energy_config, state_config, config_from_names_lin_everyN(init_names, num_steps, "restart")
+    };
+    IOManager pair_corr_io_manager(log_group_configs, *particle, &nve, output_dir, 10, overwrite);
+    pair_corr_io_manager.write_params();
+    run_config.save(output_dir / "system" / "run_config.json");
+    while (step < num_steps) {
+        particle->scaleVelocitiesToTemperature(dynamics_temperature);
+        nve.step();
+        if (final_temperature == 0 && step % state_save_frequency == 0) {
+            minimizeFire(*particle, avg_pe_tol, 1e-16);
         }
-    } else if (final_temperature == 0) {
+        pair_corr_io_manager.log(step);
+        if (final_temperature == 0 && step % state_save_frequency == 0) {  // need to re-add velocities since FIRE removes them
+            particle->setRandomVelocities(dynamics_temperature);
+        }
+        step++;
+    }
+    if (final_temperature == 0) {
         minimizeFire(*particle, avg_pe_tol, 1e-16);
     }
-
-    dynamics_io_manager.log(0, true);
+    pair_corr_io_manager.log(step + 1, true);
     return 0;
 }

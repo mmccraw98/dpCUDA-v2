@@ -100,9 +100,6 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
         avg_pe_diff = std::abs(avg_pe - last_avg_pe);
         last_avg_pe = avg_pe;
         if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target || fire.stopped) {
-            if (avg_pe_diff < avg_pe_diff_target) {
-                std::cout << "Broken due to pe diff" << std::endl;
-            }
             break;
         }
         step++;

@@ -1283,7 +1283,7 @@ void RigidBumpy::calculateForceDistancePairs() {
     this_vertex_contact_counts.resizeAndFill(n_particles * max_neighbors_allocated, -1L);
     pair_friction_coefficient.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     pair_vertex_overlaps.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
-    
+
     kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr,
         positions.y.d_ptr,

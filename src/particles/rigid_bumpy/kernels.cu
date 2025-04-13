@@ -468,8 +468,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
 
     double pos_x = positions_x[particle_id];
     double pos_y = positions_y[particle_id];
-    double rad = radii[particle_id];
     double theta_i = angles[particle_id];
+    double rad = radii[particle_id];
 
     // loop over the particle neighbors
     for (long n = 0; n < num_neighbors; n++) {
@@ -479,7 +479,6 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
 
         double other_pos_x = positions_x[other_id];
         double other_pos_y = positions_y[other_id];
-        double other_rad = radii[other_id];
         double theta_j = angles[other_id];
         
         double force_x = 0.0, force_y = 0.0;
@@ -489,16 +488,20 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         double interaction_energy = 0.0;
         double temp_energy;
         double temp_vertex_overlap = 0.0;
+        double other_rad = radii[other_id];
 
         std::array<double, 9> hess_ij_ab = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
         std::array<double, 9> hess_ii_ab = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
 
         // loop over the vertices of this particle
-        for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
-            long vertex_id = d_particle_start_index_ptr[particle_id] + v;
+        for (long u = 0; u < d_num_vertices_in_particle_ptr[particle_id]; u++) {
+            long vertex_id = d_particle_start_index_ptr[particle_id] + u;
             double vertex_pos_x = vertex_positions_x[vertex_id];
             double vertex_pos_y = vertex_positions_y[vertex_id];
-            double phi_u = v * 2 * M_PI / d_num_vertices_in_particle_ptr[particle_id];
+            double phi_u = u * 2 * M_PI / d_num_vertices_in_particle_ptr[particle_id];
+            double rad_dx = vertex_pos_x - pos_x;
+            double rad_dy = vertex_pos_y - pos_y;
+            double R_i = sqrt(rad_dx * rad_dx + rad_dy * rad_dy);
 
             bool is_contact = false;
 
@@ -511,7 +514,15 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id != other_id) continue;
                 double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
-                double phi_v = n_v * 2 * M_PI / d_num_vertex_neighbors_ptr[vertex_id];
+                // get the index of the other vertex in the particle
+                long v = other_vertex_id - d_particle_start_index_ptr[other_id];
+                if (v < 0) {
+                    printf("v: %ld, other_vertex_id: %ld, d_particle_start_index_ptr[other_id]: %ld\n", v, other_vertex_id, d_particle_start_index_ptr[other_id]);
+                }
+                double phi_v = v * 2 * M_PI / d_num_vertices_in_particle_ptr[other_id];
+                double other_rad_dx = other_vertex_pos_x - other_pos_x;
+                double other_rad_dy = other_vertex_pos_y - other_pos_y;
+                double R_j = sqrt(other_rad_dx * other_rad_dx + other_rad_dy * other_rad_dy);
 
                 double temp_force_x, temp_force_y;
                 temp_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
@@ -530,11 +541,8 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                     double t_ij = - d_e_c / radsum * (1 - dist / radsum);
                     double c_ij = d_e_c / (radsum * radsum);
 
-                    double R_i = rad - d_vertex_radius;
-                    double R_j = other_rad - d_vertex_radius;
-
                     for (int a = 0; a < 3; a++) {
-                        for (int b = a; b < 3; b++) {
+                        for (int b = 0; b < 3; b++) {
                             // off-diagonal block
                             double d_ia_dx = (a == 0) - R_i * std::sin(theta_i + phi_u) * (a == 2);
                             double d_ia_dy = (a == 1) + R_i * std::cos(theta_i + phi_u) * (a == 2);
@@ -625,9 +633,9 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         hessian_ii_yx[pair_id] += hess_ii_ab[3];
         hessian_ii_yy[pair_id] += hess_ii_ab[4];
         hessian_ii_yt[pair_id] += hess_ii_ab[5];
-        hessian_ii_tt[pair_id] += hess_ii_ab[6];
-        hessian_ii_tx[pair_id] += hess_ii_ab[7];
-        hessian_ii_ty[pair_id] += hess_ii_ab[8];
+        hessian_ii_tx[pair_id] += hess_ii_ab[6];
+        hessian_ii_ty[pair_id] += hess_ii_ab[7];
+        hessian_ii_tt[pair_id] += hess_ii_ab[8];
     }
 }
 

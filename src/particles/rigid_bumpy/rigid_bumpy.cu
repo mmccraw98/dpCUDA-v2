@@ -1349,6 +1349,8 @@ void RigidBumpy::calculateForceDistancePairs() {
     hessian_ii_xt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
     hessian_ii_yt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
     hessian_ii_tt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_tx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_ty.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
 
     kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr,

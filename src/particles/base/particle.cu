@@ -653,6 +653,36 @@ ArrayData Particle::getArrayData(const std::string& array_name) {
         result.data = hessian_pairs_yy.getData();
         result.index_array_name = "";
         result.name = array_name;
+    } else if (array_name == "hessian_pairs_yx") {
+        result.type = DataType::Double;
+        result.size = hessian_pairs_yx.size;
+        result.data = hessian_pairs_yx.getData();
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "hessian_ii_xx") {
+        result.type = DataType::Double;
+        result.size = hessian_ii_xx.size;
+        result.data = hessian_ii_xx.getData();
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "hessian_ii_xy") {
+        result.type = DataType::Double;
+        result.size = hessian_ii_xy.size;
+        result.data = hessian_ii_xy.getData();
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "hessian_ii_yx") {
+        result.type = DataType::Double;
+        result.size = hessian_ii_yx.size;
+        result.data = hessian_ii_yx.getData();
+        result.index_array_name = "";
+        result.name = array_name;
+    } else if (array_name == "hessian_ii_yy") {
+        result.type = DataType::Double;
+        result.size = hessian_ii_yy.size;
+        result.data = hessian_ii_yy.getData();
+        result.index_array_name = "";
+        result.name = array_name;
     }
     
     if (result.name == "NULL") {
@@ -910,6 +940,8 @@ void Particle::setLastState() {
     last_radii.resize(radii.size[0]);
     last_masses.resize(masses.size[0]);
     last_box_size.resize(box_size.size[0]);
+    last_particle_index.resize(particle_index.size[0]);
+    last_static_particle_index.resize(static_particle_index.size[0]);
 
     last_positions.setData(positions.getDataX(), positions.getDataY());
     last_forces.setData(forces.getDataX(), forces.getDataY());
@@ -917,6 +949,8 @@ void Particle::setLastState() {
     last_radii.setData(radii.getData());
     last_masses.setData(masses.getData());
     last_box_size.setData(getBoxSize());
+    last_particle_index.setData(particle_index.getData());
+    last_static_particle_index.setData(static_particle_index.getData());
 }
 
 // make sure to update the neighbor list after reverting to the last state, to be sure
@@ -926,13 +960,14 @@ void Particle::revertToLastStateVariables() {
     velocities.setData(last_velocities.getDataX(), last_velocities.getDataY());
     radii.setData(last_radii.d_vec);
     masses.setData(last_masses.d_vec);
+    particle_index.setData(last_particle_index.getData());
+    static_particle_index.setData(last_static_particle_index.getData());
 }
 
 void Particle::revertToLastState() {
     revertToLastStateVariables();
     setBoxSize(last_box_size.d_vec);
-    // updateNeighborList();
-    initNeighborList();
+    updateNeighborList();
 }
 
 double Particle::getPowerFire() {

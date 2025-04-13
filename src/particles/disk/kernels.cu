@@ -70,7 +70,7 @@ __global__ void kernelCalcDiskWallForces(const double* positions_x, const double
     potential_energy[particle_id] += interaction_energy;
 }
 
-__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* potential_pairs, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle, double* hessian_pairs_xx, double* hessian_pairs_xy, double* hessian_pairs_yy) {
+__global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, const double* positions_y, double* potential_pairs, double* force_pairs_x, double* force_pairs_y, double* distance_pairs_x, double* distance_pairs_y, long* this_pair_id, long* other_pair_id, double* overlap_pairs, double* radsum_pairs, const double* radii, const long* static_particle_index, double* pair_separation_angle, double* hessian_pairs_xx, double* hessian_pairs_xy, double* hessian_pairs_yx, double* hessian_pairs_yy, double* hessian_ii_xx, double* hessian_ii_xy, double* hessian_ii_yx, double* hessian_ii_yy) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     long static_particle_id = static_particle_index[particle_id];
     if (particle_id >= d_n_particles) return;
@@ -104,10 +104,10 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
         potential_pairs[pair_id] = interaction_energy;
         force_pairs_x[pair_id] = force_x;
         force_pairs_y[pair_id] = force_y;
-        double x_dist = pbcDistance(pos_x, other_x, 0);
-        double y_dist = pbcDistance(pos_y, other_y, 1);
-        distance_pairs_x[pair_id] = x_dist;
-        distance_pairs_y[pair_id] = y_dist;
+        double dx = pbcDistance(pos_x, other_x, 0);
+        double dy = pbcDistance(pos_y, other_y, 1);
+        distance_pairs_x[pair_id] = dx;
+        distance_pairs_y[pair_id] = dy;
         
         this_pair_id[pair_id] = static_particle_id;
         other_pair_id[pair_id] = static_particle_index[other_id];
@@ -116,27 +116,60 @@ __global__ void kernelCalcDiskForceDistancePairs(const double* positions_x, cons
         // other_pair_id[pair_id] = other_id;
 
         
-        double dist = sqrt(x_dist * x_dist + y_dist * y_dist);
+        double dist = sqrt(dx * dx + dy * dy);
         overlap_pairs[pair_id] = dist - (rad + other_rad);
         radsum_pairs[pair_id] = rad + other_rad;
-        pair_separation_angle[pair_id] = atan2(y_dist, x_dist);
+        pair_separation_angle[pair_id] = atan2(dy, dx);
 
         if (dist < rad + other_rad) {
             double radsum = rad + other_rad;
-            double tension = - d_e_c / radsum * (1 - dist / radsum);
-            double stiffness = d_e_c / (radsum * radsum);
-            // double tension = - d_e_c / radsum * std::pow(1 - dist / radsum, d_n_c - 1);
-            // double stiffness = d_e_c * (d_n_c - 1) / (radsum * radsum) * std::pow(1 - dist / radsum, d_n_c - 2);
-            double x_dist_hat = x_dist / dist;
-            double y_dist_hat = y_dist / dist;
-            double hess_x_x = -stiffness * x_dist_hat * x_dist_hat - tension / dist * (1 - x_dist_hat * x_dist_hat);
-            double hess_x_y = -stiffness * x_dist_hat * y_dist_hat + tension / dist * x_dist_hat * y_dist_hat;
-            double hess_y_x = -stiffness * y_dist_hat * x_dist_hat + tension / dist * y_dist_hat * x_dist_hat;
-            double hess_y_y = -stiffness * y_dist_hat * y_dist_hat - tension / dist * (1 - y_dist_hat * y_dist_hat);
+            double t_ij = - d_e_c / radsum * (1 - dist / radsum);
+            double c_ij = d_e_c / (radsum * radsum);
 
-            hessian_pairs_xx[pair_id] = hess_x_x;
-            hessian_pairs_xy[pair_id] = hess_x_y;
-            hessian_pairs_yy[pair_id] = hess_y_y;
+            std::array<double, 4> hess_ij_ab = {0.0, 0.0, 0.0, 0.0};
+            std::array<double, 4> hess_ii_ab = {0.0, 0.0, 0.0, 0.0};
+
+            for (long a = 0; a < 2; a++) {
+                for (long b = 0; b < 2; b++) {
+                    // off-diagonal terms
+                    double d_ia_dx = 1 * (a == 0);
+                    double d_ia_dy = 1 * (a == 1);
+                    double d_jb_dx = -1 * (b == 0);
+                    double d_jb_dy = -1 * (b == 1);
+
+                    double d_ia_d_jb_dx = 0;
+                    double d_ia_d_jb_dy = 0;
+
+                    double q_ia = dx * d_ia_dx + dy * d_ia_dy;
+                    double q_jb = dx * d_jb_dx + dy * d_jb_dy;
+
+                    double d_ia_q_jb = d_ia_dx * d_jb_dx + dx * d_ia_d_jb_dx + d_ia_dy * d_jb_dy + dy * d_ia_d_jb_dy;
+                    
+                    hess_ij_ab[a * 2 + b] += c_ij * (q_ia * q_jb) / (dist * dist) + t_ij * (d_ia_q_jb / dist - (q_ia * q_jb) / (dist * dist * dist));
+
+                    // diagonal terms
+                    double d_ib_dx = 1 * (b == 0);
+                    double d_ib_dy = 1 * (b == 1);
+
+                    double d_ia_d_ib_dx = 0;
+                    double d_ia_d_ib_dy = 0;
+                    
+                    double q_ib = dx * d_ib_dx + dy * d_ib_dy;
+
+                    double d_ia_q_ib = d_ia_dx * d_ib_dx + dx * d_ia_d_ib_dx + d_ia_dy * d_ib_dy + dy * d_ia_d_ib_dy;
+                    
+                    hess_ii_ab[a * 2 + b] += c_ij * (q_ia * q_ib) / (dist * dist) + t_ij * (d_ia_q_ib / dist - (q_ia * q_ib) / (dist * dist * dist));
+                }
+            }
+            hessian_pairs_xx[pair_id] += hess_ij_ab[0];
+            hessian_pairs_xy[pair_id] += hess_ij_ab[1];
+            hessian_pairs_yx[pair_id] += hess_ij_ab[2];
+            hessian_pairs_yy[pair_id] += hess_ij_ab[3];
+
+            hessian_ii_xx[pair_id] += hess_ii_ab[0];
+            hessian_ii_xy[pair_id] += hess_ii_ab[1];
+            hessian_ii_yx[pair_id] += hess_ii_ab[2];
+            hessian_ii_yy[pair_id] += hess_ii_ab[3];
         }
     }
 }

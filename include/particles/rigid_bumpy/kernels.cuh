@@ -94,10 +94,22 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* pair_vertex_overlaps,
     double* hessian_pairs_xx,
     double* hessian_pairs_xy,
+    double* hessian_pairs_yx,
     double* hessian_pairs_yy,
     double* hessian_pairs_xt,
     double* hessian_pairs_yt,
-    double* hessian_pairs_tt
+    double* hessian_pairs_tt,
+    double* hessian_pairs_tx,
+    double* hessian_pairs_ty,
+    double* hessian_ii_xx,
+    double* hessian_ii_xy,
+    double* hessian_ii_yx,
+    double* hessian_ii_yy,
+    double* hessian_ii_xt,
+    double* hessian_ii_yt,
+    double* hessian_ii_tt,
+    double* hessian_ii_tx,
+    double* hessian_ii_ty
 );
 
 __global__ void kernelCalcRigidBumpyStressTensor(

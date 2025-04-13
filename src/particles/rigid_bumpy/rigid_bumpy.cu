@@ -913,6 +913,48 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.data = hessian_pairs_tt.getData();
             result.index_array_name = "";
             result.name = array_name;
+        } else if (array_name == "hessian_pairs_tx") {
+            result.type = DataType::Double;
+            result.size = hessian_pairs_tx.size;
+            result.data = hessian_pairs_tx.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_pairs_ty") {
+            result.type = DataType::Double;
+            result.size = hessian_pairs_ty.size;
+            result.data = hessian_pairs_ty.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_ii_xt") {
+            result.type = DataType::Double;
+            result.size = hessian_ii_xt.size;
+            result.data = hessian_ii_xt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_ii_yt") {
+            result.type = DataType::Double;
+            result.size = hessian_ii_yt.size;
+            result.data = hessian_ii_yt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_ii_tt") {
+            result.type = DataType::Double;
+            result.size = hessian_ii_tt.size;
+            result.data = hessian_ii_tt.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_ii_tx") {
+            result.type = DataType::Double;
+            result.size = hessian_ii_tx.size;
+            result.data = hessian_ii_tx.getData();
+            result.index_array_name = "";
+            result.name = array_name;
+        } else if (array_name == "hessian_ii_ty") {
+            result.type = DataType::Double;
+            result.size = hessian_ii_ty.size;
+            result.data = hessian_ii_ty.getData();
+            result.index_array_name = "";
+            result.name = array_name;
         }
         return result;
     }
@@ -1064,6 +1106,8 @@ void RigidBumpy::setLastState() {
     last_num_vertices_in_particle.resize(num_vertices_in_particle.size[0]);
     last_particle_start_index.resize(particle_start_index.size[0]);
     last_vertex_particle_index.resize(vertex_particle_index.size[0]);
+    last_vertex_index.resize(vertex_index.size[0]);
+    last_static_vertex_index.resize(static_vertex_index.size[0]);
 
     last_angles.setData(angles.getData());
     last_angular_velocities.setData(angular_velocities.getData());
@@ -1072,6 +1116,8 @@ void RigidBumpy::setLastState() {
     last_num_vertices_in_particle.setData(num_vertices_in_particle.getData());
     last_particle_start_index.setData(particle_start_index.getData());
     last_vertex_particle_index.setData(vertex_particle_index.getData());
+    last_vertex_index.setData(vertex_index.getData());
+    last_static_vertex_index.setData(static_vertex_index.getData());
 }
 
 // make sure to update the neighbor list after reverting to the last state, to be sure
@@ -1084,6 +1130,8 @@ void RigidBumpy::revertToLastStateVariables() {
     num_vertices_in_particle.setData(last_num_vertices_in_particle.getData());
     particle_start_index.setData(last_particle_start_index.getData());
     vertex_particle_index.setData(last_vertex_particle_index.getData());
+    vertex_index.setData(last_vertex_index.getData());
+    static_vertex_index.setData(last_static_vertex_index.getData());
 }
 
 double RigidBumpy::getPowerFire() {
@@ -1284,6 +1332,24 @@ void RigidBumpy::calculateForceDistancePairs() {
     pair_friction_coefficient.resizeAndFill(n_particles * max_neighbors_allocated, -1.0);
     pair_vertex_overlaps.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
 
+    hessian_pairs_xx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_xy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_yx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_yy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_xt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_yt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_tt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_tx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_pairs_ty.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+
+    hessian_ii_xx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_xy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_yx.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_yy.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_xt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_yt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+    hessian_ii_tt.resizeAndFill(n_particles * max_neighbors_allocated, 0.0);
+
     kernelCalcRigidBumpyForceDistancePairs<<<particle_dim_grid, particle_dim_block>>>(
         positions.x.d_ptr,
         positions.y.d_ptr,
@@ -1309,10 +1375,22 @@ void RigidBumpy::calculateForceDistancePairs() {
         pair_vertex_overlaps.d_ptr,
         hessian_pairs_xx.d_ptr,
         hessian_pairs_xy.d_ptr,
+        hessian_pairs_yx.d_ptr,
         hessian_pairs_yy.d_ptr,
         hessian_pairs_xt.d_ptr,
         hessian_pairs_yt.d_ptr,
-        hessian_pairs_tt.d_ptr
+        hessian_pairs_tt.d_ptr,
+        hessian_pairs_tx.d_ptr,
+        hessian_pairs_ty.d_ptr,
+        hessian_ii_xx.d_ptr,
+        hessian_ii_xy.d_ptr,
+        hessian_ii_yx.d_ptr,
+        hessian_ii_yy.d_ptr,
+        hessian_ii_xt.d_ptr,
+        hessian_ii_yt.d_ptr,
+        hessian_ii_tt.d_ptr,
+        hessian_ii_tx.d_ptr,
+        hessian_ii_ty.d_ptr
     );
 }
 

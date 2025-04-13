@@ -442,10 +442,22 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double* pair_vertex_overlaps,
     double* hessian_pairs_xx,
     double* hessian_pairs_xy,
+    double* hessian_pairs_yx,
     double* hessian_pairs_yy,
     double* hessian_pairs_xt,
     double* hessian_pairs_yt,
-    double* hessian_pairs_tt
+    double* hessian_pairs_tt,
+    double* hessian_pairs_tx,
+    double* hessian_pairs_ty,
+    double* hessian_ii_xx,
+    double* hessian_ii_xy,
+    double* hessian_ii_yx,
+    double* hessian_ii_yy,
+    double* hessian_ii_xt,
+    double* hessian_ii_yt,
+    double* hessian_ii_tt,
+    double* hessian_ii_tx,
+    double* hessian_ii_ty
 ) {
     long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
     if (particle_id >= d_n_particles) return;
@@ -457,9 +469,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
     double pos_x = positions_x[particle_id];
     double pos_y = positions_y[particle_id];
     double rad = radii[particle_id];
-
-    double hess_xx = 0.0, hess_xy = 0.0, hess_yy = 0.0;
-    double hess_xt = 0.0, hess_yt = 0.0, hess_tt = 0.0;
+    double theta_i = angles[particle_id];
 
     // loop over the particle neighbors
     for (long n = 0; n < num_neighbors; n++) {
@@ -470,6 +480,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         double other_pos_x = positions_x[other_id];
         double other_pos_y = positions_y[other_id];
         double other_rad = radii[other_id];
+        double theta_j = angles[other_id];
         
         double force_x = 0.0, force_y = 0.0;
         long vertex_count_i = 0;
@@ -479,11 +490,15 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
         double temp_energy;
         double temp_vertex_overlap = 0.0;
 
+        std::array<double, 9> hess_ij_ab = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+        std::array<double, 9> hess_ii_ab = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
         // loop over the vertices of this particle
         for (long v = 0; v < d_num_vertices_in_particle_ptr[particle_id]; v++) {
             long vertex_id = d_particle_start_index_ptr[particle_id] + v;
             double vertex_pos_x = vertex_positions_x[vertex_id];
             double vertex_pos_y = vertex_positions_y[vertex_id];
+            double phi_u = v * 2 * M_PI / d_num_vertices_in_particle_ptr[particle_id];
 
             bool is_contact = false;
 
@@ -496,6 +511,7 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                 if (other_vertex_id == -1 || other_vertex_id == vertex_id || other_particle_id != other_id) continue;
                 double other_vertex_pos_x = vertex_positions_x[other_vertex_id];
                 double other_vertex_pos_y = vertex_positions_y[other_vertex_id];
+                double phi_v = n_v * 2 * M_PI / d_num_vertex_neighbors_ptr[vertex_id];
 
                 double temp_force_x, temp_force_y;
                 temp_energy = calcPointPointInteraction(vertex_pos_x, vertex_pos_y, d_vertex_radius, other_vertex_pos_x, other_vertex_pos_y, d_vertex_radius, temp_force_x, temp_force_y);
@@ -511,13 +527,42 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
                     double dist = sqrt(dx * dx + dy * dy);
                     double radsum = d_vertex_radius * 2.0;
 
-                    std::array<double, 6> hess_terms;
+                    double t_ij = - d_e_c / radsum * (1 - dist / radsum);
+                    double c_ij = d_e_c / (radsum * radsum);
+
+                    double R_i = rad - d_vertex_radius;
+                    double R_j = other_rad - d_vertex_radius;
+
                     for (int a = 0; a < 3; a++) {
                         for (int b = a; b < 3; b++) {
-                            hess_terms[a * 3 + b] = 0.0;
+                            // off-diagonal block
+                            double d_ia_dx = (a == 0) - R_i * std::sin(theta_i + phi_u) * (a == 2);
+                            double d_ia_dy = (a == 1) + R_i * std::cos(theta_i + phi_u) * (a == 2);
+                            double d_jb_dx = -1.0 * ((b == 0) - R_j * std::sin(theta_j + phi_v) * (b == 2));
+                            double d_jb_dy = -1.0 * ((b == 1) + R_j * std::cos(theta_j + phi_v) * (b == 2));
+
+                            double q_ia = dx * d_ia_dx + dy * d_ia_dy;
+                            double q_jb = dx * d_jb_dx + dy * d_jb_dy;
+
+                            double d_ia_q_jb = (d_ia_dx * d_jb_dx + d_ia_dy * d_jb_dy) / dist;  // there are no second derivatives here since i and j are different coordinates
+
+                            hess_ij_ab[a * 3 + b] += c_ij * q_ia * q_jb / (dist * dist) + t_ij * (d_ia_q_jb - q_ia * q_jb / (dist * dist * dist));
+
+                            // diagonal block
+                            double d_ib_dx = (b == 0) - R_i * std::sin(theta_i + phi_u) * (b == 2);
+                            double d_ib_dy = (b == 1) + R_i * std::cos(theta_i + phi_u) * (b == 2);
+
+                            // there are now some second derivatives
+                            double d_ia_ib_dx = - R_i * std::cos(theta_i + phi_u) * (a == 2) * (b == 2);
+                            double d_ia_ib_dy = - R_i * std::sin(theta_i + phi_u) * (a == 2) * (b == 2);
+
+                            double q_ib = dx * d_ib_dx + dy * d_ib_dy;
+
+                            double d_ia_q_ib = (d_ia_dx * d_ib_dx + dx * d_ia_ib_dx + d_ia_dy * d_ib_dy + dy * d_ia_ib_dy) / dist;
+
+                            hess_ii_ab[a * 3 + b] += c_ij * q_ia * q_ib / (dist * dist) + t_ij * (d_ia_q_ib - q_ia * q_ib / (dist * dist * dist));
                         }
                     }
-                    
                 }
             }
 
@@ -563,6 +608,26 @@ __global__ void kernelCalcRigidBumpyForceDistancePairs(
             friction_coefficient = tangential_force / normal_force;
         }
         pair_friction_coefficient[pair_id] = friction_coefficient;
+
+        hessian_pairs_xx[pair_id] += hess_ij_ab[0];
+        hessian_pairs_xy[pair_id] += hess_ij_ab[1];
+        hessian_pairs_xt[pair_id] += hess_ij_ab[2];
+        hessian_pairs_yx[pair_id] += hess_ij_ab[3];
+        hessian_pairs_yy[pair_id] += hess_ij_ab[4];
+        hessian_pairs_yt[pair_id] += hess_ij_ab[5];
+        hessian_pairs_tx[pair_id] += hess_ij_ab[6];
+        hessian_pairs_ty[pair_id] += hess_ij_ab[7];
+        hessian_pairs_tt[pair_id] += hess_ij_ab[8];
+
+        hessian_ii_xx[pair_id] += hess_ii_ab[0];
+        hessian_ii_xy[pair_id] += hess_ii_ab[1];
+        hessian_ii_xt[pair_id] += hess_ii_ab[2];
+        hessian_ii_yx[pair_id] += hess_ii_ab[3];
+        hessian_ii_yy[pair_id] += hess_ii_ab[4];
+        hessian_ii_yt[pair_id] += hess_ii_ab[5];
+        hessian_ii_tt[pair_id] += hess_ii_ab[6];
+        hessian_ii_tx[pair_id] += hess_ii_ab[7];
+        hessian_ii_ty[pair_id] += hess_ii_ab[8];
     }
 }
 

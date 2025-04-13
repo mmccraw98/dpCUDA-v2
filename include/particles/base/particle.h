@@ -86,7 +86,12 @@ public:
         {"radsum_pairs", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xx", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_yx", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_yy", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_xx", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_yx", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_yy", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
     virtual void handle_calculation_for_single_dependency(std::string dependency_calculation_name);  // replicate this for each derived class
@@ -131,7 +136,8 @@ public:
     Data2D<double> distance_pairs;
     Data2D<long> pair_ids;
     Data1D<long> contact_counts;
-    Data1D<double> hessian_pairs_xx, hessian_pairs_xy, hessian_pairs_yy;
+    Data1D<double> hessian_pairs_xx, hessian_pairs_xy, hessian_pairs_yx, hessian_pairs_yy;
+    Data1D<double> hessian_ii_xx, hessian_ii_xy, hessian_ii_yx, hessian_ii_yy;
 
     Data1D<double> pair_separation_angle;
 
@@ -144,6 +150,8 @@ public:
     Data1D<double> last_radii;
     Data1D<double> last_masses;
     Data1D<double> last_box_size;
+    Data1D<long> last_static_particle_index;
+    Data1D<long> last_particle_index;
 
     // adam minimizer variables
     SwapData2D<double> first_moment;

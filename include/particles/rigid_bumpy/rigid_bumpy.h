@@ -85,8 +85,11 @@ public:
     Data1D<long> last_num_vertices_in_particle;
     Data1D<long> last_particle_start_index;
     Data1D<long> last_vertex_particle_index;
+    Data1D<long> last_vertex_index;
+    Data1D<long> last_static_vertex_index;
 
-    Data1D<double> hessian_pairs_xt, hessian_pairs_yt, hessian_pairs_tt;
+    Data1D<double> hessian_pairs_xt, hessian_pairs_yt, hessian_pairs_tt, hessian_pairs_tx, hessian_pairs_ty;
+    Data1D<double> hessian_ii_xt, hessian_ii_yt, hessian_ii_tt, hessian_ii_tx, hessian_ii_ty;
 
     bool rotation = true;
 
@@ -117,10 +120,22 @@ public:
         {"pair_vertex_overlaps", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xx", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_yx", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_yy", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xt", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_yt", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_tt", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_tx", {"calculate_force_distance_pairs"}},
+        {"hessian_pairs_ty", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_xx", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_xy", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_yx", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_yy", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_xt", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_yt", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_tt", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_tx", {"calculate_force_distance_pairs"}},
+        {"hessian_ii_ty", {"calculate_force_distance_pairs"}},
         // can have nested dependencies i.e. {"particle_KE", {"calculate_particle_kinetic_energy"}}, {"calculate_particle_kinetic_energy", {"calculate_particle_velocities"}}
     };
 

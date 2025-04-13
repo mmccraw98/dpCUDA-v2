@@ -176,3 +176,7 @@ target_link_libraries(runCreateSamplesNVE PRIVATE common_sources)
 # Run calc pair corr executable
 add_executable(calcPairCorr scripts/calcPairCorr.cpp)
 target_link_libraries(calcPairCorr PRIVATE common_sources)
+
+# Run single nve compression executable
+add_executable(runSingleNVECompression scripts/runSingleNVECompression.cpp)
+target_link_libraries(runSingleNVECompression PRIVATE common_sources)

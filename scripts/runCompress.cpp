@@ -19,13 +19,15 @@ int main(int argc, char** argv) {
     // assign the run config variables
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     double delta_phi = run_config["delta_phi"].get<double>();
+    double avg_pe_tolerance = run_config["avg_pe_tolerance"].get<double>();
+    double avg_pe_diff_tolerance = run_config["avg_pe_diff_tolerance"].get<double>();
     bool overwrite = true;
 
-    std::vector<std::string> init_names = particle->getFundamentalValues();
-    std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_xx", "hessian_pairs_xy", "hessian_pairs_yy"};
     std::string particle_type = particle->config["particle_type"].get<std::string>();
+    std::vector<std::string> init_names = particle->getFundamentalValues();
+    std::vector<std::string> pair_names = {"force_pairs", "distance_pairs", "overlap_pairs", "radsum_pairs", "pair_separation_angle", "pair_ids", "potential_pairs", "contact_counts", "hessian_pairs_xx", "hessian_pairs_xy", "hessian_pairs_yx", "hessian_pairs_yy", "hessian_ii_xx", "hessian_ii_xy", "hessian_ii_yx", "hessian_ii_yy"};
     if (particle_type == "RigidBumpy") {
-        std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient", "pair_vertex_overlaps"};
+        std::vector<std::string> rb_pair_names = {"angle_pairs_i", "angle_pairs_j", "this_vertex_contact_counts", "pair_friction_coefficient", "pair_vertex_overlaps", "hessian_pairs_xt", "hessian_pairs_yt", "hessian_pairs_tt", "hessian_pairs_tx", "hessian_pairs_ty", "hessian_ii_xt", "hessian_ii_yt", "hessian_ii_tt", "hessian_ii_tx", "hessian_ii_ty"};
         pair_names.insert(pair_names.end(), rb_pair_names.begin(), rb_pair_names.end());
     }
     init_names.insert(init_names.end(), pair_names.begin(), pair_names.end());
@@ -46,21 +48,7 @@ int main(int argc, char** argv) {
 
     // minimizeAdam(*particle);
 
-    double avg_pe_target = 1e-20;
-    double avg_pe_diff_target = 1e-30;
-
-    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
-    std::cout << "1" << std::endl;
-
-    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
-    std::cout << "2" << std::endl;
-
-    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
-    std::cout << "3" << std::endl;
-
-    minimizeFire(*particle, avg_pe_target, avg_pe_diff_target);
-    std::cout << "4" << std::endl;
-
+    minimizeFire(*particle, avg_pe_tolerance, avg_pe_diff_tolerance);
     dynamics_io_manager.log(1, true);
 
     auto end_time = std::chrono::high_resolution_clock::now();

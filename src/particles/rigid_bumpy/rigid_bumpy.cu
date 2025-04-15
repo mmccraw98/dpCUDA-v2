@@ -961,9 +961,6 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
 }
 
 
-
-
-
 // need to make a scale function for the particles which can then go into the base particle class and be overridden by the rigid bumpy class so we dont have to replicate the scaleToPackingFraction function
 
 void RigidBumpy::calculateDiskArea() {

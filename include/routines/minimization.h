@@ -23,4 +23,6 @@ void minimizeFire(Particle& particle, long log_every_n);
 
 void minimizeFire(Particle& particle, double avg_pe_target, double avg_pe_diff_target);
 
+void minimizeFire(Particle& particle, double avg_pe_target, double avg_pe_diff_target, long num_steps);
+
 void minimizeFire(Particle& particle);

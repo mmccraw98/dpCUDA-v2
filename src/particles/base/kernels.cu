@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <cmath>
+#include <curand_kernel.h>
 #include "../../../include/constants.h"
 #include "../../../include/particles/base/kernels.cuh"
 

@@ -17,16 +17,16 @@ void minimizeAdam(Particle& particle, double alpha, double beta1, double beta2, 
     double avg_pe_diff = 0.0;
     while (step < num_steps) {
         adam.minimize(step);
-        io_manager.log(step);
+        // io_manager.log(step);
         double avg_pe = particle.totalPotentialEnergy() / dof;
-        avg_pe_diff = std::abs(avg_pe - last_avg_pe);
+        avg_pe_diff = std::abs(avg_pe /last_avg_pe - 1);
         last_avg_pe = avg_pe;
         if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target) {
             break;
         }
         step++;
     }
-    io_manager.log(step, true);
+    // io_manager.log(step, true);
     if (step >= num_steps) {
         std::cout << "Warning: minimization did not converge" << std::endl;
     }
@@ -95,16 +95,16 @@ void minimizeFire(Particle& particle, double alpha_init, double dt, double avg_p
 
     while (step < num_steps) {
         fire.step();
-        io_manager.log(step);
+        // io_manager.log(step);
         double avg_pe = particle.totalPotentialEnergy() / dof;
-        avg_pe_diff = std::abs(avg_pe - last_avg_pe);
+        avg_pe_diff = std::abs(avg_pe /last_avg_pe - 1);
         last_avg_pe = avg_pe;
         if (avg_pe_diff < avg_pe_diff_target || avg_pe < avg_pe_target || fire.stopped) {
             break;
         }
         step++;
     }
-    io_manager.log(step, true);
+    // io_manager.log(step, true);
     if (step >= num_steps) {
         std::cout << "Warning: minimization did not converge" << std::endl;
     }
@@ -128,6 +128,13 @@ void minimizeFire(Particle& particle, double avg_pe_target, double avg_pe_diff_t
     double alpha_init = 0.1;
     double dt = 1e-2;
     long num_steps = 1e5;
+    long log_every_n = 1e3;
+    minimizeFire(particle, alpha_init, dt, avg_pe_target, avg_pe_diff_target, num_steps, log_every_n);
+}
+
+void minimizeFire(Particle& particle, double avg_pe_target, double avg_pe_diff_target, long num_steps) {
+    double alpha_init = 0.1;
+    double dt = 1e-2;
     long log_every_n = 1e3;
     minimizeFire(particle, alpha_init, dt, avg_pe_target, avg_pe_diff_target, num_steps, log_every_n);
 }

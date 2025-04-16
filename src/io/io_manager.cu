@@ -89,7 +89,7 @@ IOManager::IOManager(std::vector<ConfigDict> log_configs,
     }
 
     // If we have a "restart" group, also write the initial state
-    if (state_log != nullptr) {
+    if (state_log != nullptr && overwrite) {
         init_dir_path = system_dir_path / init_dir_name;
         make_dir(init_dir_path.string(), true);
         restart_dir_path = system_dir_path / restart_dir_name;

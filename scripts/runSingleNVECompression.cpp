@@ -60,7 +60,7 @@ int main(int argc, char** argv) {
         std::cout << "Resuming NVE dynamics run" << std::endl;
     }
 
-    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 20, overwrite);
+    IOManager dynamics_io_manager(log_group_configs, *particle, &nve, output_dir, 20, !resume);
     dynamics_io_manager.write_params();
     run_config.save(output_dir / "system" / "run_config.json");
     auto start_time = std::chrono::high_resolution_clock::now();

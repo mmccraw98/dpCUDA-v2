@@ -156,6 +156,7 @@ __global__ void kernelReorderRigidBumpyVertexData(
     const long* __restrict__ particle_start_index_new,
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
     double* __restrict__ vertex_positions_x_new, double* __restrict__ vertex_positions_y_new,
+    const double* __restrict__ vertex_masses, double* __restrict__ vertex_masses_new,
     const long* __restrict__ static_vertex_index,
     long* __restrict__ static_vertex_index_new);
 

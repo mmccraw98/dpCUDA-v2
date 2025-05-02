@@ -1286,6 +1286,7 @@ void RigidBumpy::reorderParticleData() {
         particle_start_index.d_temp_ptr,
         vertex_positions.x.d_ptr, vertex_positions.y.d_ptr,
         vertex_positions.x.d_temp_ptr, vertex_positions.y.d_temp_ptr,
+        vertex_masses.d_ptr, vertex_masses.d_temp_ptr,
         static_vertex_index.d_ptr,
         static_vertex_index.d_temp_ptr
     );
@@ -1303,6 +1304,7 @@ void RigidBumpy::reorderParticleData() {
     num_vertices_in_particle.swap();
     particle_start_index.swap();
     vertex_positions.swap();
+    vertex_masses.swap();
     vertex_particle_index.swap();
     first_moment.swap();
     second_moment.swap();

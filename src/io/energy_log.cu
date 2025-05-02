@@ -37,7 +37,7 @@ void EnergyLog::write_header() {
 void EnergyLog::log(long step) {  // TODO: operate on gathered data
     for (size_t i = 0; i < log_names.size(); ++i) {
         double value = gathered_data[log_names[i]];
-        log_file << std::fixed << std::setprecision(precision) << value;
+        log_file << std::scientific << std::setprecision(precision) << value;
         if (i < log_names.size() - 1) {
             log_file << delimiter;
         }

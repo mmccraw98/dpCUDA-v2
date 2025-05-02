@@ -76,13 +76,13 @@ int main(int argc, char** argv) {
         double pe_per_particle = particle->totalPotentialEnergy() / n_particles;
         particle->countContacts();
         long z_per_particle = particle->getContactCount() / n_particles;
-        io_manager.log(compression_step, true);
         if (pe_per_particle > avg_pe_tolerance) {  // jammed
             phi_high = phi;
             phi = (phi_high + phi_low) / 2.0;
             particle->revertToLastState();
         } else {  // unjammed
             particle->setLastState();
+            io_manager.log(compression_step, true);  // save a smooth trajectory
             phi_low = phi;
             if (phi_high > 0) {
                 phi = (phi_high + phi_low) / 2.0;

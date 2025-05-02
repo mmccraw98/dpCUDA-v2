@@ -176,3 +176,7 @@ target_link_libraries(calcPairCorr PRIVATE common_sources)
 # Run single nve compression executable
 add_executable(runSingleNVECompression scripts/runSingleNVECompression.cpp)
 target_link_libraries(runSingleNVECompression PRIVATE common_sources)
+
+# Run thermal compression executable
+add_executable(runThermalCompression scripts/runThermalCompression.cpp)
+target_link_libraries(runThermalCompression PRIVATE common_sources)

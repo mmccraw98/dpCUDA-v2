@@ -81,7 +81,7 @@ void reorder_array(ArrayData& array_data, const ArrayData& reorder_index_data);
 template <typename T>
 void write_1d_array_to_file(std::ofstream& output_file, const thrust::host_vector<T>& data, int precision) {
     for (const auto& val : data) {
-        output_file << std::setprecision(precision) << val << "\n";
+        output_file << std::scientific << std::setprecision(precision) << val << "\n";
     }
 }
 
@@ -98,7 +98,7 @@ void write_2d_array_to_file(std::ofstream& output_file,
     }
 
     for (size_t i = 0; i < first_vector.size(); ++i) {
-        output_file << std::setprecision(precision) 
+        output_file << std::scientific << std::setprecision(precision) 
                     << first_vector[i] << "\t" 
                     << second_vector[i] << "\n";
     }

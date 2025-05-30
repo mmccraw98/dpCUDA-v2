@@ -258,6 +258,10 @@ void Disk::calculateWallForces() {
     kernelCalcDiskWallForces<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, radii.d_ptr, forces.x.d_ptr, forces.y.d_ptr, potential_energy.d_ptr);
 }
 
+void Disk::calculateWallForces_onlyWallContacts() {
+    calculateWallForces();
+}
+
 void Disk::loadData(const std::string& root) {
     // unify all particle configs
     // add load functionality to configs

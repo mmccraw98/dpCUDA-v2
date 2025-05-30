@@ -49,6 +49,10 @@ public:
 
     void updateNeighborList();
 
+    virtual void initReplicaNeighborList(long replica_system_size);
+
+    virtual void updateReplicaNeighborList();
+
     virtual long load(std::filesystem::path root_path, std::string source, long frame = -2) = 0;
 
     virtual void loadDataFromPath(std::filesystem::path root_path, std::string data_file_extension);
@@ -391,6 +395,9 @@ public:
      */
     virtual void setRandomPositions();
 
+    // overload random positions with seed specification
+    virtual void setRandomPositions(long _seed);
+
     /**
      * @brief Set the particle velocities to random normal values with a given temperature.
      * 
@@ -687,6 +694,8 @@ public:
     virtual void calculateForceDistancePairs() = 0;
 
     virtual void calculateWallForces() = 0;
+
+    virtual void calculateWallForces_onlyWallContacts() = 0;
 
     virtual void calculateDampedForces(double damping_coefficient);
 

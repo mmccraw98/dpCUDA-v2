@@ -636,6 +636,21 @@ void RigidBumpy::setRandomAngles() {
     angles.fillRandomUniform(0.0, 2 * M_PI, 0.0, seed);
 }
 
+void RigidBumpy::setRandomPositions() {
+    Particle::setRandomPositions();
+    setRandomAngles();
+    setVertexPositions();
+}
+
+void RigidBumpy::setRandomAngles(long _seed) {
+    angles.fillRandomUniform(0.0, 2 * M_PI, 0.0, _seed);
+}
+
+void RigidBumpy::setRandomPositions(long _seed) {
+    Particle::setRandomPositions(_seed);
+    setRandomAngles(_seed);
+    setVertexPositions();
+}
 
 void RigidBumpy::setRandomVelocities(double temperature) {
     velocities.fillRandomNormal(0.0, std::sqrt(temperature), 0.0, std::sqrt(temperature), 1, seed);
@@ -1168,6 +1183,15 @@ void RigidBumpy::updateVerletList() {
     updateVertexVerletList();
 }
 
+void RigidBumpy::initReplicaNeighborList(long replica_system_size) {
+    Particle::initReplicaNeighborList(replica_system_size);
+    updateVertexVerletList();
+}
+
+void RigidBumpy::updateReplicaNeighborList() {
+    updateVertexVerletList();
+}
+
 void RigidBumpy::initVerletListVariables() {
     Particle::initVerletListVariables();
     vertex_neighbor_list.resizeAndFill(n_vertices * max_vertex_neighbors_allocated, -1L);
@@ -1427,6 +1451,12 @@ void RigidBumpy::calculateWallForces() {
     kernelCalcRigidBumpyWallForces<<<vertex_dim_grid, vertex_dim_block>>>(
         positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr
     );
+}
+
+void RigidBumpy::calculateWallForces_onlyWallContacts() {
+    calculateWallForces();
+    kernelCalcRigidBumpyParticleForces1<<<particle_dim_grid, particle_dim_block>>>(
+        vertex_forces.x.d_ptr, vertex_forces.y.d_ptr, vertex_torques.d_ptr, vertex_potential_energy.d_ptr, forces.x.d_ptr, forces.y.d_ptr, torques.d_ptr, potential_energy.d_ptr);
 }
 
 void RigidBumpy::calculateDampedForces(double damping_coefficient) {

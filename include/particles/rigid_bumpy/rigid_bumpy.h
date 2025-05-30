@@ -154,6 +154,12 @@ public:
 
     void setRandomAngles();
 
+    void setRandomAngles(long _seed);
+
+    void setRandomPositions() override;
+
+    void setRandomPositions(long _seed) override;
+
     void setVertexParticleIndex();
 
     void setVertexPositions();
@@ -253,6 +259,10 @@ public:
 
     void updateCellNeighborList() override;
 
+    void initReplicaNeighborList(long replica_system_size) override;
+
+    void updateReplicaNeighborList() override;
+
     void zeroForceAndPotentialEnergy() override;
 
     void initCellList() override;
@@ -264,6 +274,8 @@ public:
     void updatePositionsAdam(long step, double alpha, double beta1, double beta2, double epsilon) override;
 
     void calculateWallForces();
+    
+    void calculateWallForces_onlyWallContacts();
 
     void calculateDampedForces(double damping_coefficient);
 

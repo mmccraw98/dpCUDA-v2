@@ -872,6 +872,11 @@ void Particle::setVelocitiesToZero() {
     velocities.fill(0.0, 0.0);
 }
 
+void Particle::setRandomPositions(long _seed) {
+    thrust::host_vector<double> host_box_size = box_size.getData();
+    positions.fillRandomUniform(0.0, host_box_size[0], 0.0, host_box_size[1], 1, _seed);
+}
+
 void Particle::mixVelocitiesAndForces(double alpha) {
     kernelMixVelocitiesAndForces<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha);
 }
@@ -1077,6 +1082,20 @@ double Particle::getMaxSquaredNeighborDisplacement() {
 
 double Particle::getMaxSquaredCellDisplacement() {
     return thrust::reduce(cell_displacements_sq.d_vec.begin(), cell_displacements_sq.d_vec.end(), 0.0, thrust::maximum<double>());
+}
+
+void Particle::initReplicaNeighborList(long replica_system_size) {
+    max_neighbors_allocated = replica_system_size - 1;
+    neighbor_list.resize(n_particles * replica_system_size);
+    neighbor_list.fill(-1L);
+    syncNeighborList();
+    kernelUpdateReplicaNeighborList<<<particle_dim_grid, particle_dim_block>>>(replica_system_size);
+    long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
+    std::cout << "Particle::initReplicaNeighborList: Resizing neighbor list to " << max_neighbors << std::endl;
+}
+
+void Particle::updateReplicaNeighborList() {
+    // do nothing
 }
 
 void Particle::updateVerletList() {

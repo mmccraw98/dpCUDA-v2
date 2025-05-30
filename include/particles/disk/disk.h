@@ -70,6 +70,8 @@ public:
 
     void calculateWallForces() override;
 
+    void calculateWallForces_onlyWallContacts() override;
+
     void loadData(const std::string& root) override;
 
     void countContacts() override;

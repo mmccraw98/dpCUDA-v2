@@ -264,6 +264,8 @@ __global__ void kernelUpdateNeighborList(
     double* __restrict__ neigh_displacements_sq,
     const double cutoff);
 
+__global__ void kernelUpdateReplicaNeighborList(const long replica_system_size);
+
 /**
  * @brief Get the PBC cell index for a particle
  * 

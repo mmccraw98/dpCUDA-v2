@@ -233,6 +233,22 @@ __global__ void kernelUpdateNeighborList(
     d_num_neighbors_ptr[particle_id] = added_neighbors;
 }
 
+__global__ void kernelUpdateReplicaNeighborList(const long replica_system_size) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+
+    long added_neighbors = 0;
+    long replica_system_start_id = particle_id - mod(particle_id, replica_system_size);
+    for (long replica_neighbor_id = replica_system_start_id; replica_neighbor_id < replica_system_size + replica_system_start_id; replica_neighbor_id++) {
+        if (replica_neighbor_id == particle_id) {
+            continue;
+        }
+        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = replica_neighbor_id;
+        added_neighbors++;
+    }
+    d_num_neighbors_ptr[particle_id] = added_neighbors;
+}
+
 
 __global__ void kernelGetCellIndexForParticle(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y, 

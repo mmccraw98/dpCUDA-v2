@@ -180,3 +180,7 @@ target_link_libraries(runSingleNVECompression PRIVATE common_sources)
 # Run thermal compression executable
 add_executable(runThermalCompression scripts/runThermalCompression.cpp)
 target_link_libraries(runThermalCompression PRIVATE common_sources)
+
+# Run monte carlo executable
+add_executable(configurationalMonteCarlo scripts/configurationalMonteCarlo.cpp)
+target_link_libraries(configurationalMonteCarlo PRIVATE common_sources)

@@ -877,6 +877,21 @@ void Particle::setRandomPositions(long _seed) {
     positions.fillRandomUniform(0.0, host_box_size[0], 0.0, host_box_size[1], 1, _seed);
 }
 
+void Particle::setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, Data2D<double>& cage_center, long _seed) {
+    Data2D<double> random_numbers(cage_start_index.size[0], 2);
+    random_numbers.fillRandomUniform(-0.5, 0.5, -0.5, 0.5, 1, _seed);
+    kernelSetRandomCagePositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, cage_box_size.x.d_ptr, cage_box_size.y.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, cage_center.x.d_ptr, cage_center.y.d_ptr);
+}
+
+void Particle::setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) {
+    Data2D<double> random_numbers(cage_start_index.size[0], 2);
+    random_numbers.fillRandomUniform(0.0, 1.0, 0.0, 1.0, 1, _seed);
+    Data1D<double> random_triangles(cage_start_index.size[0]);
+    random_triangles.fillRandomUniform(0.0, 1.0, 1e4, _seed);
+    kernelSetRandomVoronoiPositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, voronoi_vertices.x.d_ptr, voronoi_vertices.y.d_ptr, voronoi_cell_start.d_ptr, voronoi_cell_size.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, random_triangles.d_ptr);
+}
+
+
 void Particle::mixVelocitiesAndForces(double alpha) {
     kernelMixVelocitiesAndForces<<<particle_dim_grid, particle_dim_block>>>(velocities.x.d_ptr, velocities.y.d_ptr, forces.x.d_ptr, forces.y.d_ptr, alpha);
 }

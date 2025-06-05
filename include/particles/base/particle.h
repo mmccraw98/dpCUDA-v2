@@ -398,6 +398,10 @@ public:
     // overload random positions with seed specification
     virtual void setRandomPositions(long _seed);
 
+    virtual void setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, Data2D<double>& cage_center, long _seed);
+
+    virtual void setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed);
+
     /**
      * @brief Set the particle velocities to random normal values with a given temperature.
      * 

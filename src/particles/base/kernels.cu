@@ -189,6 +189,72 @@ __global__ void kernelStopRattlerVelocities(double* velocities_x, double* veloci
     }
 }
 
+__global__ void kernelSetRandomCagePositions(double* positions_x, double* positions_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ cage_size_x, const double* __restrict__ cage_size_y, const double* __restrict__ random_numbers_x, const double* __restrict__ random_numbers_y, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+    long cage_id = particle_cage_id[particle_id];
+    long cage_start_id = cage_start_index[cage_id];
+    if (particle_id != cage_start_id) return;  // only the first particle in the cage will be updated
+
+    double cage_x = cage_size_x[cage_id];
+    double cage_y = cage_size_y[cage_id];
+    
+    positions_x[particle_id] = random_numbers_x[cage_id] * cage_x + cage_center_x[cage_id];
+    positions_y[particle_id] = random_numbers_y[cage_id] * cage_y + cage_center_y[cage_id];
+}
+
+__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri) {
+    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (particle_id >= d_n_particles) return;
+    long cage_id = particle_cage_id[particle_id];
+    long cage_start_id = cage_start_index[cage_id];
+    if (particle_id != cage_start_id) return;  // only the first particle in the cage will be updated
+
+    long voro_start = voro_start_index[cage_id];
+    long voro_len = voro_size[cage_id];
+
+    if (voro_len < 3) {
+        positions_x[particle_id] = voro_pos_x[voro_start];
+        positions_y[particle_id] = voro_pos_y[voro_start];
+        return;
+    }
+
+
+    // anchor vertex a
+    const double ax = voro_pos_x[voro_start];
+    const double ay = voro_pos_y[voro_start];
+
+    // total cell area
+    double total_A = 0.0;
+    for (long k = 1; k < voro_len - 1; ++k) {
+        total_A += tri_area(ax, ay, voro_pos_x[voro_start + k], voro_pos_y[voro_start + k], voro_pos_x[voro_start + k + 1], voro_pos_y[voro_start + k + 1]);
+    }
+
+    // pick triangle proportionally to its area
+    double target = random_tri[cage_id] * total_A;  // r_tri in [0,1)
+    double acc = 0.0;
+    long k_sel = 1;
+
+    // up to here works fine
+    for (long k = 1; k < voro_len - 1; ++k) {
+        double a = tri_area(ax, ay, voro_pos_x[voro_start + k], voro_pos_y[voro_start + k], voro_pos_x[voro_start + k + 1], voro_pos_y[voro_start + k + 1]);
+        acc += a;
+        if (acc >= target) { k_sel = k; break; }
+    }
+
+    // selected triangle vertices
+    double bx = voro_pos_x[voro_start + k_sel], by = voro_pos_y[voro_start + k_sel];
+    double cx = voro_pos_x[voro_start + k_sel + 1], cy = voro_pos_y[voro_start + k_sel + 1];
+
+    // uniform sample inside triangle
+    double u = random_u[cage_id];
+    double v = random_v[cage_id];
+    if (u + v > 1.0) { u = 1.0 - u; v = 1.0 - v; }
+
+    positions_x[particle_id] = ax + u*(bx - ax) + v*(cx - ax);
+    positions_y[particle_id] = ay + u*(by - ay) + v*(cy - ay);
+}
+
 
 // ----------------------------------------------------------------------
 // --------------------- Contacts and Neighbors -------------------------

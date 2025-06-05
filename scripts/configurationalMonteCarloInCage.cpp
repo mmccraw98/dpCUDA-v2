@@ -33,21 +33,30 @@ int main(int argc, char** argv) {
     // assign the run config variables
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     long num_steps = run_config["num_steps"].get<long>();
-    long replica_system_size = run_config["replica_system_size"].get<long>();
-    bool use_pbc = run_config["use_pbc"].get<bool>();
-    double packing_fraction = run_config["packing_fraction"].get<double>();
-    bool overwrite = true;
+    long max_neighbors_allocated = run_config["max_neighbors_allocated"].get<long>();
+    long num_voronoi_vertices = run_config["num_voronoi_vertices"].get<long>();
+    bool overwrite = false;
 
-    long num_replicas = particle->n_particles / replica_system_size;
-    double average_replica_particle_area = particle->getParticleArea() / num_replicas;
-    double box_length = std::sqrt(average_replica_particle_area / packing_fraction);
-    std::cout << box_length << std::endl;
-    thrust::host_vector<double> box_size(2);
-    box_size[0] = box_length;
-    box_size[1] = box_length;
-    particle->setBoxSize(box_size);
-    particle->initReplicaNeighborList(replica_system_size);
+    // load and build the neighbor lists and cage data
+    Data1D<long> loaded_particle_neighbor_list = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "neighbor_list.dat").string(), max_neighbors_allocated * particle->n_particles);
+    Data1D<long> loaded_num_neighbors = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "num_neighbors.dat").string(), particle->n_particles);
+    Data1D<long> particle_cage_id = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_system_ids.dat").string(), particle->n_particles);
+    thrust::host_vector<long> particle_cage_id_copy = particle_cage_id.getData();
+    long max_num_cages = *std::max_element(particle_cage_id_copy.begin(), particle_cage_id_copy.end());
+    particle_cage_id_copy.clear();
+    Data1D<long> cage_start_index = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_start_index.dat").string(), max_num_cages + 1);
+    // Data2D<double> cage_box_size = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "cage_box_sizes.dat").string(), max_num_cages, 2);
+    // Data2D<double> cage_center = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "cage_centers.dat").string(), max_num_cages, 2);
+    Data2D<double> voronoi_vertices = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "voro_vertices.dat").string(), num_voronoi_vertices, 2);
+    Data1D<long> voronoi_cell_size = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_size.dat").string(), max_num_cages + 1);
+    Data1D<long> voronoi_cell_start = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_start_ids.dat").string(), max_num_cages + 1);
+    particle->updateNeighborList();
+    // particle->neighbor_list.copyFrom(loaded_particle_neighbor_list);
+    // particle->num_neighbors.copyFrom(loaded_num_neighbors);
+    // particle->syncNeighborList();
+    // particle->updateReplicaNeighborList();
 
+    // initialize the io manager
     std::string particle_type = particle->config["particle_type"].get<std::string>();
     std::vector<std::string> init_names = {"positions", "box_size", "radii"};
     if (particle_type == "RigidBumpy") {
@@ -65,14 +74,10 @@ int main(int argc, char** argv) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     while (step < num_steps) {
-        particle->setRandomPositions(step + particle->seed);
-        if (replica_system_size > 1) {
-            particle->updateReplicaNeighborList();
-        }
+        // particle->setRandomCagePositions(cage_box_size, particle_cage_id, cage_start_index, cage_center, step + particle->seed);
+        particle->setRandomVoronoiPositions(voronoi_vertices, voronoi_cell_size, voronoi_cell_start, particle_cage_id, cage_start_index, step + particle->seed);
+        particle->updateReplicaNeighborList();
         particle->zeroForceAndPotentialEnergy();
-        if (!use_pbc) {
-            particle->calculateWallForces();
-        }
         particle->calculateForces();
         dynamics_io_manager.log(step);
         step += 1;

@@ -55,6 +55,10 @@ __global__ void kernelCalculateTranslationalAndRotationalKineticEnergy(
 
 __global__ void kernelStopRattlerVelocities(double* velocities_x, double* velocities_y, double* angular_velocities, const long* __restrict__ contact_counts, const double rattler_threshold);
 
+__global__ void kernelSetRandomCagePositions(double* positions_x, double* positions_y, double* angles, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ cage_size_x, const double* __restrict__ cage_size_y, const double* __restrict__ random_numbers_x, const double* __restrict__ random_numbers_y, const double* __restrict__ random_numbers_t, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y);
+
+__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, double* angles, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri, const double* __restrict__ random_t);
+
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
 // ----------------------------------------------------------------------

@@ -184,3 +184,12 @@ target_link_libraries(runThermalCompression PRIVATE common_sources)
 # Run monte carlo executable
 add_executable(configurationalMonteCarlo scripts/configurationalMonteCarlo.cpp)
 target_link_libraries(configurationalMonteCarlo PRIVATE common_sources)
+
+# Run caged monte carlo executable
+add_executable(configurationalMonteCarloInCage scripts/configurationalMonteCarloInCage.cpp)
+target_link_libraries(configurationalMonteCarloInCage PRIVATE common_sources)
+
+
+# Create executable
+add_executable(create scripts/create.cpp)
+target_link_libraries(create PRIVATE common_sources)

@@ -38,23 +38,22 @@ int main(int argc, char** argv) {
     bool overwrite = false;
 
     // load and build the neighbor lists and cage data
-    Data1D<long> loaded_particle_neighbor_list = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "neighbor_list.dat").string(), max_neighbors_allocated * particle->n_particles);
-    Data1D<long> loaded_num_neighbors = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "num_neighbors.dat").string(), particle->n_particles);
+    // Data1D<long> loaded_particle_neighbor_list = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "neighbor_list.dat").string(), max_neighbors_allocated * particle->n_particles);
+    // Data1D<long> loaded_num_neighbors = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "num_neighbors.dat").string(), particle->n_particles);
     Data1D<long> particle_cage_id = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_system_ids.dat").string(), particle->n_particles);
     thrust::host_vector<long> particle_cage_id_copy = particle_cage_id.getData();
-    long max_num_cages = *std::max_element(particle_cage_id_copy.begin(), particle_cage_id_copy.end());
-    particle_cage_id_copy.clear();
-    Data1D<long> cage_start_index = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_start_index.dat").string(), max_num_cages + 1);
-    // Data2D<double> cage_box_size = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "cage_box_sizes.dat").string(), max_num_cages, 2);
-    // Data2D<double> cage_center = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "cage_centers.dat").string(), max_num_cages, 2);
+    long num_cages = *std::max_element(particle_cage_id_copy.begin(), particle_cage_id_copy.end()) + 1;
+    particle_cage_id_copy.clear();  
+    particle_cage_id.clear();
+    Data1D<long> cage_start_index = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_start_index.dat").string(), num_cages);
+    Data1D<long> cage_size = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "cage_system_sizes.dat").string(), num_cages);
     Data2D<double> voronoi_vertices = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "voro_vertices.dat").string(), num_voronoi_vertices, 2);
-    Data1D<long> voronoi_cell_size = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_size.dat").string(), max_num_cages + 1);
-    Data1D<long> voronoi_cell_start = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_start_ids.dat").string(), max_num_cages + 1);
+    Data2D<double> cage_center = read_2d_data_from_file<double>((output_dir / "system" / "restart" / "cage_centers.dat").string(), num_cages, 2);
+    Data1D<double> voronoi_triangle_areas = read_1d_data_from_file<double>((output_dir / "system" / "restart" / "voro_triangle_area.dat").string(), num_voronoi_vertices);
+    Data1D<long> voronoi_cell_size = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_size.dat").string(), num_cages);
+    Data1D<long> voronoi_cell_start = read_1d_data_from_file<long>((output_dir / "system" / "restart" / "voro_start_ids.dat").string(), num_cages);
     particle->updateNeighborList();
-    // particle->neighbor_list.copyFrom(loaded_particle_neighbor_list);
-    // particle->num_neighbors.copyFrom(loaded_num_neighbors);
-    // particle->syncNeighborList();
-    // particle->updateReplicaNeighborList();
+    particle->initReplicaNeighborList(voronoi_cell_size, cage_start_index, cage_size, max_neighbors_allocated);
 
     // initialize the io manager
     std::string particle_type = particle->config["particle_type"].get<std::string>();
@@ -73,15 +72,91 @@ int main(int argc, char** argv) {
     // start the timer
     auto start_time = std::chrono::high_resolution_clock::now();
 
+    long max_threads = 20;
+    thrust::host_vector<long> h_cage_start = cage_start_index.getData();
+    std::vector<std::thread> workers;
+
+    Data1D<double>* angles_ptr = nullptr;
+    if (particle_type == "RigidBumpy") {
+        if (auto* rb = dynamic_cast<RigidBumpy*>(particle.get()))
+            angles_ptr = &(rb->angles);          // non-owning pointer
+        else
+            std::cerr << "[warn] particle_type says RigidBumpy but cast failed\n";
+    }
+    const bool save_angles = (angles_ptr != nullptr);
+
     while (step < num_steps) {
         // particle->setRandomCagePositions(cage_box_size, particle_cage_id, cage_start_index, cage_center, step + particle->seed);
-        particle->setRandomVoronoiPositions(voronoi_vertices, voronoi_cell_size, voronoi_cell_start, particle_cage_id, cage_start_index, step + particle->seed);
+        particle->setRandomVoronoiPositions(num_cages, cage_center, voronoi_triangle_areas, voronoi_vertices, voronoi_cell_size, voronoi_cell_start, particle_cage_id, cage_start_index, step + particle->seed);
         particle->updateReplicaNeighborList();
         particle->zeroForceAndPotentialEnergy();
         particle->calculateForces();
-        dynamics_io_manager.log(step);
+
+        if (step % 1000 == 0) {
+            std::cout << "progress: " << static_cast<double>(step) / static_cast<double>(num_steps) << std::endl;
+        }
+
+        thrust::host_vector<double> h_x = particle->positions.x.getData();
+        thrust::host_vector<double> h_y = particle->positions.y.getData();
+        thrust::host_vector<double> h_pe = particle->potential_energy.getData();
+        thrust::host_vector<double> h_ang;
+        if (save_angles) h_ang = angles_ptr->getData();
+
+        thrust::host_vector<double> sub_x(num_cages);
+        thrust::host_vector<double> sub_y(num_cages);
+        thrust::host_vector<double> sub_pe(num_cages);
+        thrust::host_vector<double> sub_ang;
+        if (save_angles) sub_ang.resize(num_cages);
+
+        for (long i = 0; i < num_cages; ++i) {
+            long idx = h_cage_start[i];
+            sub_x[i] = h_x[idx];
+            sub_y[i] = h_y[idx];
+            sub_pe[i] = h_pe[idx];
+            if (save_angles) sub_ang[i] = h_ang[idx];
+        }
+
+        workers.emplace_back([step,
+                            dir = output_dir,
+                            sx  = std::move(sub_x),
+                            sy  = std::move(sub_y),
+                            sp  = std::move(sub_pe),
+                            save_angles = save_angles,
+                            sa  = std::move(sub_ang)]() mutable
+        {
+            namespace fs = std::filesystem;
+            fs::path step_dir = dir / "trajectories" / ("t" + std::to_string(step));
+            fs::create_directories(step_dir);
+
+            std::ofstream ofs(step_dir / "positions.dat");
+            ofs.setf(std::ios::scientific); ofs << std::setprecision(17);
+
+            const long N = static_cast<long>(sx.size());
+            for (long i = 0; i < N; ++i)
+                ofs << sx[i] << ' ' << sy[i] << '\n';
+            
+            std::ofstream ofs_pe(step_dir / "potential_energy.dat");
+            ofs_pe.setf(std::ios::scientific); ofs_pe << std::setprecision(17);
+            for (long i = 0; i < N; ++i)
+                ofs_pe << sp[i] << '\n';
+
+            if (save_angles) {
+                std::ofstream ofs_ang(step_dir / "angles.dat");
+                ofs_ang.setf(std::ios::scientific); ofs_ang << std::setprecision(17);
+                for (long i = 0; i < N; ++i)
+                    ofs_ang << sa[i] << '\n';
+            }
+        });
+
+        if (workers.size() >= static_cast<std::size_t>(max_threads)) {
+            for (auto& t : workers) t.join();
+            workers.clear();
+        }
+
         step += 1;
     }
+
+    for (auto& t : workers) t.join();
 
     auto end_time = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time);

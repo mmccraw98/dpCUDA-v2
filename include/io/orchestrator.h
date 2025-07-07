@@ -47,6 +47,8 @@ public:
             return particle.getPackingFraction();
         } else if (unmodified_log_name == "Zp") {
             return particle.getContactCount();
+        } else if (unmodified_log_name == "Zv") {
+            return particle.getVertexContactCount();
         } else if (unmodified_log_name == "P") {
             return particle.getPressure();
         } else {

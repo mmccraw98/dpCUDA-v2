@@ -134,7 +134,7 @@ __device__ __forceinline__ double tri_area(double ax, double ay, double bx, doub
     return 0.5 * fabs((bx - ax)*(cy - ay) - (cx - ax)*(by - ay));
 }
 
-__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri);
+__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ voro_triangle_areas, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri);
 
 // ----------------------------------------------------------------------
 // --------------------------- Interactions -----------------------------
@@ -272,7 +272,7 @@ __global__ void kernelUpdateNeighborList(
     double* __restrict__ neigh_displacements_sq,
     const double cutoff);
 
-__global__ void kernelUpdateReplicaNeighborList(const long replica_system_size);
+__global__ void kernelUpdateReplicaNeighborList(const long* __restrict__ voronoi_cell_size, const long* __restrict__ cage_start_id, const long* __restrict__ cage_size, const long max_cage_size);
 
 /**
  * @brief Get the PBC cell index for a particle

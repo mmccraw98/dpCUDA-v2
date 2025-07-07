@@ -203,15 +203,14 @@ __global__ void kernelSetRandomCagePositions(double* positions_x, double* positi
     positions_y[particle_id] = random_numbers_y[cage_id] * cage_y + cage_center_y[cage_id];
 }
 
-__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri) {
-    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
+__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ voro_triangle_areas, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri) {
+    long cage_id = blockIdx.x * blockDim.x + threadIdx.x;
+    long particle_id = cage_start_index[cage_id];
     if (particle_id >= d_n_particles) return;
-    long cage_id = particle_cage_id[particle_id];
-    long cage_start_id = cage_start_index[cage_id];
-    if (particle_id != cage_start_id) return;  // only the first particle in the cage will be updated
 
     long voro_start = voro_start_index[cage_id];
     long voro_len = voro_size[cage_id];
+    if (voro_len == 0) return;
 
     if (voro_len < 3) {
         positions_x[particle_id] = voro_pos_x[voro_start];
@@ -219,32 +218,26 @@ __global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* pos
         return;
     }
 
-
     // anchor vertex a
-    const double ax = voro_pos_x[voro_start];
-    const double ay = voro_pos_y[voro_start];
-
-    // total cell area
-    double total_A = 0.0;
-    for (long k = 1; k < voro_len - 1; ++k) {
-        total_A += tri_area(ax, ay, voro_pos_x[voro_start + k], voro_pos_y[voro_start + k], voro_pos_x[voro_start + k + 1], voro_pos_y[voro_start + k + 1]);
-    }
+    const double ax = cage_center_x[cage_id];
+    const double ay = cage_center_y[cage_id];
 
     // pick triangle proportionally to its area
-    double target = random_tri[cage_id] * total_A;  // r_tri in [0,1)
-    double acc = 0.0;
-    long k_sel = 1;
+    double target = random_tri[cage_id];  // r_tri in [0,1)
+    double frac_area_sum_prev = 0.0;
+    long i_sel = 0;
 
-    // up to here works fine
-    for (long k = 1; k < voro_len - 1; ++k) {
-        double a = tri_area(ax, ay, voro_pos_x[voro_start + k], voro_pos_y[voro_start + k], voro_pos_x[voro_start + k + 1], voro_pos_y[voro_start + k + 1]);
-        acc += a;
-        if (acc >= target) { k_sel = k; break; }
+    // find the index within the fractional triangle areas that is greater than or equal to the target
+    for (long i = 0; i < voro_len; ++i) {
+        double frac_area_sum = voro_triangle_areas[voro_start + i];
+        if ((target > frac_area_sum_prev) && (target <= frac_area_sum)) { i_sel = i; break; }
+        frac_area_sum_prev = frac_area_sum;
     }
 
     // selected triangle vertices
-    double bx = voro_pos_x[voro_start + k_sel], by = voro_pos_y[voro_start + k_sel];
-    double cx = voro_pos_x[voro_start + k_sel + 1], cy = voro_pos_y[voro_start + k_sel + 1];
+    double bx = voro_pos_x[voro_start + i_sel], by = voro_pos_y[voro_start + i_sel];
+    long c_index = mod(i_sel + 1, voro_len);
+    double cx = voro_pos_x[voro_start + c_index], cy = voro_pos_y[voro_start + c_index];
 
     // uniform sample inside triangle
     double u = random_u[cage_id];
@@ -299,18 +292,15 @@ __global__ void kernelUpdateNeighborList(
     d_num_neighbors_ptr[particle_id] = added_neighbors;
 }
 
-__global__ void kernelUpdateReplicaNeighborList(const long replica_system_size) {
-    long particle_id = blockIdx.x * blockDim.x + threadIdx.x;
-    if (particle_id >= d_n_particles) return;
+__global__ void kernelUpdateReplicaNeighborList(const long* __restrict__ voronoi_cell_size, const long* __restrict__ cage_start_id, const long* __restrict__ cage_size, const long max_cage_size) {
+    long cage_id = blockIdx.x * blockDim.x + threadIdx.x;
+    long particle_id = cage_start_id[cage_id];
+    long particle_cage_size = cage_size[cage_id];
+    if (particle_cage_size == 0) return;
 
-    long added_neighbors = 0;
-    long replica_system_start_id = particle_id - mod(particle_id, replica_system_size);
-    for (long replica_neighbor_id = replica_system_start_id; replica_neighbor_id < replica_system_size + replica_system_start_id; replica_neighbor_id++) {
-        if (replica_neighbor_id == particle_id) {
-            continue;
-        }
-        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + added_neighbors] = replica_neighbor_id;
-        added_neighbors++;
+    long added_neighbors = particle_cage_size - 1;
+    for (long i = 1; i < particle_cage_size; i++) {
+        d_neighbor_list_ptr[particle_id * d_max_neighbors_allocated + i] = particle_id + i;
     }
     d_num_neighbors_ptr[particle_id] = added_neighbors;
 }

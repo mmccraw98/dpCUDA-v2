@@ -57,7 +57,7 @@ __global__ void kernelStopRattlerVelocities(double* velocities_x, double* veloci
 
 __global__ void kernelSetRandomCagePositions(double* positions_x, double* positions_y, double* angles, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ cage_size_x, const double* __restrict__ cage_size_y, const double* __restrict__ random_numbers_x, const double* __restrict__ random_numbers_y, const double* __restrict__ random_numbers_t, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y);
 
-__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, double* angles, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri, const double* __restrict__ random_t);
+__global__ void kernelSetRandomVoronoiPositions(double* positions_x, double* positions_y, double* angles, const double* __restrict__ cage_center_x, const double* __restrict__ cage_center_y, const long* __restrict__ particle_cage_id, const long* __restrict__ cage_start_index, const double* __restrict__ voro_pos_x, const double* __restrict__ voro_pos_y, const long* __restrict__ voro_start_index, const long* __restrict__ voro_size, const double* __restrict__ voro_triangle_areas, const double* __restrict__ random_u, const double* __restrict__ random_v, const double* __restrict__ random_tri, const double* __restrict__ random_t);
 
 // ----------------------------------------------------------------------
 // ------------------------- Force Routines -----------------------------
@@ -175,7 +175,8 @@ __global__ void kernelCountRigidBumpyContacts(
     const double* __restrict__ positions_x, const double* __restrict__ positions_y,
     const double* __restrict__ vertex_positions_x, const double* __restrict__ vertex_positions_y,
     const double* __restrict__ radii,
-    long* __restrict__ contact_counts
+    long* __restrict__ contact_counts,
+    long* __restrict__ vertex_contact_counts
 );
 
 // ----------------------------------------------------------------------

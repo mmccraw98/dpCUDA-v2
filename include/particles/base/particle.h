@@ -49,7 +49,7 @@ public:
 
     void updateNeighborList();
 
-    virtual void initReplicaNeighborList(long replica_system_size);
+    virtual void initReplicaNeighborList(Data1D<long>& voronoi_cell_size, Data1D<long>& cage_start_id, Data1D<long>& cage_size, long max_cage_size);
 
     virtual void updateReplicaNeighborList();
 
@@ -85,7 +85,6 @@ public:
         {"distance_pairs", {"calculate_force_distance_pairs"}},
         {"pair_ids", {"calculate_force_distance_pairs"}},
         {"pair_separation_angle", {"calculate_force_distance_pairs"}},
-        {"potential_pairs", {"calculate_force_distance_pairs"}},
         {"overlap_pairs", {"calculate_force_distance_pairs"}},
         {"radsum_pairs", {"calculate_force_distance_pairs"}},
         {"hessian_pairs_xx", {"calculate_force_distance_pairs"}},
@@ -400,7 +399,7 @@ public:
 
     virtual void setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, Data2D<double>& cage_center, long _seed);
 
-    virtual void setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed);
+    virtual void setRandomVoronoiPositions(long num_cages, Data2D<double>& cage_center, Data1D<double>& voronoi_triangle_areas, Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed);
 
     /**
      * @brief Set the particle velocities to random normal values with a given temperature.
@@ -708,6 +707,8 @@ public:
     virtual void countContacts() = 0;
 
     double getContactCount() const;
+
+    virtual double getVertexContactCount() const { return 0.0; };
 
     thrust::host_vector<double> getStressTensor();
 };

@@ -43,6 +43,8 @@ public:
     SwapData1D<double> vertex_potential_energy;
     SwapData1D<double> moments_of_inertia;
 
+    Data1D<long> vertex_contact_counts;
+
     Data2D<double> last_positions;
 
     Data1D<double> first_moment_angle;
@@ -100,6 +102,7 @@ public:
         {"T", {"calculate_kinetic_energy"}},
         {"KE", {"calculate_kinetic_energy"}},  // total kinetic energy scalar
         {"Zp", {"count_contacts"}},
+        {"Zv", {"count_contacts"}},
         {"P", {"calculate_stress_tensor"}},
         {"stress_tensor_x", {"calculate_stress_tensor"}},
         {"stress_tensor_y", {"calculate_stress_tensor"}},
@@ -152,6 +155,8 @@ public:
 
     void calculateNumVerticesInParticles(long num_vertices_in_small_particle, long num_vertices_in_large_particle);
 
+    double getVertexContactCount() const override;
+
     void setRandomAngles();
 
     void setRandomAngles(long _seed);
@@ -162,7 +167,7 @@ public:
 
     void setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, Data2D<double>& cage_center, long _seed) override;
 
-    void setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) override;
+    void setRandomVoronoiPositions(long num_cages, Data2D<double>& cage_center, Data1D<double>& voronoi_triangle_areas, Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) override;
 
     void setVertexParticleIndex();
 
@@ -263,7 +268,7 @@ public:
 
     void updateCellNeighborList() override;
 
-    void initReplicaNeighborList(long replica_system_size) override;
+    void initReplicaNeighborList(Data1D<long>& voronoi_cell_size, Data1D<long>& cage_start_id, Data1D<long>& cage_size, long max_cage_size) override;
 
     void updateReplicaNeighborList() override;
 

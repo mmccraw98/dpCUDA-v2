@@ -883,12 +883,12 @@ void Particle::setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<long
     kernelSetRandomCagePositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, cage_box_size.x.d_ptr, cage_box_size.y.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, cage_center.x.d_ptr, cage_center.y.d_ptr);
 }
 
-void Particle::setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) {
-    Data2D<double> random_numbers(cage_start_index.size[0], 2);
+void Particle::setRandomVoronoiPositions(long num_cages, Data2D<double>& cage_center, Data1D<double>& voronoi_triangle_areas, Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) {
+    Data2D<double> random_numbers(num_cages, 2);
     random_numbers.fillRandomUniform(0.0, 1.0, 0.0, 1.0, 1, _seed);
-    Data1D<double> random_triangles(cage_start_index.size[0]);
+    Data1D<double> random_triangles(num_cages);
     random_triangles.fillRandomUniform(0.0, 1.0, 1e4, _seed);
-    kernelSetRandomVoronoiPositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, voronoi_vertices.x.d_ptr, voronoi_vertices.y.d_ptr, voronoi_cell_start.d_ptr, voronoi_cell_size.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, random_triangles.d_ptr);
+    kernelSetRandomVoronoiPositions<<<num_cages, 1>>>(positions.x.d_ptr, positions.y.d_ptr, cage_center.x.d_ptr, cage_center.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, voronoi_vertices.x.d_ptr, voronoi_vertices.y.d_ptr, voronoi_cell_start.d_ptr, voronoi_cell_size.d_ptr, voronoi_triangle_areas.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, random_triangles.d_ptr);
 }
 
 
@@ -1099,12 +1099,15 @@ double Particle::getMaxSquaredCellDisplacement() {
     return thrust::reduce(cell_displacements_sq.d_vec.begin(), cell_displacements_sq.d_vec.end(), 0.0, thrust::maximum<double>());
 }
 
-void Particle::initReplicaNeighborList(long replica_system_size) {
-    max_neighbors_allocated = replica_system_size - 1;
-    neighbor_list.resize(n_particles * replica_system_size);
+void Particle::initReplicaNeighborList(Data1D<long>& voronoi_cell_size, Data1D<long>& cage_start_id, Data1D<long>& cage_size, long max_cage_size) {
+    long num_cages = voronoi_cell_size.size[0];
+    max_neighbors_allocated = max_cage_size - 1;
+    neighbor_list.resize(n_particles * max_cage_size);
     neighbor_list.fill(-1L);
+    num_neighbors.resize(n_particles);
+    num_neighbors.fill(0L);
     syncNeighborList();
-    kernelUpdateReplicaNeighborList<<<particle_dim_grid, particle_dim_block>>>(replica_system_size);
+    kernelUpdateReplicaNeighborList<<<num_cages, 1>>>(voronoi_cell_size.d_ptr, cage_start_id.d_ptr, cage_size.d_ptr, max_cage_size);
     long max_neighbors = thrust::reduce(num_neighbors.d_vec.begin(), num_neighbors.d_vec.end(), -1L, thrust::maximum<long>());
     std::cout << "Particle::initReplicaNeighborList: Resizing neighbor list to " << max_neighbors << std::endl;
 }

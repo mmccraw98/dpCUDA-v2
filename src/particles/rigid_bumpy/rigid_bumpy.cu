@@ -662,14 +662,14 @@ void RigidBumpy::setRandomCagePositions(Data2D<double>& cage_box_size, Data1D<lo
     setVertexPositions();
 }
 
-void RigidBumpy::setRandomVoronoiPositions(Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) {
-    Data2D<double> random_numbers(cage_start_index.size[0], 2);
+void RigidBumpy::setRandomVoronoiPositions(long num_cages, Data2D<double>& cage_center, Data1D<double>& voronoi_triangle_areas, Data2D<double>& voronoi_vertices, Data1D<long>& voronoi_cell_size, Data1D<long>& voronoi_cell_start, Data1D<long>& particle_cage_id, Data1D<long>& cage_start_index, long _seed) {
+    Data2D<double> random_numbers(num_cages, 2);
     random_numbers.fillRandomUniform(0.0, 1.0, 0.0, 1.0, 1, _seed);
-    Data1D<double> random_triangles(cage_start_index.size[0]);
+    Data1D<double> random_triangles(num_cages);
     random_triangles.fillRandomUniform(0.0, 1.0, 1e4, _seed);
-    Data1D<double> random_numbers_t(cage_start_index.size[0]);
+    Data1D<double> random_numbers_t(num_cages);
     random_numbers_t.fillRandomUniform(0.0, 1.0, 1e2, _seed);
-    kernelSetRandomVoronoiPositions<<<particle_dim_grid, particle_dim_block>>>(positions.x.d_ptr, positions.y.d_ptr, angles.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, voronoi_vertices.x.d_ptr, voronoi_vertices.y.d_ptr, voronoi_cell_start.d_ptr, voronoi_cell_size.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, random_triangles.d_ptr, random_numbers_t.d_ptr);
+    kernelSetRandomVoronoiPositions<<<num_cages, 1>>>(positions.x.d_ptr, positions.y.d_ptr, angles.d_ptr, cage_center.x.d_ptr, cage_center.y.d_ptr, particle_cage_id.d_ptr, cage_start_index.d_ptr, voronoi_vertices.x.d_ptr, voronoi_vertices.y.d_ptr, voronoi_cell_start.d_ptr, voronoi_cell_size.d_ptr, voronoi_triangle_areas.d_ptr, random_numbers.x.d_ptr, random_numbers.y.d_ptr, random_triangles.d_ptr, random_numbers_t.d_ptr);
     setVertexPositions();
 }
 
@@ -775,6 +775,10 @@ void RigidBumpy::initializeVerticesFromDiskPacking(SwapData2D<double>& disk_posi
     // std::cout << "7 static_vertex_index_h[0]: " << static_vertex_index_h[0] << std::endl;
 }
 
+double RigidBumpy::getVertexContactCount() const {
+    return thrust::reduce(vertex_contact_counts.d_vec.begin(), vertex_contact_counts.d_vec.end(), 0L);
+}
+
 void RigidBumpy::setVertexPositions() {
     // initialize the vertices on the particles
     kernelInitializeVerticesOnParticles<<<particle_dim_grid, particle_dim_block>>>(
@@ -845,6 +849,12 @@ ArrayData RigidBumpy::getArrayData(const std::string& array_name) {
             result.type = DataType::Double;
             result.size = area.size;
             result.data = area.getData();
+            result.index_array_name = "static_particle_index";
+            result.name = array_name;
+        } else if (array_name == "vertex_contact_counts") {
+            result.type = DataType::Long;
+            result.size = vertex_contact_counts.size;
+            result.data = vertex_contact_counts.getData();
             result.index_array_name = "static_particle_index";
             result.name = array_name;
         } else if (array_name == "vertex_particle_index") {
@@ -1204,8 +1214,8 @@ void RigidBumpy::updateVerletList() {
     updateVertexVerletList();
 }
 
-void RigidBumpy::initReplicaNeighborList(long replica_system_size) {
-    Particle::initReplicaNeighborList(replica_system_size);
+void RigidBumpy::initReplicaNeighborList(Data1D<long>& voronoi_cell_size, Data1D<long>& cage_start_id, Data1D<long>& cage_size, long max_cage_size) {
+    Particle::initReplicaNeighborList(voronoi_cell_size, cage_start_id, cage_size, max_cage_size);
     updateVertexVerletList();
 }
 
@@ -1486,8 +1496,9 @@ void RigidBumpy::calculateDampedForces(double damping_coefficient) {
 
 void RigidBumpy::countContacts() {
     contact_counts.resizeAndFill(n_particles, 0L);
+    vertex_contact_counts.resizeAndFill(n_particles, 0L);
     kernelCountRigidBumpyContacts<<<particle_dim_grid, particle_dim_block>>>(
-        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, radii.d_ptr, contact_counts.d_ptr
+        positions.x.d_ptr, positions.y.d_ptr, vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, radii.d_ptr, contact_counts.d_ptr, vertex_contact_counts.d_ptr
     );
 }
 

@@ -1023,9 +1023,9 @@ void RigidBumpy::calculateParticleArea() {
 }
 
 double RigidBumpy::getParticleArea() const {
-    double a = thrust::reduce(area.d_vec.begin(), area.d_vec.end(), 0.0, thrust::plus<double>());
-    double box_area = getBoxArea();
-    return a;
+    // double a = thrust::reduce(area.d_vec.begin(), area.d_vec.end(), 0.0, thrust::plus<double>());
+    // return a;
+    return thrust::transform_reduce(radii.d_vec.begin(), radii.d_vec.end(), Square(), 0.0, thrust::plus<double>()) * PI;
 }
 
 

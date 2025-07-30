@@ -24,6 +24,45 @@ int main(int argc, char** argv) {
     std::filesystem::path output_dir = run_config["output_dir"].get<std::filesystem::path>();
     bool resume = run_config["resume"].get<bool>();
     bool overwrite = true;
+    
+
+    // fix all to all list
+    double cell_displacement = run_config["cell_displacement"].get<double>();
+    long n_cells_per_dimension = run_config["n_cells_per_dimension"].get<long>();
+    if (n_cells_per_dimension < 4) {
+        std::cout << "n_cells_per_dimension must be at least 4" << std::endl;
+        exit(1);
+    }
+
+    double neighbor_cutoff = run_config["neighbor_cutoff"].get<double>();
+    double neighbor_displacement = run_config["neighbor_displacement"].get<double>();
+    double vertex_neighbor_cutoff = run_config["vertex_neighbor_cutoff"].get<double>();
+    double vertex_particle_neighbor_cutoff = run_config["vertex_particle_neighbor_cutoff"].get<double>();
+
+    // set cell sizes
+    particle->n_cells_dim = n_cells_per_dimension;
+    particle->n_cells = n_cells_per_dimension * n_cells_per_dimension;
+    particle->cell_size = std::sqrt(particle->getBoxArea()) / static_cast<double>(particle->n_cells_dim);
+    particle->cell_displacement_threshold_sq = std::pow(cell_displacement, 2);
+    particle->syncCellList();
+
+    // set neighbor sizes
+    particle->max_neighbors_allocated = 4;  // arbitrary initial guess
+    particle->neighbor_cutoff = neighbor_cutoff;
+    particle->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement, 2);
+    particle->vertex_neighbor_cutoff = vertex_neighbor_cutoff;
+    particle->vertex_particle_neighbor_cutoff = vertex_particle_neighbor_cutoff;
+
+    particle->initNeighborList();
+    particle->calculateForces();
+    double force_balance = particle->getForceBalance();
+    if (force_balance / particle->n_particles / particle->e_c > 1e-14) {
+        std::cout << "WARNING: Particle::setupNeighbors: Force balance is " << force_balance << ", there will be an error!" << std::endl;
+    }
+
+    // bool could_set_neighbor_size = this->setNeighborSize(neighbor_list_config.at("neighbor_cutoff_multiplier").get<double>(), neighbor_list_config.at("neighbor_displacement_multiplier").get<double>());
+
+
 
     if (resume) {
         std::cout << "Resuming from: " << output_dir << std::endl;

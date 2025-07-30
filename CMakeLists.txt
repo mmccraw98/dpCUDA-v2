@@ -188,3 +188,7 @@ target_link_libraries(configurationalMonteCarloInCage PRIVATE common_sources)
 # Create executable
 add_executable(create scripts/create.cpp)
 target_link_libraries(create PRIVATE common_sources)
+
+# Run short nve executable
+add_executable(runShortNVE scripts/runShortNVE.cpp)
+target_link_libraries(runShortNVE PRIVATE common_sources)

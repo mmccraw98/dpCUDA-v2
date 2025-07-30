@@ -219,8 +219,9 @@ void RigidBumpy::initializeFromConfig(ConfigDict& config, bool minimize) {
     // end
     
     // load/set the vertex radius
-    vertex_radius = this->calculateVertexRadius(n_vertices_per_small_particle);
-    this->config["vertex_radius"] = vertex_radius;
+    // vertex_radius = this->calculateVertexRadius(n_vertices_per_small_particle);
+    // this->config["vertex_radius"] = vertex_radius;
+    vertex_radius = this->config["vertex_radius"];
     this->syncVertexRadius(vertex_radius);
     // end
 
@@ -1195,6 +1196,7 @@ void RigidBumpy::setVelocitiesToZero() {
 }
 
 void RigidBumpy::updateVertexVerletList() {
+    // std::cout << "RigidBumpy::updateVertexVerletList: Updating vertex neighbor list" << std::endl;
     vertex_neighbor_list.fill(-1L);
     kernelUpdateVertexNeighborList<<<vertex_dim_grid, vertex_dim_block>>>(
         vertex_positions.x.d_ptr, vertex_positions.y.d_ptr, positions.x.d_ptr, positions.y.d_ptr, vertex_neighbor_cutoff, vertex_particle_neighbor_cutoff);
@@ -1277,9 +1279,15 @@ bool RigidBumpy::setNeighborSize(double neighbor_cutoff_multiplier, double neigh
     this->max_neighbors_allocated = 4;  // initial assumption, probably could be refined
     this->max_vertex_neighbors_allocated = 4;  // initial assumption, probably could be refined
     this->neighbor_cutoff = neighbor_cutoff_multiplier * getDiameter("max");
-    this->vertex_neighbor_cutoff = neighbor_cutoff_multiplier * 2.0 * getVertexRadius();
+    
+    this->vertex_neighbor_cutoff = neighbor_cutoff_multiplier * 2.0 * getVertexRadius();  // old
+    // this->vertex_neighbor_cutoff = neighbor_cutoff_multiplier * 8.0 * getVertexRadius();
+    
     this->vertex_particle_neighbor_cutoff = getDiameter("max");  // particles within this distance of a vertex will be checked for vertex neighbors
-    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * vertex_neighbor_cutoff, 2);
+    
+    // this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * vertex_neighbor_cutoff, 2);  // old
+    this->neighbor_displacement_threshold_sq = std::pow(neighbor_displacement_multiplier * segment_length_per_vertex_diameter * getVertexRadius(), 2);
+    
     thrust::host_vector<double> host_box_size = box_size.getData();
     double box_diagonal = std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
     if (neighbor_cutoff >= box_diagonal) {

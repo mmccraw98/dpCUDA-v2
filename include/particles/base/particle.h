@@ -66,6 +66,9 @@ public:
 
     virtual bool tryLoadArrayData(std::filesystem::path path);
 
+    double vertex_neighbor_cutoff = -1;
+    double vertex_particle_neighbor_cutoff = -1;
+
     // this is going to be done separately for each derived class
     // the key is the name of the log variable and the value is the function that needs to be called to calculate the log variable
     // i.e. if we want total energy, we need to calculate kinetic energy first

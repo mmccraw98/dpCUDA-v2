@@ -1184,12 +1184,17 @@ void Particle::initVerletList() {
 }
 
 void Particle::initAllToAllListVariables() {
-    this->max_neighbors_allocated = n_particles;
+    this->max_neighbors_allocated = n_particles - 1;
     initVerletListVariables();
 }
 
 void Particle::initAllToAllList() {
     initAllToAllListVariables();
+
+    thrust::host_vector<double> host_box_size = box_size.getData();
+    this->neighbor_cutoff = 10.0 * std::sqrt(host_box_size[0] * host_box_size[0] + host_box_size[1] * host_box_size[1]);
+    this->neighbor_displacement_threshold_sq = this->neighbor_cutoff * this->neighbor_cutoff;
+
     syncNeighborList();
     updateVerletList();
 }

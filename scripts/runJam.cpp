@@ -67,7 +67,7 @@ int main(int argc, char** argv) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     particle->setLastState();
-    double phi_low  = particle->getPackingFraction();
+    double phi_low = particle->getPackingFraction();
     double phi;
     double phi_high = -1.0;
     while (compression_step < num_compression_steps) {
